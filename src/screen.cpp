@@ -1,5 +1,4 @@
 #include "screen.h"
-#include "settings.h"
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QPainter>
@@ -12,47 +11,6 @@ void Screen::init() {
   setMouseTracking(true);
   m_width = 1024;
   m_height = 768;
-  clearScreen();
-}
-
-/**
- * @brief Canvas2D::clearCanvas sets all canvas pixels to blank white
- */
-void Screen::clearScreen() {
-  m_data.assign(m_width * m_height, RGBA{255, 255, 255, 255});
-  settings.imagePath = "";
-  displayImage();
-}
-
-/**
- * @brief Stores the image specified from the input file in this class's
- * `std::vector<RGBA> m_image`.
- * Also saves the image width and height to canvas width and height
- * respectively.
- * @param file: file path to an image
- * @return True if successfully loads image, False otherwise.
- */
-bool Screen::loadImageFromFile(const QString &file) {
-  QImage myImage;
-  if (!myImage.load(file)) {
-    std::cout << "Failed to load in image" << std::endl;
-    return false;
-  }
-  myImage = myImage.convertToFormat(QImage::Format_RGBX8888);
-  m_width = myImage.width();
-  m_height = myImage.height();
-  QByteArray arr = QByteArray::fromRawData((const char *)myImage.bits(),
-                                           myImage.sizeInBytes());
-
-  m_data.clear();
-  m_data.reserve(m_width * m_height);
-  for (int i = 0; i < arr.size() / 4.f; i++) {
-    m_data.push_back(
-        RGBA{(std::uint8_t)arr[4 * i], (std::uint8_t)arr[4 * i + 1],
-             (std::uint8_t)arr[4 * i + 2], (std::uint8_t)arr[4 * i + 3]});
-  }
-  displayImage();
-  return true;
 }
 
 /**
@@ -75,7 +33,7 @@ bool Screen::saveImageToFile(const QString &file) {
 }
 
 /**
- * @brief Get Canvas2D's image data and display this to the GUI
+ * @brief Get Screen's image data and display this to the GUI
  */
 void Screen::displayImage() {
   QByteArray img(reinterpret_cast<const char *>(m_data.data()),
@@ -88,7 +46,7 @@ void Screen::displayImage() {
 }
 
 /**
- * @brief Canvas2D::resize resizes canvas to new width and height
+ * @brief Resizes canvas to new width and height
  * @param w
  * @param h
  */

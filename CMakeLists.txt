@@ -35,6 +35,9 @@ add_executable(${PROJECT_NAME}
     src/utils/rgba.h
     src/settings.h
     src/settings.cpp
+    src/utils/sceneparser.h src/utils/sceneparser.cpp
+    src/utils/scenedata.h
+    src/utils/scenefilereader.h src/utils/scenefilereader.cpp
 )
 
 # GLM: this creates its library and allows you to `#include "glm/..."`

@@ -13,8 +13,6 @@ public:
   int m_height = 0;
 
   void init();
-  void clearScreen();
-  bool loadImageFromFile(const QString &file);
   bool saveImageToFile(const QString &file);
   void displayImage();
   void resize(int w, int h);

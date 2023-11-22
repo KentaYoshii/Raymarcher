@@ -39,63 +39,20 @@ MainWindow::MainWindow() {
 
   vLayout->addWidget(screen);
 
-  // brush selection
-  addHeading(screenLayout, "Brush");
-  addRadioButton(screenLayout, "Constant", settings.brushType == BRUSH_CONSTANT,
-                 [this] { setBrushType(BRUSH_CONSTANT); });
-  addRadioButton(screenLayout, "Linear", settings.brushType == BRUSH_LINEAR,
-                 [this] { setBrushType(BRUSH_LINEAR); });
-  addRadioButton(screenLayout, "Quadratic",
-                 settings.brushType == BRUSH_QUADRATIC,
-                 [this] { setBrushType(BRUSH_QUADRATIC); });
-  addRadioButton(screenLayout, "Smudge", settings.brushType == BRUSH_SMUDGE,
-                 [this] { setBrushType(BRUSH_SMUDGE); });
+  // upload scene file
+  addPushButton(screenLayout, "Upload Scenefile",
+                &MainWindow::onUploadButtonClick);
 
-  // brush parameters
-  addSpinBox(screenLayout, "red", 0, 255, 1, settings.brushColor.r,
-             [this](int value) { setUIntVal(settings.brushColor.r, value); });
-  addSpinBox(screenLayout, "green", 0, 255, 1, settings.brushColor.g,
-             [this](int value) { setUIntVal(settings.brushColor.g, value); });
-  addSpinBox(screenLayout, "blue", 0, 255, 1, settings.brushColor.b,
-             [this](int value) { setUIntVal(settings.brushColor.b, value); });
-  addSpinBox(screenLayout, "alpha", 0, 255, 1, settings.brushColor.a,
-             [this](int value) { setUIntVal(settings.brushColor.a, value); });
-  addSpinBox(screenLayout, "radius", 0, 100, 1, settings.brushRadius,
-             [this](int value) { setIntVal(settings.brushRadius, value); });
-
-  // extra credit brushes
-  addHeading(screenLayout, "Extra Credit Brushes");
-  addRadioButton(screenLayout, "Spray", settings.brushType == BRUSH_SPRAY,
-                 [this] { setBrushType(BRUSH_SPRAY); });
-  addSpinBox(screenLayout, "density", 0, 100, 1, settings.brushDensity,
-             [this](int value) { setIntVal(settings.brushDensity, value); });
-  addRadioButton(screenLayout, "Speed", settings.brushType == BRUSH_SPEED,
-                 [this] { setBrushType(BRUSH_SPEED); });
-  addRadioButton(screenLayout, "Fill", settings.brushType == BRUSH_FILL,
-                 [this] { setBrushType(BRUSH_FILL); });
-  addRadioButton(screenLayout, "Custom", settings.brushType == BRUSH_CUSTOM,
-                 [this] { setBrushType(BRUSH_CUSTOM); });
-  addCheckBox(
-      screenLayout, "Fix alpha blending", settings.fixAlphaBlending,
-      [this](bool value) { setBoolVal(settings.fixAlphaBlending, value); });
-
-  // clearing canvas
-  addPushButton(screenLayout, "Clear Screen", &MainWindow::onClearButtonClick);
-
-  // save canvas as image
+  // save screen as image
   addPushButton(screenLayout, "Save Image", &MainWindow::onSaveButtonClick);
 }
 
 /**
- * @brief Sets up Canvas2D
+ * @brief Sets up Screen
  */
 void MainWindow::setupScreen() {
   m_screen = new Screen();
   m_screen->init();
-
-  if (!settings.imagePath.isEmpty()) {
-    m_screen->loadImageFromFile(settings.imagePath);
-  }
 }
 
 // ------ FUNCTIONS FOR ADDING UI COMPONENTS ------
@@ -172,12 +129,6 @@ void MainWindow::addCheckBox(QBoxLayout *layout, QString text, bool val,
 }
 
 // ------ FUNCTIONS FOR UPDATING SETTINGS ------
-
-void MainWindow::setBrushType(int type) {
-  settings.brushType = type;
-  m_screen->settingsChanged();
-}
-
 void MainWindow::setUIntVal(std::uint8_t &setValue, int newValue) {
   setValue = newValue;
   m_screen->settingsChanged();
@@ -199,31 +150,21 @@ void MainWindow::setBoolVal(bool &setValue, bool newValue) {
 }
 
 // ------ PUSH BUTTON FUNCTIONS ------
-
-void MainWindow::onClearButtonClick() {
-  m_screen->resize(m_screen->parentWidget()->size().width(),
-                   m_screen->parentWidget()->size().height());
-  m_screen->clearScreen();
-}
-
-void MainWindow::onRevertButtonClick() {
-  m_screen->loadImageFromFile(settings.imagePath);
-}
-
 void MainWindow::onUploadButtonClick() {
-  // Get new image path selected by user
-  QString file =
-      QFileDialog::getOpenFileName(this, tr("Open Image"), QDir::homePath(),
-                                   tr("Image Files (*.png *.jpg *.jpeg)"));
-  if (file.isEmpty()) {
+  // Get abs path of scene file
+  QString configFilePath = QFileDialog::getOpenFileName(
+      this, tr("Upload File"),
+      QDir::currentPath().append(QDir::separator()).append("scenefiles"),
+      tr("Scene Files (*.json)"));
+  if (configFilePath.isNull()) {
+    std::cout << "Failed to load null scenefile." << std::endl;
     return;
   }
-  settings.imagePath = file;
 
-  // Display new image
-  m_screen->loadImageFromFile(settings.imagePath);
+  settings.sceneFilePath = configFilePath.toStdString();
 
-  m_screen->settingsChanged();
+  std::cout << "Loaded scenefile: \"" << configFilePath.toStdString() << "\"."
+            << std::endl;
 }
 
 void MainWindow::onSaveButtonClick() {
