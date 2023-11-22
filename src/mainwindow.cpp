@@ -1,156 +1,138 @@
 #include "mainwindow.h"
 #include "settings.h"
 
-#include <QCheckBox>
 #include <QFileDialog>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QScrollArea>
-#include <QTabWidget>
+#include <QSettings>
 #include <QVBoxLayout>
 #include <iostream>
 
-MainWindow::MainWindow() {
-  setWindowTitle("Final Project");
-
-  // horizontal
-  QHBoxLayout *hLayout = new QHBoxLayout();
-  // vertical
-  QVBoxLayout *vLayout = new QVBoxLayout();
+void MainWindow::initialize() {
+  realtime = new Realtime;
+  aspectRatioWidget = new AspectRatioWidget(this);
+  aspectRatioWidget->setAspectWidget(realtime, 3.f / 4.f);
+  QHBoxLayout *hLayout = new QHBoxLayout;   // horizontal alignment
+  QVBoxLayout *vLayout = new QVBoxLayout(); // vertical alignment
   vLayout->setAlignment(Qt::AlignTop);
   hLayout->addLayout(vLayout);
-  setLayout(hLayout);
+  hLayout->addWidget(aspectRatioWidget, 1);
+  this->setLayout(hLayout);
 
-  setupScreen();
-  resize(1024, 768);
-
-  // makes the Screen into a scroll area
-  QScrollArea *scrollArea = new QScrollArea();
-  scrollArea->setWidget(m_screen);
-  scrollArea->setWidgetResizable(true);
-  hLayout->addWidget(scrollArea, 1);
-
-  // set layout
-  QWidget *screen = new QWidget();
-  QVBoxLayout *screenLayout = new QVBoxLayout();
-  screenLayout->setAlignment(Qt::AlignTop);
-  screen->setLayout(screenLayout);
-
-  vLayout->addWidget(screen);
-
-  // upload scene file
-  addPushButton(screenLayout, "Upload Scenefile",
-                &MainWindow::onUploadButtonClick);
-
-  // save screen as image
-  addPushButton(screenLayout, "Save Image", &MainWindow::onSaveButtonClick);
-}
-
-/**
- * @brief Sets up Screen
- */
-void MainWindow::setupScreen() {
-  m_screen = new Screen();
-  m_screen->init();
-}
-
-// ------ FUNCTIONS FOR ADDING UI COMPONENTS ------
-
-void MainWindow::addHeading(QBoxLayout *layout, QString text) {
+  // Create labels in sidebox
   QFont font;
-  font.setPointSize(16);
+  font.setPointSize(12);
   font.setBold(true);
+  QLabel *camera_label = new QLabel(); // Camera label
+  camera_label->setText("Camera");
+  camera_label->setFont(font);
+  QLabel *near_label = new QLabel(); // Near plane label
+  near_label->setText("Near Plane:");
+  QLabel *far_label = new QLabel(); // Far plane label
+  far_label->setText("Far Plane:");
 
-  QLabel *label = new QLabel(text);
-  label->setFont(font);
-  layout->addWidget(label);
+  // Create file uploader for scene file
+  uploadFile = new QPushButton();
+  uploadFile->setText(QStringLiteral("Upload Scene File"));
+
+  saveImage = new QPushButton();
+  saveImage->setText(QStringLiteral("Save image"));
+
+  // Creates the boxes containing the camera sliders and number boxes
+  QGroupBox *nearLayout = new QGroupBox(); // horizonal near slider alignment
+  QHBoxLayout *lnear = new QHBoxLayout();
+  QGroupBox *farLayout = new QGroupBox(); // horizonal far slider alignment
+  QHBoxLayout *lfar = new QHBoxLayout();
+
+  // Create slider controls to control near/far planes
+  nearSlider = new QSlider(Qt::Orientation::Horizontal); // Near plane slider
+  nearSlider->setTickInterval(1);
+  nearSlider->setMinimum(1);
+  nearSlider->setMaximum(1000);
+  nearSlider->setValue(10);
+
+  nearBox = new QDoubleSpinBox();
+  nearBox->setMinimum(0.01f);
+  nearBox->setMaximum(10.f);
+  nearBox->setSingleStep(0.1f);
+  nearBox->setValue(0.1f);
+
+  farSlider = new QSlider(Qt::Orientation::Horizontal); // Far plane slider
+  farSlider->setTickInterval(1);
+  farSlider->setMinimum(1000);
+  farSlider->setMaximum(10000);
+  farSlider->setValue(10000);
+
+  farBox = new QDoubleSpinBox();
+  farBox->setMinimum(10.f);
+  farBox->setMaximum(100.f);
+  farBox->setSingleStep(0.1f);
+  farBox->setValue(100.f);
+
+  // Adds the slider and number box to the parameter layouts
+  lnear->addWidget(nearSlider);
+  lnear->addWidget(nearBox);
+  nearLayout->setLayout(lnear);
+
+  lfar->addWidget(farSlider);
+  lfar->addWidget(farBox);
+  farLayout->setLayout(lfar);
+
+  vLayout->addWidget(uploadFile);
+  vLayout->addWidget(saveImage);
+  vLayout->addWidget(camera_label);
+  vLayout->addWidget(near_label);
+  vLayout->addWidget(nearLayout);
+  vLayout->addWidget(far_label);
+  vLayout->addWidget(farLayout);
+
+  connectUIElements();
+
+  // Set default values for near and far planes
+  onValChangeNearBox(0.1f);
+  onValChangeFarBox(10.f);
 }
 
-void MainWindow::addLabel(QBoxLayout *layout, QString text) {
-  layout->addWidget(new QLabel(text));
+void MainWindow::finish() {
+  realtime->finish();
+  delete (realtime);
 }
 
-void MainWindow::addRadioButton(QBoxLayout *layout, QString text, bool value,
-                                auto function) {
-  QRadioButton *button = new QRadioButton(text);
-  button->setChecked(value);
-  layout->addWidget(button);
-  connect(button, &QRadioButton::clicked, this, function);
+void MainWindow::connectUIElements() {
+  connectUploadFile();
+  connectSaveImage();
+  connectNear();
+  connectFar();
 }
 
-void MainWindow::addSpinBox(QBoxLayout *layout, QString text, int min, int max,
-                            int step, int val, auto function) {
-  QSpinBox *box = new QSpinBox();
-  box->setMinimum(min);
-  box->setMaximum(max);
-  box->setSingleStep(step);
-  box->setValue(val);
-  QHBoxLayout *subLayout = new QHBoxLayout();
-  addLabel(subLayout, text);
-  subLayout->addWidget(box);
-  layout->addLayout(subLayout);
-  connect(box, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-          this, function);
+void MainWindow::connectUploadFile() {
+  connect(uploadFile, &QPushButton::clicked, this, &MainWindow::onUploadFile);
 }
 
-void MainWindow::addDoubleSpinBox(QBoxLayout *layout, QString text, double min,
-                                  double max, double step, double val,
-                                  int decimal, auto function) {
-  QDoubleSpinBox *box = new QDoubleSpinBox();
-  box->setMinimum(min);
-  box->setMaximum(max);
-  box->setSingleStep(step);
-  box->setValue(val);
-  box->setDecimals(decimal);
-  QHBoxLayout *subLayout = new QHBoxLayout();
-  addLabel(subLayout, text);
-  subLayout->addWidget(box);
-  layout->addLayout(subLayout);
-  connect(box,
+void MainWindow::connectSaveImage() {
+  connect(saveImage, &QPushButton::clicked, this, &MainWindow::onSaveImage);
+}
+
+void MainWindow::connectNear() {
+  connect(nearSlider, &QSlider::valueChanged, this,
+          &MainWindow::onValChangeNearSlider);
+  connect(nearBox,
           static_cast<void (QDoubleSpinBox::*)(double)>(
               &QDoubleSpinBox::valueChanged),
-          this, function);
+          this, &MainWindow::onValChangeNearBox);
 }
 
-void MainWindow::addPushButton(QBoxLayout *layout, QString text,
-                               auto function) {
-  QPushButton *button = new QPushButton(text);
-  layout->addWidget(button);
-  connect(button, &QPushButton::clicked, this, function);
+void MainWindow::connectFar() {
+  connect(farSlider, &QSlider::valueChanged, this,
+          &MainWindow::onValChangeFarSlider);
+  connect(farBox,
+          static_cast<void (QDoubleSpinBox::*)(double)>(
+              &QDoubleSpinBox::valueChanged),
+          this, &MainWindow::onValChangeFarBox);
 }
 
-void MainWindow::addCheckBox(QBoxLayout *layout, QString text, bool val,
-                             auto function) {
-  QCheckBox *box = new QCheckBox(text);
-  box->setChecked(val);
-  layout->addWidget(box);
-  connect(box, &QCheckBox::clicked, this, function);
-}
-
-// ------ FUNCTIONS FOR UPDATING SETTINGS ------
-void MainWindow::setUIntVal(std::uint8_t &setValue, int newValue) {
-  setValue = newValue;
-  m_screen->settingsChanged();
-}
-
-void MainWindow::setIntVal(int &setValue, int newValue) {
-  setValue = newValue;
-  m_screen->settingsChanged();
-}
-
-void MainWindow::setFloatVal(float &setValue, float newValue) {
-  setValue = newValue;
-  m_screen->settingsChanged();
-}
-
-void MainWindow::setBoolVal(bool &setValue, bool newValue) {
-  setValue = newValue;
-  m_screen->settingsChanged();
-}
-
-// ------ PUSH BUTTON FUNCTIONS ------
-void MainWindow::onUploadButtonClick() {
+void MainWindow::onUploadFile() {
   // Get abs path of scene file
   QString configFilePath = QFileDialog::getOpenFileName(
       this, tr("Upload File"),
@@ -165,17 +147,51 @@ void MainWindow::onUploadButtonClick() {
 
   std::cout << "Loaded scenefile: \"" << configFilePath.toStdString() << "\"."
             << std::endl;
+
+  realtime->sceneChanged();
 }
 
-void MainWindow::onSaveButtonClick() {
-  // Get new image path selected by user
-  QString file =
-      QFileDialog::getSaveFileName(this, tr("Save Image"), QDir::currentPath(),
-                                   tr("Image Files (*.png *.jpg *.jpeg)"));
-  if (file.isEmpty()) {
+void MainWindow::onSaveImage() {
+  if (settings.sceneFilePath.empty()) {
+    std::cout << "No scene file loaded." << std::endl;
     return;
   }
+  std::string sceneName = settings.sceneFilePath.substr(
+      0, settings.sceneFilePath.find_last_of("."));
+  sceneName = sceneName.substr(sceneName.find_last_of("/") + 1);
+  QString filePath = QFileDialog::getSaveFileName(
+      this, tr("Save Image"),
+      QDir::currentPath().append(QDir::separator()).append("output"),
+      tr("Image Files (*.png)"));
+  std::cout << "Saving image to: \"" << filePath.toStdString() << "\"."
+            << std::endl;
+  realtime->saveViewportImage(filePath.toStdString());
+}
 
-  // Save image
-  m_screen->saveImageToFile(file);
+void MainWindow::onValChangeNearSlider(int newValue) {
+  // nearSlider->setValue(newValue);
+  nearBox->setValue(newValue / 100.f);
+  settings.nearPlane = nearBox->value();
+  realtime->settingsChanged();
+}
+
+void MainWindow::onValChangeFarSlider(int newValue) {
+  // farSlider->setValue(newValue);
+  farBox->setValue(newValue / 100.f);
+  settings.farPlane = farBox->value();
+  realtime->settingsChanged();
+}
+
+void MainWindow::onValChangeNearBox(double newValue) {
+  nearSlider->setValue(int(newValue * 100.f));
+  // nearBox->setValue(newValue);
+  settings.nearPlane = nearBox->value();
+  realtime->settingsChanged();
+}
+
+void MainWindow::onValChangeFarBox(double newValue) {
+  farSlider->setValue(int(newValue * 100.f));
+  // farBox->setValue(newValue);
+  settings.farPlane = farBox->value();
+  realtime->settingsChanged();
 }

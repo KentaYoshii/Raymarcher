@@ -31,13 +31,21 @@ add_executable(${PROJECT_NAME}
 
     src/mainwindow.h
     src/utils/aspectratiowidget/aspectratiowidget.hpp
-    src/screen.h src/screen.cpp
+
     src/utils/rgba.h
     src/settings.h
     src/settings.cpp
     src/utils/sceneparser.h src/utils/sceneparser.cpp
     src/utils/scenedata.h
     src/utils/scenefilereader.h src/utils/scenefilereader.cpp
+    src/camera/camera.cpp src/camera/camera.h
+
+    src/raymarch/raymarchscene.h src/raymarch/raymarchscene.cpp
+    src/raymarch/raymarchobj.h
+
+    src/realtime.h src/realtime.cpp
+    src/realtimerender.cpp
+
 )
 
 # GLM: this creates its library and allows you to `#include "glm/..."`

@@ -17,6 +17,10 @@
  */
 struct Settings {
   std::string sceneFilePath;
+  float nearPlane;
+  float farPlane;
+  int screenWidth = 1024;
+  int screenHeight = 768;
 };
 
 // The global Settings object, will be initialized by MainWindow

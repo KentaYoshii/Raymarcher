@@ -1,46 +1,43 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+#pragma once
 
-#include <QBoxLayout>
+#include "realtime.h"
+#include "utils/aspectratiowidget/aspectratiowidget.hpp"
 #include <QCheckBox>
 #include <QDoubleSpinBox>
-#include <QLabel>
 #include <QMainWindow>
 #include <QPushButton>
-#include <QRadioButton>
 #include <QSlider>
 #include <QSpinBox>
-
-#include "screen.h"
 
 class MainWindow : public QWidget {
   Q_OBJECT
 
 public:
-  MainWindow();
+  void initialize();
+  void finish();
 
 private:
-  void setupScreen();
-  Screen *m_screen;
+  void connectUIElements();
+  void connectNear();
+  void connectFar();
+  void connectUploadFile();
+  void connectSaveImage();
 
-  void addHeading(QBoxLayout *layout, QString text);
-  void addLabel(QBoxLayout *layout, QString text);
-  void addRadioButton(QBoxLayout *layout, QString text, bool value,
-                      auto function);
-  void addSpinBox(QBoxLayout *layout, QString text, int min, int max, int step,
-                  int val, auto function);
-  void addDoubleSpinBox(QBoxLayout *layout, QString text, double min,
-                        double max, double step, double val, int decimal,
-                        auto function);
-  void addPushButton(QBoxLayout *layout, QString text, auto function);
-  void addCheckBox(QBoxLayout *layout, QString text, bool value, auto function);
+  Realtime *realtime;
+  AspectRatioWidget *aspectRatioWidget;
+
+  QPushButton *uploadFile;
+  QPushButton *saveImage;
+  QSlider *nearSlider;
+  QSlider *farSlider;
+  QDoubleSpinBox *nearBox;
+  QDoubleSpinBox *farBox;
 
 private slots:
-  void setUIntVal(std::uint8_t &setValue, int newValue);
-  void setIntVal(int &setValue, int newValue);
-  void setFloatVal(float &setValue, float newValue);
-  void setBoolVal(bool &setValue, bool newValue);
-  void onUploadButtonClick();
-  void onSaveButtonClick();
+  void onUploadFile();
+  void onSaveImage();
+  void onValChangeNearSlider(int newValue);
+  void onValChangeFarSlider(int newValue);
+  void onValChangeNearBox(double newValue);
+  void onValChangeFarBox(double newValue);
 };
-#endif // MAINWINDOW_H
