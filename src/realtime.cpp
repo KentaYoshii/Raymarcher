@@ -1,6 +1,6 @@
 #include "realtime.h"
-
 #include "settings.h"
+#include "utils/shaderloader.h"
 #include <QCoreApplication>
 #include <QKeyEvent>
 #include <QMouseEvent>
@@ -48,9 +48,9 @@ void Realtime::initializeGL() {
   scene.m_width = size().width() * m_devicePixelRatio;
   scene.m_height = size().height() * m_devicePixelRatio;
   glViewport(0, 0, scene.m_width, scene.m_height);
-  // TODO: Load the shaders
-  // TODO: Perform remaining setups
-
+  // Load the shaders
+  m_rayMarchShader = ShaderLoader::createShaderProgram(
+      ":/resources/raymarch.vert", ":/resources/raymarch.frag");
   // Initialize the image plane through which we march rays
   initImagePlane();
 }
@@ -59,6 +59,7 @@ void Realtime::paintGL() {
   if (!scene.isInitialized()) {
     return;
   }
+  rayMarch();
 }
 
 void Realtime::resizeGL(int w, int h) {

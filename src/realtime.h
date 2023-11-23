@@ -64,11 +64,23 @@ private:
   // Shader
   GLuint m_rayMarchShader;
 
+  // FBO
+  GLuint m_defaultFBO = 1;
+
   // Image Plane
   GLuint m_imagePlaneVAO;
   GLuint m_imagePlaneVBO;
 
   // PRIVATE METHODS
+  void rayMarch();
 
   void initImagePlane();
+
+  void setFBO(GLuint fbo);
+
+  void draw(GLuint shader);
+
+  void configureScreenUniforms(GLuint shader);
+  void configureCameraUniforms(GLuint shader);
+  void configureShapeUniforms(GLuint shader, const RayMarchObj &rmo);
 };

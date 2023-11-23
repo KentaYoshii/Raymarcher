@@ -53,6 +53,8 @@ public:
 private:
   // PRIVATE METHODS
 
+  // Set the Projection Matrix of the camera
+  void setProjMatrix();
   // Set the View Matrix and World space position of the camera
   void setViewMatrix();
   // Given (i, j), normalize it to fit within a unit coordinate space
@@ -74,6 +76,16 @@ private:
   // Camera View/Inv View Matrices
   glm::mat4 m_view;
   glm::mat4 m_invView;
+
+  // Camera Projection Matrix
+  glm::mat4 m_proj;
+  // Used to remap z values to OpenGL standard
+  glm::mat4 m_OpenGLRemapMatrix{
+      1.f, 0,   0,    0,   // c1
+      0,   1.f, 0,    0,   // c2
+      0,   0,   -2.f, 0.f, // c3
+      0,   0,   -1.f, 1.f, // c4
+  };
 
   // Screen Dimension/Ratio
   int m_width;

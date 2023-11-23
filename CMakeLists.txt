@@ -45,6 +45,9 @@ add_executable(${PROJECT_NAME}
 
     src/realtime.h src/realtime.cpp
     src/realtimerender.cpp
+    resources/raymarch.frag resources/raymarch.vert
+    src/utils/shaderloader.h
+
 
 )
 
@@ -66,11 +69,13 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 # Specifies other files
-#qt6_add_resources(${PROJECT_NAME} "Resources"
-#    PREFIX
-#        "/"
-#    FILES
-#)
+qt6_add_resources(${PROJECT_NAME} "Resources"
+    PREFIX
+        "/"
+    FILES
+        resources/raymarch.frag
+        resources/raymarch.vert
+)
 
 # GLEW: this provides support for Windows (including 64-bit)
 if (WIN32)

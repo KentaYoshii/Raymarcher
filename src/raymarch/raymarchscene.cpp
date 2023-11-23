@@ -82,9 +82,13 @@ void RayMarchScene::initRayMarchObjs(std::vector<RenderShapeData> &rd) {
   m_shapes.reserve(rd.size());
   int id = 0;
   for (const RenderShapeData &shapeData : rd) {
-    m_shapes.emplace_back(id, shapeData.primitive.type, shapeData.ctm,
-                          glm::inverse(shapeData.ctm),
-                          shapeData.primitive.material);
+    RayMarchObj obj{};
+    obj.m_id = id;
+    obj.m_type = shapeData.primitive.type;
+    obj.m_ctm = shapeData.ctm;
+    obj.m_ctmInv = glm::inverse(shapeData.ctm);
+    obj.m_material = shapeData.primitive.material;
+    m_shapes.push_back(obj);
     id++;
   }
 }

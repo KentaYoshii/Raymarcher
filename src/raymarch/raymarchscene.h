@@ -45,9 +45,6 @@ private:
 
   bool m_init = false;
 
-  int m_param1;
-  int m_param2;
-
   // Global Data
   SceneGlobalData m_globalData;
 

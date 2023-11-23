@@ -29,6 +29,8 @@ void Camera::initializeCamera(SceneCameraData &cd, Settings &s) {
 
   // Set the view matrix
   setViewMatrix();
+  // Set the proj matrix
+  setProjMatrix();
 };
 
 /**
@@ -64,10 +66,51 @@ void Camera::setViewMatrix() {
 }
 
 /**
+ * @brief Compute the projection matrix of the camera
+ * - Get the Scale Matrix
+ * - Get the unhinging Matrix
+ * - Compute the projection matrix
+ */
+void Camera::setProjMatrix() {
+  // First we find the Scale matrix
+
+  // Scale x, Scale y, Scale z
+  float scaleX = 2 / m_viewAngleWidth;
+  float scaleY = 2 / m_viewAngleHeight;
+  float scaleZ = 1 / m_far;
+
+  // Construct the matrix
+  glm::vec4 sc1(scaleX, 0, 0, 0);
+  glm::vec4 sc2(0, scaleY, 0, 0);
+  glm::vec4 sc3(0, 0, scaleZ, 0);
+  glm::vec4 sc4(0, 0, 0, 1.f);
+  glm::mat4 scaleMatrix(sc1, sc2, sc3, sc4);
+
+  // Then find the "unhinging" matrix
+  float c = -float(m_near) / m_far;
+
+  // Construct the matrix
+  glm::vec4 c1(1.f, 0, 0, 0);
+  glm::vec4 c2(0, 1.f, 0, 0);
+  glm::vec4 c3(0, 0, 1.f / (1.f + c), -1.f);
+  glm::vec4 c4(0, 0, -c / (1.f + c), 0);
+  glm::mat4 unhingingMatrix(c1, c2, c3, c4);
+
+  // Finally, set the projection matrix
+  m_proj = m_OpenGLRemapMatrix * unhingingMatrix * scaleMatrix;
+}
+
+/**
  * @brief Gets the View Matrix of this camera
  * @returns glm::mat4 representing camera view matrix
  */
 glm::mat4 Camera::getViewMatrix() const { return m_view; }
+
+/**
+ * @brief Gets the Projection Matrix of this camera
+ * @returns glm::mat4 representing camera projection matrix
+ */
+glm::mat4 Camera::getProjMatrix() const { return m_proj; }
 
 /**
  * @brief Gets the Position of this camera in the world space
