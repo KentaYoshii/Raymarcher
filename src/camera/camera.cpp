@@ -34,6 +34,37 @@ void Camera::initializeCamera(SceneCameraData &cd, Settings &s) {
 };
 
 /**
+ * @brief Updates the camera dimension
+ * @param w New width
+ * @param h New height
+ */
+void Camera::updateCameraDimensions(int w, int h) {
+  if (m_width == w && m_height == h) {
+    // nop
+    return;
+  }
+  m_width = w;
+  m_height = h;
+  m_aspectRatio = w / float(h);
+  setProjMatrix();
+}
+
+/**
+ * @brief Updates the camera-specific parameters
+ * @param s Settings that is updated
+ * @returns true if update was performed
+ */
+void Camera::updateCamera(Settings &s) {
+  if (m_near == s.nearPlane && m_far == s.farPlane) {
+    // If no updates are made, just return
+    return;
+  }
+  m_near = s.nearPlane;
+  m_far = s.farPlane;
+  setProjMatrix();
+}
+
+/**
  * @brief Compute the view matrix of the camera given "pos", "look", and "up"
  * vector. Additionally, set the world space position of the camera
  * @param pos Position of the virtual camera
@@ -73,6 +104,9 @@ void Camera::setViewMatrix() {
  */
 void Camera::setProjMatrix() {
   // First we find the Scale matrix
+
+  m_viewAngleHeight = 2 * m_far * glm::tan(m_heightAngle / 2);
+  m_viewAngleWidth = m_aspectRatio * m_viewAngleHeight;
 
   // Scale x, Scale y, Scale z
   float scaleX = 2 / m_viewAngleWidth;
@@ -129,31 +163,6 @@ float Camera::getNearPlane() const { return m_near; }
  * @returns float representing camera far plane
  */
 float Camera::getFarPlane() const { return m_far; }
-
-/**
- * @brief Convert the pixel (i, j) to normalized image space coordinates
- * @return std::tuple of converted coords
- */
-std::tuple<float, float> Camera::normalizePixel(int i, int j) const {
-  float x = ((j + 0.5) / m_width) - 0.5;
-  float y = ((m_height - 1 - i + 0.5) / m_height) - 0.5;
-  return std::tuple<float, float>(x, y);
-}
-
-/**
- * @brief Given a output image coordinate (i, j) compute the direction vector d
- * in world space
- * @param i x coordinate
- * @param j y coordinate
- */
-glm::vec4 Camera::getRayDir(int i, int j) const {
-  auto normCoords = normalizePixel(i, j);
-  // (Ux, Vy, -k) in Camera Space
-  glm::vec3 uvk(m_viewAngleWidth * std::get<0>(normCoords),
-                m_viewAngleHeight * std::get<1>(normCoords), -m_far);
-  // Convert to World Space
-  return m_invView * glm::vec4(uvk, 0);
-}
 
 /**
  * @brief Given a vector representing the displacement from the current position

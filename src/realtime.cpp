@@ -67,15 +67,14 @@ void Realtime::resizeGL(int w, int h) {
              size().height() * m_devicePixelRatio);
   scene.m_width = size().width() * m_devicePixelRatio;
   scene.m_height = size().height() * m_devicePixelRatio;
-
   if (!scene.isInitialized()) {
     return;
   }
+  scene.resizeScene(scene.m_width, scene.m_height);
 }
 
 void Realtime::sceneChanged() {
   if (scene.isInitialized()) {
-    // TODO: Perform any cleanups
   }
   scene.initScene(settings);
   update();
@@ -85,6 +84,7 @@ void Realtime::settingsChanged() {
   if (!scene.isInitialized()) {
     return;
   }
+  scene.updateScene(settings);
   update();
 }
 

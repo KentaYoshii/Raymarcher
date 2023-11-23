@@ -19,6 +19,12 @@ public:
   // - called in realtime::sceneChanged()
   void initScene(Settings &from);
 
+  // Update the scene with new camera paramters
+  void updateScene(Settings &from);
+
+  // Resize the scene with new dimensions
+  void resizeScene(int newWidth, int newHeight);
+
   // True if scene is initialized
   bool isInitialized() const;
 
@@ -27,6 +33,9 @@ public:
 
   // Get Shapes
   std::vector<RayMarchObj> &getShapes();
+
+  // Get Lights
+  std::vector<SceneLightData> &getLights();
 
   // Get Camera
   Camera &getCamera();
@@ -55,7 +64,7 @@ private:
   std::vector<RayMarchObj> m_shapes;
 
   // Lights
-  // std::vector<SceneLightData> m_lights;
+  std::vector<SceneLightData> m_lights;
 
 public:
   // Screen Dimension

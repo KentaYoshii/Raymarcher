@@ -82,5 +82,6 @@ private:
 
   void configureScreenUniforms(GLuint shader);
   void configureCameraUniforms(GLuint shader);
-  void configureShapeUniforms(GLuint shader, const RayMarchObj &rmo);
+  void configureShapesUniforms(GLuint shader);
+  void configureLightsUniforms(GLuint shader);
 };

@@ -12,6 +12,8 @@ struct RayMarchObj {
   PrimitiveType m_type;
   // CTM (obj -> world)
   glm::mat4 m_ctm;
+  // TOTAL SCALE
+  glm::mat4 m_scale;
   // Inv CTM (world -> obj)
   glm::mat4 m_ctmInv;
   // Material

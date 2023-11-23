@@ -1,0 +1,121 @@
+{
+  "name": "root",
+  "globalData": {
+    "ambientCoeff": 0.2,
+    "diffuseCoeff": 0.5,
+    "specularCoeff": 0.5,
+    "transparentCoeff": 0
+  },
+  "cameraData": {
+    "position": [0.0, 0.0, 5.0],
+    "up": [0.0, 1.0, 0.0],
+    "heightAngle": 45.0,
+    "focus": [0.0, 0.0, 0.0]
+  },
+  "groups": [
+    {
+      "lights": [
+        {
+          "type": "directional",
+          "color": [1.0, 1.0, 1.0],
+          "direction": [-2.0, -4.0, -6.0]
+        }
+      ]
+    },
+    {
+      "translate": [9.0, -3.0, 1.0],
+      "lights": [
+        {
+          "type": "point",
+          "color": [0.5, 0.5, 0.5],
+          "attenuationCoeff": [1, 0, 0]
+        }
+      ]
+    },
+    {
+      "translate": [-9.0, -3.0, 1.0],
+      "lights": [
+        {
+          "type": "point",
+          "color": [0.5, 0.5, 0.5],
+          "attenuationCoeff": [1, 0, 0]
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "translate": [0.0, 0.0, -5.0],
+          "scale": [1.5, 1.5, 1.5],
+          "primitives": [
+            {
+              "type": "cylinder",
+              "ambient": [0.0, 0.5, 0.0],
+              "diffuse": [0.0, 1.0, 0.0],
+              "specular": [1.0, 1.0, 1.0],
+              "shininess": 30.0
+            }
+          ]
+        },
+        {
+          "translate": [0.0, 0.0, -8.0],
+          "rotate": [0.0, 0.0, 1.0, 90.0],
+          "groups": [
+            {
+              "translate": [4.0, 0.0, 0.0],
+              "scale": [3.0, 3.0, 3.0],
+              "primitives": [
+                {
+                  "type": "sphere",
+                  "ambient": [0.0, 0.5, 0.5],
+                  "diffuse": [0.0, 1.0, 1.0],
+                  "specular": [1.0, 1.0, 1.0],
+                  "shininess": 30.0
+                }
+              ]
+            },
+            {
+              "translate": [-4.0, 0.0, 0.0],
+              "scale": [3.0, 3.0, 3.0],
+              "primitives": [
+                {
+                  "type": "cone",
+                  "ambient": [0.5, 0.5, 0.0],
+                  "diffuse": [1.0, 1.0, 0.0],
+                  "specular": [1.0, 1.0, 1.0],
+                  "shininess": 30.0
+                }
+              ]
+            },
+            {
+              "translate": [0.0, 4.0, 0.0],
+              "scale": [3.0, 3.0, 3.0],
+              "primitives": [
+                {
+                  "type": "cube",
+                  "ambient": [0.5, 0.0, 0.5],
+                  "diffuse": [1.0, 0.0, 1.0],
+                  "specular": [1.0, 1.0, 1.0],
+                  "shininess": 30.0
+                }
+              ]
+            },
+            {
+              "translate": [0.0, -4.0, 0.0],
+              "scale": [3.0, 3.0, 3.0],
+              "primitives": [
+                {
+                  "type": "cone",
+                  "ambient": [0.5, 0.5, 0.5],
+                  "diffuse": [1.0, 1.0, 1.0],
+                  "specular": [1.0, 1.0, 1.0],
+                  "shininess": 30.0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

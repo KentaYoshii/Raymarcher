@@ -11,11 +11,11 @@
  */
 std::vector<RayMarchObj> &RayMarchScene::getShapes() { return m_shapes; }
 
-///**
-// * @brief Function that gets the lights in the scene
-// * @returns vector containing SceneLightData
-// */
-// std::vector<SceneLightData> &RealTimeScene::getLights() { return m_lights; }
+/**
+ * @brief Function that gets the lights in the scene
+ * @returns vector containing SceneLightData
+ */
+std::vector<SceneLightData> &RayMarchScene::getLights() { return m_lights; }
 
 /**
  * @brief Gets the status of the scene
@@ -64,6 +64,30 @@ void RayMarchScene::initScene(Settings &from) {
 
   // ---- Shapes ----
   initRayMarchObjs(rd.shapes);
+
+  // ---- LIghts ----
+  m_lights = rd.lights;
+}
+
+/**
+ * @brief Function that resizes the scene
+ * This is called in resizeGL() function
+ * @param w New width
+ * @param h New height
+ */
+void RayMarchScene::resizeScene(int w, int h) {
+  m_camera.updateCameraDimensions(w, h);
+}
+
+/**
+ * @brief Function that updates the scene based on the settings
+ * This is called in settingsChanged() function with the updated settings passed
+ * in
+ * @param s Settings that is new
+ */
+void RayMarchScene::updateScene(Settings &s) {
+  // Update the camera, if necessary
+  m_camera.updateCamera(s);
 }
 
 /**
@@ -86,6 +110,7 @@ void RayMarchScene::initRayMarchObjs(std::vector<RenderShapeData> &rd) {
     obj.m_id = id;
     obj.m_type = shapeData.primitive.type;
     obj.m_ctm = shapeData.ctm;
+    obj.m_scale = shapeData.scale;
     obj.m_ctmInv = glm::inverse(shapeData.ctm);
     obj.m_material = shapeData.primitive.material;
     m_shapes.push_back(obj);

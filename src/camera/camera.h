@@ -10,6 +10,10 @@ public:
 
   // Sets the camera up with the new scene
   void initializeCamera(SceneCameraData &cd, Settings &s);
+  // Update the camera with new far and near plane values
+  void updateCamera(Settings &s);
+  // Update the camera with new screen dimensions
+  void updateCameraDimensions(int newWidth, int newHeight);
   // Get near plane
   float getNearPlane() const;
   // Get far plane
@@ -20,8 +24,6 @@ public:
   glm::mat4 getProjMatrix() const;
   // Get the Camera Position in the world space
   glm::vec4 getCameraPosition() const;
-  // Given (i, j) location of the output image, compute the UVK cord
-  glm::vec4 getRayDir(int i, int j) const;
 
   // Translation
 
@@ -57,8 +59,6 @@ private:
   void setProjMatrix();
   // Set the View Matrix and World space position of the camera
   void setViewMatrix();
-  // Given (i, j), normalize it to fit within a unit coordinate space
-  std::tuple<float, float> normalizePixel(int i, int j) const;
 
 private:
   // PRIVATE MEMBERS

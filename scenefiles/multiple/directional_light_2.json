@@ -1,0 +1,102 @@
+{
+  "name": "root",
+  "globalData": {
+    "ambientCoeff": 0.5,
+    "diffuseCoeff": 0.5,
+    "specularCoeff": 0.5,
+    "transparentCoeff": 0
+  },
+  "cameraData": {
+    "position": [-6.0, 4.0, 4.0],
+    "up": [0.0, 1.0, 0.0],
+    "focus": [0, 0, 0],
+    "heightAngle": 30.0
+  },
+  "groups": [
+    {
+      "lights": [
+        {
+          "type": "directional",
+          "color": [0.9, 0.2, 0.2],
+          "direction": [0.0, -1.0, 0.0]
+        }
+      ]
+    },
+    {
+      "lights": [
+        {
+          "type": "directional",
+          "color": [0.2, 0.9, 0.2],
+          "direction": [0.0, -1.0, -1.0]
+        }
+      ]
+    },
+    {
+      "lights": [
+        {
+          "type": "directional",
+          "color": [0.2, 0.2, 0.9],
+          "direction": [0.0, -1.0, 1.0]
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "translate": [-0.65, 0.0, 0.65],
+          "primitives": [
+            {
+              "type": "cylinder",
+              "diffuse": [0.8, 0.6, 0.6],
+              "specular": [1.0, 1.0, 1.0],
+              "shininess": 15.0
+            }
+          ]
+        },
+        {
+          "translate": [-0.65, 0.0, -0.65],
+          "primitives": [
+            {
+              "type": "cone",
+              "diffuse": [0.6, 0.6, 0.8],
+              "specular": [1.0, 1.0, 1.0],
+              "shininess": 15.0
+            }
+          ]
+        },
+        {
+          "translate": [0.65, 0.0, -0.65],
+          "primitives": [
+            {
+              "type": "sphere",
+              "diffuse": [0.6, 0.8, 0.6],
+              "specular": [1.0, 1.0, 1.0],
+              "shininess": 15.0
+            }
+          ]
+        },
+        {
+          "translate": [0.65, 0.0, 0.65],
+          "primitives": [
+            {
+              "type": "cube",
+              "diffuse": [0.7, 0.7, 0.7],
+              "specular": [1.0, 1.0, 1.0],
+              "shininess": 15.0
+            }
+          ]
+        },
+        {
+          "translate": [0.0, -0.6, 0.0],
+          "scale": [6.0, 0.1, 6.0],
+          "primitives": [
+            {
+              "type": "cube",
+              "diffuse": [0.1, 0.4, 0.8]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

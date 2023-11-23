@@ -34,9 +34,9 @@ SceneParser::getSceneLightDataFromSceneLight(const SceneLight &light,
  * @param trans: vector of SceneTransformation
  * @return glm::mat4 which is the total transformation
  */
-glm::mat4
+std::tuple<glm::mat4, glm::mat4>
 SceneParser::getLocTransMat(const std::vector<SceneTransformation *> trans,
-                            glm::mat4 parent) {
+                            glm::mat4 parent, glm::mat4 accScale) {
   glm::mat4 T = glm::mat4(1.f);
   glm::mat4 R = glm::mat4(1.f);
   glm::mat4 S = glm::mat4(1.f);
@@ -65,7 +65,8 @@ SceneParser::getLocTransMat(const std::vector<SceneTransformation *> trans,
     }
     }
   }
-  return parent * totalCTM * T * R * S;
+  return std::tuple<glm::mat4, glm::mat4>(parent * totalCTM * T * R * S,
+                                          accScale * S);
 }
 
 /**
@@ -77,15 +78,16 @@ SceneParser::getLocTransMat(const std::vector<SceneTransformation *> trans,
  * @param parent: parent node's ctm
  */
 void SceneParser::parseHelper(RenderData &renderData, SceneNode *currScene,
-                              glm::mat4 parent) {
+                              glm::mat4 parent, glm::mat4 accScale) {
   // First we find the local transformation matrix
-  glm::mat4 ctm = getLocTransMat(currScene->transformations, parent);
+  auto [ctm, s] = getLocTransMat(currScene->transformations, parent, accScale);
   // Then compute the CTM of this node
   // For each primitive
   for (int i = 0; i < currScene->primitives.size(); i++) {
     renderData.shapes.push_back(RenderShapeData{
         *currScene->primitives[i],
         ctm,
+        s,
     });
   }
   // For each light, apply ctm
@@ -96,7 +98,7 @@ void SceneParser::parseHelper(RenderData &renderData, SceneNode *currScene,
   }
   // For each child scene, recursively call this function
   for (int i = 0; i < currScene->children.size(); i++) {
-    parseHelper(renderData, currScene->children[i], ctm);
+    parseHelper(renderData, currScene->children[i], ctm, s);
   }
 }
 
@@ -120,7 +122,7 @@ bool SceneParser::parse(std::string filepath, RenderData &renderData) {
   renderData.shapes.clear();
   renderData.lights.clear();
   // start the parsign from the root
-  parseHelper(renderData, rt, glm::mat4(1.0f));
+  parseHelper(renderData, rt, glm::mat4(1.0f), glm::mat4(1.0f));
 
   return true;
 }

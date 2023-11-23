@@ -8,6 +8,7 @@
 struct RenderShapeData {
   ScenePrimitive primitive;
   glm::mat4 ctm; // the cumulative transformation matrix
+  glm::mat4 scale;
 };
 
 // Struct which contains all the data needed to render a scene
@@ -27,13 +28,13 @@ private:
 
   // Given a list of transformations, apply all of them in order and return the
   // total transformation
-  static glm::mat4
+  static std::tuple<glm::mat4, glm::mat4>
   getLocTransMat(const std::vector<SceneTransformation *> trans,
-                 glm::mat4 parent);
+                 glm::mat4 parent, glm::mat4 accScale);
 
   // Recursive helper function for parsing the scene graph
   static void parseHelper(RenderData &renderData, SceneNode *currScene,
-                          glm::mat4 parent);
+                          glm::mat4 parent, glm::mat4 accScale);
 
 public:
   // Parse the scene and store the results in renderData.
