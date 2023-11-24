@@ -30,9 +30,10 @@ enum class TransformationType {
   TRANSFORMATION_MATRIX
 };
 
+// A wrapper for texture
 struct TextureInfo {
-  QImage data;
-  std::vector<RGBA> imgData;
+  QImage image;
+  std::vector<RGBA> data;
   int width;
   int height;
 };

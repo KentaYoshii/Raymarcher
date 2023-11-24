@@ -52,6 +52,66 @@ void Realtime::initImagePlane() {
   glBindVertexArray(0);
 }
 
+/**
+ * @brief Create the texture object for each shape
+ */
+void Realtime::initShapesTextures() {
+  std::unordered_map<std::string, GLuint> texMap;
+  // Set the texture IDs for the shapes that use them
+  for (RayMarchObj &rts : scene.getShapes()) {
+    if (!rts.m_material.textureMap.isUsed) {
+      continue;
+    }
+    std::string texName = rts.m_material.textureMap.filename;
+    if (texMap.find(texName) == texMap.end()) {
+      // not found yet -> generate
+      glGenTextures(1, &rts.m_texture);
+      texMap[texName] = rts.m_texture;
+    } else {
+      // found a texture id -> reuse
+      rts.m_texture = texMap[texName];
+    }
+  }
+
+  // For each texture, send data to GPU
+  std::map<std::string, TextureInfo> sceneTexs = scene.getShapesTextures();
+  glActiveTexture(GL_TEXTURE0);
+  for (auto const &[name, id] : texMap) {
+    TextureInfo texInfo = sceneTexs[name];
+    glBindTexture(GL_TEXTURE_2D, id);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texInfo.width, texInfo.height, 0,
+                 GL_RGBA, GL_UNSIGNED_BYTE, texInfo.image.bits());
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glBindTexture(GL_TEXTURE_2D, 0);
+  }
+}
+
+/**
+ * @brief Initialize any default stuff here
+ */
+void Realtime::initDefaults() {
+  // For shapes that don't have textures associated with them
+  glActiveTexture(GL_TEXTURE0);
+  glGenTextures(1, &m_defaultShapeTexture);
+  glBindTexture(GL_TEXTURE_2D, m_defaultShapeTexture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+               std::vector<GLfloat>{0, 0}.data());
+  glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void Realtime::initShader() {
+  glUseProgram(m_rayMarchShader);
+  // Set the textures to use correct slots
+  GLuint texsLoc = glGetUniformLocation(m_rayMarchShader, "objTextures");
+  for (int i = 0; i < 10; i++) {
+    glUniform1i(texsLoc + i, i);
+  }
+  glUseProgram(0);
+}
+
 void Realtime::configureCameraUniforms(GLuint shader) {
   // Get all the stuff we want to use in our shader program
   glm::mat4 viewMatrix = scene.getCamera().getViewMatrix();
@@ -149,6 +209,8 @@ void Realtime::configureLightsUniforms(GLuint shader) {
 
 void Realtime::configureShapesUniforms(GLuint shader) {
   int cnt = 0;
+  int texCnt = 0;
+  std::map<std::string, int> texMap;
   for (const RayMarchObj &obj : scene.getShapes()) {
     if (cnt == 50) {
       return;
@@ -191,9 +253,52 @@ void Realtime::configureShapesUniforms(GLuint shader) {
     GLint cSpecularLoc = glGetUniformLocation(
         shader, ("objects[" + std::to_string(cnt) + "].cSpecular").c_str());
     glUniform3fv(cSpecularLoc, 1, &obj.m_material.cSpecular[0]);
+
+    // blend
+    GLint blendLoc = glGetUniformLocation(
+        shader, ("objects[" + std::to_string(cnt) + "].blend").c_str());
+    glUniform1f(blendLoc, obj.m_material.blend);
+
+    // Texture
+    GLint rULoc = glGetUniformLocation(
+        shader, ("objects[" + std::to_string(cnt) + "].repeatU").c_str());
+    glUniform1f(rULoc, obj.m_material.textureMap.repeatU);
+
+    GLint rVLoc = glGetUniformLocation(
+        shader, ("objects[" + std::to_string(cnt) + "].repeatV").c_str());
+    glUniform1f(rVLoc, obj.m_material.textureMap.repeatV);
+
+    GLuint texLocLoc = glGetUniformLocation(
+        shader, ("objects[" + std::to_string(cnt) + "].texLoc").c_str());
+
     cnt++;
+
+    if (obj.m_texture == 0) {
+      glUniform1i(texLocLoc, -1);
+      continue;
+    }
+
+    std::string texName = obj.m_material.textureMap.filename;
+
+    if (texMap.find(texName) == texMap.end() && texCnt != 10) {
+      // If texture not bound yet and we have not reached the limit
+      glActiveTexture(GL_TEXTURE0 + texCnt);
+      glBindTexture(GL_TEXTURE_2D, obj.m_texture);
+      // "texName" is bound to unit 0 + "texCnt"
+      texMap[texName] = texCnt;
+      texCnt++;
+      glActiveTexture(0);
+    }
+    glUniform1i(texLocLoc, texMap[texName]);
   }
+
   // num objs
   GLuint numLoc = glGetUniformLocation(shader, "numObjects");
   glUniform1i(numLoc, cnt);
+
+  // we bind the remaining textures to defaults to suppress compilation warnigns
+  for (int i = texCnt; i < 10; i++) {
+    glActiveTexture(GL_TEXTURE0 + i);
+    glBindTexture(GL_TEXTURE_2D, m_defaultShapeTexture);
+  }
 }

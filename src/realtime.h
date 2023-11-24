@@ -64,6 +64,9 @@ private:
   // Shader
   GLuint m_rayMarchShader;
 
+  // Textures
+  GLuint m_defaultShapeTexture;
+
   // FBO
   GLuint m_defaultFBO = 1;
 
@@ -74,7 +77,10 @@ private:
   // PRIVATE METHODS
   void rayMarch();
 
+  void initShader();
+  void initDefaults();
   void initImagePlane();
+  void initShapesTextures();
 
   void setFBO(GLuint fbo);
 

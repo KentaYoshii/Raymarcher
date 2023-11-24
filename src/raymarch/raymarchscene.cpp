@@ -12,6 +12,14 @@
 std::vector<RayMarchObj> &RayMarchScene::getShapes() { return m_shapes; }
 
 /**
+ * @brief Function that gets the shapes texture data of the scene
+ * @returns map from texture file name to data
+ */
+std::map<std::string, TextureInfo> &RayMarchScene::getShapesTextures() {
+  return m_textures;
+}
+
+/**
  * @brief Function that gets the lights in the scene
  * @returns vector containing SceneLightData
  */
@@ -63,8 +71,7 @@ void RayMarchScene::initScene(Settings &from) {
   m_camera.initializeCamera(rd.cameraData, from);
 
   // ---- Shapes ----
-  initRayMarchObjs(rd.shapes);
-
+  initRayMarchObjs(m_textures, rd.shapes);
   // ---- LIghts ----
   m_lights = rd.lights;
 }
@@ -101,19 +108,61 @@ void RayMarchScene::resetCamera() { m_camera = Camera{}; };
  * @brief Function that initializes our RayMarch objs given a vec of
  * RenderShapeData
  */
-void RayMarchScene::initRayMarchObjs(std::vector<RenderShapeData> &rd) {
+void RayMarchScene::initRayMarchObjs(
+    std::map<std::string, TextureInfo> &textureMap,
+    std::vector<RenderShapeData> &rd) {
+  textureMap.clear();
   m_shapes.clear();
   m_shapes.reserve(rd.size());
   int id = 0;
   for (const RenderShapeData &shapeData : rd) {
-    RayMarchObj obj{};
-    obj.m_id = id;
-    obj.m_type = shapeData.primitive.type;
-    obj.m_ctm = shapeData.ctm;
-    obj.m_scale = shapeData.scale;
-    obj.m_ctmInv = glm::inverse(shapeData.ctm);
-    obj.m_material = shapeData.primitive.material;
-    m_shapes.push_back(obj);
+    // If texture is used, load up here
+    if (shapeData.primitive.material.textureMap.isUsed) {
+      loadTextureFromPrim(textureMap,
+                          shapeData.primitive.material.textureMap.filename);
+    }
+    m_shapes.emplace_back(id, shapeData.primitive.type, shapeData.ctm,
+                          shapeData.scale, shapeData.primitive.material);
     id++;
   }
+}
+
+/**
+ * @brief Load the texture given by "file" to our map
+ * @param file Filepath we are loading from
+ */
+void RayMarchScene::loadTextureFromPrim(std::map<std::string, TextureInfo> &out,
+                                        const std::string &file) {
+  // Check if we already have this file loaded
+  if (auto search = out.find(file); search != out.end()) {
+    // Exists
+    return;
+  }
+  // Load up
+  QImage myImage;
+  QString str(file.data());
+  if (!myImage.load(str)) {
+    std::cout << "Failed to load in image" << std::endl;
+    return;
+  }
+  myImage = myImage.convertToFormat(QImage::Format_RGBA8888).mirrored();
+  auto width = myImage.width();
+  auto height = myImage.height();
+  QByteArray arr = QByteArray::fromRawData((const char *)myImage.bits(),
+                                           myImage.sizeInBytes());
+  std::vector<RGBA> output;
+  output.clear();
+  output.reserve(width * height);
+  for (int i = 0; i < arr.size() / 4.f; i++) {
+    output.push_back(
+        RGBA{(std::uint8_t)arr[4 * i], (std::uint8_t)arr[4 * i + 1],
+             (std::uint8_t)arr[4 * i + 2], (std::uint8_t)arr[4 * i + 3]});
+  }
+  // Add to our map
+  out[file] = TextureInfo{
+      myImage,
+      output,
+      width,
+      height,
+  };
 }

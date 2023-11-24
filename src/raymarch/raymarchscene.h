@@ -34,6 +34,9 @@ public:
   // Get Shapes
   std::vector<RayMarchObj> &getShapes();
 
+  // Get Shapes Textures
+  std::map<std::string, TextureInfo> &getShapesTextures();
+
   // Get Lights
   std::vector<SceneLightData> &getLights();
 
@@ -47,7 +50,12 @@ private:
   // PRIVATE METHODS
 
   // Initialize objects read from json
-  void initRayMarchObjs(std::vector<RenderShapeData> &rd);
+  void initRayMarchObjs(std::map<std::string, TextureInfo> &textureMap,
+                        std::vector<RenderShapeData> &rd);
+
+  // Load texture if used
+  void loadTextureFromPrim(std::map<std::string, TextureInfo> &out,
+                           const std::string &file);
 
 private:
   // PRIVATE MEMBERS
@@ -62,6 +70,9 @@ private:
 
   // Shapes
   std::vector<RayMarchObj> m_shapes;
+
+  // Shapes Textures
+  std::map<std::string, TextureInfo> m_textures;
 
   // Lights
   std::vector<SceneLightData> m_lights;

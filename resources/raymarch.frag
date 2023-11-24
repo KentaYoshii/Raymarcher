@@ -23,6 +23,7 @@ struct RayMarchObject
     // Bring point to obj space
     mat4 invModelMatrix;
     // Scale
+    // - to combat against non-rigid body transformation
     float scaleFactor;
 
     // Material Property
@@ -30,6 +31,12 @@ struct RayMarchObject
     vec3 cAmbient;
     vec3 cDiffuse;
     vec3 cSpecular;
+    float blend;
+
+    // -1 if not used.
+    int texLoc;
+    float repeatU;
+    float repeatV;
 };
 
 // Struct to store results of sdScene
@@ -85,6 +92,9 @@ uniform float ka;
 uniform float kd;
 uniform float ks;
 
+// Textures
+uniform sampler2D objTextures[10];
+
 // ============ Signed Distance Fields ==============
 // Define SDF for different shapes here
 // - Based on https://iquilezles.org/articles/distfunctions/
@@ -136,6 +146,135 @@ float sdMatch(vec3 p, int type)
         d = sdSphere(p, 0.5);
     }
     return d;
+}
+
+// ================ UV Mapping (non-procedual) ==========
+// Cube
+vec2 uvMapCube(vec3 p, float repeatU, float repeatV)
+{
+    float u, v;
+    float x = p[0], y = p[1], z = p[2];
+    float epsilon = 0.001;
+    if (abs(x + 0.5) < epsilon)
+    {
+        u = z + 0.5f;
+        v = y + 0.5f;
+    }
+    else if (abs(x - 0.5) < epsilon)
+    {
+        u = -z + 0.5f;
+        v = y + 0.5f;
+    }
+    else if (abs(y + 0.5) < epsilon)
+    {
+        u = x + 0.5f;
+        v = z + 0.5f;
+    }
+    else if (abs(y - 0.5) < epsilon)
+    {
+        u = x + 0.5f;
+        v = -z + 0.5f;
+    }
+    else if (abs(z + 0.5) < epsilon)
+    {
+        u = -x + 0.5f;
+        v = y + 0.5f;
+    }
+    else
+    {
+        u = x + 0.5f;
+        v = y + 0.5f;
+    }
+    return vec2(u * repeatU, v * repeatV);
+}
+
+// Cone
+vec2 uvMapCone(vec3 p, float repeatU, float repeatV)
+{
+    // Along the y-axis
+    float y = p[1];
+    float u, v;
+    float epsilon = 0.001;
+    if (abs(y + 0.5) < 0.001)
+    {
+        // intersect at flat base
+        u = p[0] + 0.5f;
+        v = p[2] + 0.5f;
+    }
+    else
+    {
+        // intersects at the side
+        float theta = atan(p[2], p[0]);
+        if (theta < 0)
+        {
+          u = -theta / (2 * 3.14159265);
+        }
+        else
+        {
+          u = 1 - (theta / (2 * 3.14159265));
+        }
+        v = y + 0.5f;
+    }
+    return vec2(u * repeatU, v * repeatV);
+}
+
+// Cylinder
+vec2 uvMapCylinder(vec3 p, float repeatU, float repeatV)
+{
+    // Along the y-axis
+    float y = p[1];
+    float u, v;
+    float epsilon = 0.001;
+    if (abs(y - 0.5) < epsilon)
+    {
+        u = p[0] + 0.5f;
+        v = -p[2] + 0.5f;
+    }
+    else if (abs(y + 0.5) < epsilon)
+    {
+        u = p[0] + 0.5f;
+        v = p[2] + 0.5f;
+    }
+    else
+    {
+       // at the side
+       float theta = atan(p[2], p[0]);
+       if (theta < 0)
+       {
+          u = -theta / (2 * 3.14159265);
+       }
+       else
+       {
+          u = 1 - (theta / (2 * 3.14159265));
+       }
+        v = y + 0.5f;
+      }
+      return vec2(u * repeatU, v * repeatV);
+}
+
+// Sphere
+vec2 uvMapSphere(vec3 p, float repeatU, float repeatV)
+{
+    float u, v;
+    // Compute U
+    float theta = atan(p[2], p[0]);
+    if (theta < 0)
+    {
+        u = -theta / (2 * 3.14159265);
+    }
+    else
+    {
+        u = 1 - (theta / (2 * 3.14159265));
+    }
+    // Compute V
+    float phi = asin(p[1] / 0.5f);
+    v = phi / 3.14159265 + 0.5f;
+    if (v == 0.f || v == 1.f)
+    {
+       // Poles (singularity)
+       u = 0.5f;
+    }
+    return vec2(u * repeatU, v * repeatV);
 }
 
 // ================ Raymarch Algorithm ==================
@@ -225,8 +364,26 @@ RayMarchRes softshadow(vec3 ro, vec3 rd, float mint, float maxt, float k )
 }
 
 // Get the diffuse term
-vec3 getDiffuse(float NdotL, vec3 cdiff) {
-    return kd * NdotL * cdiff;
+vec3 getDiffuse(int objId, vec3 p, vec3 n) {
+    RayMarchObject obj = objects[objId];
+    if (obj.texLoc == -1) {
+        return kd * obj.cDiffuse;
+    }
+
+    vec2 uv;
+    vec3 po = vec3(obj.invModelMatrix * vec4(p, 1.f));
+    if (obj.type == CUBE) {
+        uv = uvMapCube(po, obj.repeatU, obj.repeatV);
+    } else if (obj.type == CONE) {
+        uv = uvMapCone(po, obj.repeatU, obj.repeatV);
+    } else if (obj.type == CYLINDER) {
+        uv = uvMapCylinder(po, obj.repeatU, obj.repeatV);
+    } else if (obj.type == SPHERE) {
+        uv = uvMapSphere(po, obj.repeatU, obj.repeatV);
+    }
+
+    vec4 texVal = texture(objTextures[obj.texLoc], uv);
+    return (1.f - obj.blend) * kd * obj.cDiffuse + obj.blend * vec3(texVal);
 }
 
 // Get the specular term (special case when shininess = 0)
@@ -249,7 +406,7 @@ float attenuationFactor(float d, vec3 func) {
 }
 
 // Get Phong Light
-vec3 getPhong(vec3 N, int intersectObj, vec3 p)
+vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 rd)
 {
     vec3 total = vec3(0.f);
     RayMarchObject obj = objects[intersectObj];
@@ -270,7 +427,7 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p)
             fAtt = attenuationFactor(d, lights[i].lightFunc);
             maxT = length(lights[i].lightPos - p);
         } else if (lights[i].type == DIRECTIONAL) {
-            L = -normalize(lights[i].lightDir);
+            L = normalize(-lights[i].lightDir);
             maxT = 100.f;
         } else if (lights[i].type == SPOT) {
             L = normalize(lights[i].lightPos - p);
@@ -289,7 +446,7 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p)
              }
         }
 
-        // Soft Shadow
+        // Shadow
         RayMarchRes res = softshadow(p, L, eps, maxT, 64);
         if (res.intersectObj == 1) {
             continue;
@@ -297,18 +454,19 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p)
 
         // Diffuse
         float NdotL = dot(N, L);
-        if (NdotL < 0.f) {
+        if (NdotL < 0) {
+            // Pointing away
             continue;
         }
-        NdotL = clamp(dot(N, L), 0.f, 1.f);
-        currColor +=  getDiffuse(NdotL, obj.cDiffuse);
+        NdotL = clamp(NdotL, 0.f, 1.f);
+        currColor +=  getDiffuse(intersectObj, p, N) * NdotL * lights[i].lightColor;
         // Specular
         vec3 R = reflect(-L, N);
-        vec3 dirToCamera = normalize(vec3(eyePosition) - p);
-        float RdotV = clamp(dot(R, dirToCamera), 0.f, 1.f);
-        currColor += getSpecular(RdotV, obj.cSpecular, obj.shininess);
+        vec3 dirToCamera = normalize(-rd);
+        float RdotV = max(dot(R, dirToCamera), 0.f);
+        currColor += getSpecular(RdotV, obj.cSpecular, obj.shininess) * lights[i].lightColor;
         // Add the light source's contribution
-        currColor *= fAtt * lights[i].lightColor * aFall;
+        currColor *= fAtt * aFall;
         total += currColor * res.d;
     }
 
@@ -330,7 +488,7 @@ void main() {
         // HIT
         vec3 sp = origin + dir * res.d;
         vec3 sn = getNormal(sp);
-        fragColor = vec4(getPhong(sn, res.intersectObj, sp), 1.f);
+        fragColor = vec4(getPhong(sn, res.intersectObj, sp, dir), 1.f);
     } else {
         // NO HIT
         fragColor = vec4(vec3(0.f), 1.f);

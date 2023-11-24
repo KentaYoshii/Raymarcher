@@ -48,11 +48,18 @@ void Realtime::initializeGL() {
   scene.m_width = size().width() * m_devicePixelRatio;
   scene.m_height = size().height() * m_devicePixelRatio;
   glViewport(0, 0, scene.m_width, scene.m_height);
+
+  // =========== SETUP =============
+
   // Load the shaders
   m_rayMarchShader = ShaderLoader::createShaderProgram(
       ":/resources/raymarch.vert", ":/resources/raymarch.frag");
   // Initialize the image plane through which we march rays
   initImagePlane();
+  // Initialize the shader
+  initShader();
+  // Initialize any defaults
+  initDefaults();
 }
 
 void Realtime::paintGL() {
@@ -77,6 +84,7 @@ void Realtime::sceneChanged() {
   if (scene.isInitialized()) {
   }
   scene.initScene(settings);
+  initShapesTextures();
   update();
 }
 
