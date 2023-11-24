@@ -80,22 +80,33 @@ in vec4 farClip;
 out vec4 fragColor;
 // =================================
 
-// Uniforms
+// =========== Uniforms ============
+// Screen/Camera
 uniform vec4 eyePosition;
 uniform vec2 screenDimensions;
-uniform RayMarchObject objects[50];
-uniform LightSource lights[10];
-uniform int numObjects;
-uniform int numLights;
 uniform float far;
 
-// Constants
+// Lighting
+// - Phong Constants
 uniform float ka;
 uniform float kd;
 uniform float ks;
+// - Scene Lights
+uniform LightSource lights[10];
+uniform int numLights;
+
+// Objects
+uniform RayMarchObject objects[50];
+uniform int numObjects;
 
 // Textures
 uniform sampler2D objTextures[10];
+
+// Options
+uniform bool enableGammaCorrection;
+uniform bool enableSoftShadow;
+// =================================
+
 
 // ============ Signed Distance Fields ==============
 // Define SDF for different shapes here
@@ -454,7 +465,10 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 rd)
         currColor += getSpecular(RdotV, obj.cSpecular, obj.shininess) * lights[i].lightColor;
         // Add the light source's contribution
         currColor *= fAtt * aFall;
-        total += currColor * res.d;
+        if (enableSoftShadow) {
+            currColor *= res.d;
+        }
+        total += currColor;
     }
 
     return total;
@@ -475,7 +489,11 @@ void main() {
         // HIT
         vec3 sp = origin + dir * res.d;
         vec3 sn = getNormal(sp);
-        fragColor = vec4(getPhong(sn, res.intersectObj, sp, dir), 1.f);
+        vec3 col = getPhong(sn, res.intersectObj, sp, dir);
+        if (enableGammaCorrection) {
+            col = pow(col, vec3(1.0/2.2));
+        }
+        fragColor = vec4(col, 1.f);
     } else {
         // NO HIT
         fragColor = vec4(vec3(0.f), 1.f);

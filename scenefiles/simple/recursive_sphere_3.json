@@ -1,0 +1,206 @@
+{
+  "name": "root",
+  "globalData": {
+    "ambientCoeff": 0.5,
+    "diffuseCoeff": 0.7,
+    "specularCoeff": 0.54,
+    "transparentCoeff": 0
+  },
+  "cameraData": {
+    "position": [10, 4.1, 16],
+    "up": [0, 1, 0],
+    "heightAngle": 49.5,
+    "look": [-9, -3.2, -16]
+  },
+  "templateGroups": [
+    {
+      "name": "level 2",
+      "groups": [
+        {
+          "translate": [0, 0, 0],
+          "scale": [1.5, 1.5, 1.5],
+          "primitives": [
+            {
+              "type": "sphere",
+              "reflective": [0.75, 0.75, 1],
+              "diffuse": [0.75, 0.75, 1],
+              "shininess": 25,
+              "specular": [1, 1, 1],
+              "textureFile": "texture_store/marsTexture.png",
+              "textureU": 1,
+              "textureV": 1,
+              "blend": 0.75
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "level 1",
+      "groups": [
+        {
+          "translate": [0, 0, 0],
+          "scale": [3, 3, 3],
+          "primitives": [
+            {
+              "type": "sphere",
+              "reflective": [0.75, 1, 0.75],
+              "diffuse": [0.75, 1, 0.75],
+              "shininess": 25,
+              "specular": [1, 1, 1],
+              "textureFile": "texture_store/marsTexture.png",
+              "textureU": 1,
+              "textureV": 1,
+              "blend": 0.75
+            }
+          ]
+        },
+        {
+          "translate": [-2.25, 0, 0],
+          "rotate": [0, 0, 1, 90],
+          "groups": [
+            {
+              "name": "level 2"
+            }
+          ]
+        },
+        {
+          "translate": [2.25, 0, 0],
+          "rotate": [0, 0, 1, -90],
+          "groups": [
+            {
+              "name": "level 2"
+            }
+          ]
+        },
+        {
+          "translate": [0, 2.25, 0],
+          "rotate": [1, 0, 0, 0],
+          "groups": [
+            {
+              "name": "level 2"
+            }
+          ]
+        },
+        {
+          "translate": [0, 0, -2.25],
+          "rotate": [1, 0, 0, -90],
+          "groups": [
+            {
+              "name": "level 2"
+            }
+          ]
+        },
+        {
+          "translate": [0, 0, 2.25],
+          "rotate": [1, 0, 0, 90],
+          "groups": [
+            {
+              "name": "level 2"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "name": "Directional Lights",
+      "lights": [
+        {
+          "type": "directional",
+          "color": [1, 1, 1],
+          "direction": [0.25, 1, -1]
+        },
+        {
+          "type": "directional",
+          "color": [1, 1, 1],
+          "direction": [1, -1.8, -2]
+        }
+      ]
+    },
+    {
+      "name": "Point Light",
+      "translate": [10, 10, 10],
+      "lights": [
+        {
+          "type": "point",
+          "color": [1, 1, 1],
+          "attenuationCoeff": [1.5, 0, 0]
+        }
+      ]
+    },
+    {
+      "name": "level 0",
+      "translate": [0, 0, 0],
+      "scale": [6, 6, 6],
+      "primitives": [
+        {
+          "type": "sphere",
+          "reflective": [1, 0.75, 0.75],
+          "diffuse": [1, 0.75, 0.75],
+          "shininess": 25,
+          "specular": [1, 1, 1],
+          "textureFile": "texture_store/marsTexture.png",
+          "textureU": 1,
+          "textureV": 1,
+          "blend": 0.75
+        }
+      ]
+    },
+    {
+      "translate": [-4.5, 0, 0],
+      "rotate": [0, 0, 1, 90],
+      "groups": [
+        {
+          "name": "level 1"
+        }
+      ]
+    },
+    {
+      "translate": [4.5, 0, 0],
+      "rotate": [0, 0, 1, -90],
+      "groups": [
+        {
+          "name": "level 1"
+        }
+      ]
+    },
+    {
+      "translate": [0, 4.5, 0],
+      "rotate": [1, 0, 0, 0],
+      "groups": [
+        {
+          "name": "level 1"
+        }
+      ]
+    },
+    {
+      "translate": [0, -4.5, 0],
+      "rotate": [0, 0, 1, 180],
+      "groups": [
+        {
+          "name": "level 1"
+        }
+      ]
+    },
+    {
+      "translate": [0, 0, -4.5],
+      "rotate": [1, 0, 0, -90],
+      "groups": [
+        {
+          "name": "level 1"
+        }
+      ]
+    },
+    {
+      "translate": [0, 0, 4.5],
+      "rotate": [1, 0, 0, 90],
+      "groups": [
+        {
+          "name": "level 1"
+        }
+      ]
+    }
+  ]
+}

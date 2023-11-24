@@ -11,6 +11,7 @@ void Realtime::rayMarch() {
   configureCameraUniforms(m_rayMarchShader);
   configureShapesUniforms(m_rayMarchShader);
   configureLightsUniforms(m_rayMarchShader);
+  configureSettingsUniforms(m_rayMarchShader);
   // Draw
   glBindVertexArray(m_imagePlaneVAO);
   glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -73,7 +74,7 @@ void Realtime::initShapesTextures() {
     }
   }
 
-  // For each texture, send data to GPU
+  // For each texture, initialize
   std::map<std::string, TextureInfo> sceneTexs = scene.getShapesTextures();
   glActiveTexture(GL_TEXTURE0);
   for (auto const &[name, id] : texMap) {
@@ -106,7 +107,10 @@ void Realtime::initShader() {
   glUseProgram(m_rayMarchShader);
   // Set the textures to use correct slots
   GLuint texsLoc = glGetUniformLocation(m_rayMarchShader, "objTextures");
-  for (int i = 0; i < 10; i++) {
+  for (int i = 0; i <= 10; i++) {
+    // Bind to default
+    glActiveTexture(GL_TEXTURE0 + i);
+    glBindTexture(GL_TEXTURE_2D, m_defaultShapeTexture);
     glUniform1i(texsLoc + i, i);
   }
   glUseProgram(0);
@@ -207,6 +211,15 @@ void Realtime::configureLightsUniforms(GLuint shader) {
   glUniform1i(numLightsLoc, cnt);
 }
 
+void Realtime::configureSettingsUniforms(GLuint shader) {
+  // Gamma Correction
+  GLuint gammaLoc = glGetUniformLocation(shader, "enableGammaCorrection");
+  glUniform1i(gammaLoc, m_enableGammaCorrection);
+  // Soft Shadow
+  GLuint softLoc = glGetUniformLocation(shader, "enableSoftShadow");
+  glUniform1i(softLoc, m_enableSoftShadow);
+}
+
 void Realtime::configureShapesUniforms(GLuint shader) {
   int cnt = 0;
   int texCnt = 0;
@@ -295,10 +308,4 @@ void Realtime::configureShapesUniforms(GLuint shader) {
   // num objs
   GLuint numLoc = glGetUniformLocation(shader, "numObjects");
   glUniform1i(numLoc, cnt);
-
-  // we bind the remaining textures to defaults to suppress compilation warnigns
-  for (int i = texCnt; i < 10; i++) {
-    glActiveTexture(GL_TEXTURE0 + i);
-    glBindTexture(GL_TEXTURE_2D, m_defaultShapeTexture);
-  }
 }

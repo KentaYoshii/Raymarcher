@@ -32,6 +32,14 @@ void MainWindow::initialize() {
   QLabel *far_label = new QLabel(); // Far plane label
   far_label->setText("Far Plane:");
 
+  gammaCorrection = new QCheckBox();
+  gammaCorrection->setText(QStringLiteral("Gamma Correction"));
+  gammaCorrection->setChecked(false);
+
+  softShadow = new QCheckBox();
+  softShadow->setText(QStringLiteral("Soft Shadow"));
+  softShadow->setChecked(false);
+
   // Create file uploader for scene file
   uploadFile = new QPushButton();
   uploadFile->setText(QStringLiteral("Upload Scene File"));
@@ -86,6 +94,8 @@ void MainWindow::initialize() {
   vLayout->addWidget(nearLayout);
   vLayout->addWidget(far_label);
   vLayout->addWidget(farLayout);
+  vLayout->addWidget(gammaCorrection);
+  vLayout->addWidget(softShadow);
 
   connectUIElements();
 
@@ -104,6 +114,8 @@ void MainWindow::connectUIElements() {
   connectSaveImage();
   connectNear();
   connectFar();
+  connectGammaCorrect();
+  connectSoftShadow();
 }
 
 void MainWindow::connectUploadFile() {
@@ -130,6 +142,15 @@ void MainWindow::connectFar() {
           static_cast<void (QDoubleSpinBox::*)(double)>(
               &QDoubleSpinBox::valueChanged),
           this, &MainWindow::onValChangeFarBox);
+}
+
+void MainWindow::connectGammaCorrect() {
+  connect(gammaCorrection, &QCheckBox::clicked, this,
+          &MainWindow::onGammaCorrect);
+}
+
+void MainWindow::connectSoftShadow() {
+  connect(softShadow, &QCheckBox::clicked, this, &MainWindow::onSoftShadow);
 }
 
 void MainWindow::onUploadFile() {
@@ -193,5 +214,15 @@ void MainWindow::onValChangeFarBox(double newValue) {
   farSlider->setValue(int(newValue * 100.f));
   // farBox->setValue(newValue);
   settings.farPlane = farBox->value();
+  realtime->settingsChanged();
+}
+
+void MainWindow::onGammaCorrect() {
+  settings.enableGammaCorrection = !settings.enableGammaCorrection;
+  realtime->settingsChanged();
+}
+
+void MainWindow::onSoftShadow() {
+  settings.enableSoftShadow = !settings.enableSoftShadow;
   realtime->settingsChanged();
 }

@@ -20,6 +20,8 @@ private:
   void connectUIElements();
   void connectNear();
   void connectFar();
+  void connectGammaCorrect();
+  void connectSoftShadow();
   void connectUploadFile();
   void connectSaveImage();
 
@@ -33,6 +35,9 @@ private:
   QDoubleSpinBox *nearBox;
   QDoubleSpinBox *farBox;
 
+  QCheckBox *gammaCorrection;
+  QCheckBox *softShadow;
+
 private slots:
   void onUploadFile();
   void onSaveImage();
@@ -40,4 +45,6 @@ private slots:
   void onValChangeFarSlider(int newValue);
   void onValChangeNearBox(double newValue);
   void onValChangeFarBox(double newValue);
+  void onGammaCorrect();
+  void onSoftShadow();
 };

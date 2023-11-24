@@ -35,7 +35,7 @@
               "specular": [0.0, 0.0, 0.0],
               "reflective": [0.0, 0.0, 0.0],
               "blend": 1.0,
-              "textureFile": "textures/topleft.png",
+              "textureFile": "texture_store/topleft.png",
               "textureU": 1.0,
               "textureV": 1.0
             }
@@ -51,7 +51,7 @@
               "specular": [0.0, 0.0, 0.0],
               "reflective": [0.0, 0.0, 0.0],
               "blend": 1.0,
-              "textureFile": "textures/topleft.png",
+              "textureFile": "texture_store/topleft.png",
               "textureU": 1.0,
               "textureV": 1.0
             }
@@ -67,7 +67,7 @@
               "specular": [0.0, 0.0, 0.0],
               "reflective": [0.0, 0.0, 0.0],
               "blend": 1.0,
-              "textureFile": "textures/topleft.png",
+              "textureFile": "texture_store/topleft.png",
               "textureU": 1.0,
               "textureV": 1.0
             }
@@ -83,7 +83,7 @@
               "specular": [0.0, 0.0, 0.0],
               "reflective": [0.0, 0.0, 0.0],
               "blend": 1.0,
-              "textureFile": "textures/topleft.png",
+              "textureFile": "texture_store/topleft.png",
               "textureU": 1.0,
               "textureV": 1.0
             }
@@ -99,7 +99,7 @@
               "specular": [0.0, 0.0, 0.0],
               "reflective": [0.0, 0.0, 0.0],
               "blend": 1.0,
-              "textureFile": "textures/topleft.png",
+              "textureFile": "texture_store/topleft.png",
               "textureU": 1.0,
               "textureV": 1.0
             }
@@ -115,7 +115,7 @@
               "specular": [0.0, 0.0, 0.0],
               "reflective": [0.0, 0.0, 0.0],
               "blend": 1.0,
-              "textureFile": "textures/topleft.png",
+              "textureFile": "texture_store/topleft.png",
               "textureU": 1.0,
               "textureV": 1.0
             }

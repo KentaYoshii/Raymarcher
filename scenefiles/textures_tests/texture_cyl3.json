@@ -55,7 +55,7 @@
               "shininess": 30.0,
               "reflective": [1.0, 1.0, 1.0],
               "blend": 1.0,
-              "textureFile": "textures/mandril.png",
+              "textureFile": "texture_store/mandril.png",
               "textureU": 2.0,
               "textureV": 2.0
             }

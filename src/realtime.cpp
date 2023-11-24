@@ -56,16 +56,17 @@ void Realtime::initializeGL() {
       ":/resources/raymarch.vert", ":/resources/raymarch.frag");
   // Initialize the image plane through which we march rays
   initImagePlane();
-  // Initialize the shader
-  initShader();
   // Initialize any defaults
   initDefaults();
+  // Initialize the shader
+  initShader();
 }
 
 void Realtime::paintGL() {
   if (!scene.isInitialized()) {
     return;
   }
+  // Perform Raymarch and render the scene
   rayMarch();
 }
 
@@ -77,13 +78,16 @@ void Realtime::resizeGL(int w, int h) {
   if (!scene.isInitialized()) {
     return;
   }
+  // Resize the scene and update the camera
   scene.resizeScene(scene.m_width, scene.m_height);
 }
 
 void Realtime::sceneChanged() {
   if (scene.isInitialized()) {
   }
+  // Initialize the Raymarch scene
   scene.initScene(settings);
+  // Initialize the textures
   initShapesTextures();
   update();
 }
@@ -92,7 +96,11 @@ void Realtime::settingsChanged() {
   if (!scene.isInitialized()) {
     return;
   }
+  // Update the camera
   scene.updateScene(settings);
+  // Update the options
+  m_enableGammaCorrection = settings.enableGammaCorrection;
+  m_enableSoftShadow = settings.enableSoftShadow;
   update();
 }
 

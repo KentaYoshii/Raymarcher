@@ -74,6 +74,10 @@ private:
   GLuint m_imagePlaneVAO;
   GLuint m_imagePlaneVBO;
 
+  // Toggelable Options
+  bool m_enableGammaCorrection;
+  bool m_enableSoftShadow;
+
   // PRIVATE METHODS
   void rayMarch();
 
@@ -90,4 +94,5 @@ private:
   void configureCameraUniforms(GLuint shader);
   void configureShapesUniforms(GLuint shader);
   void configureLightsUniforms(GLuint shader);
+  void configureSettingsUniforms(GLuint shader);
 };

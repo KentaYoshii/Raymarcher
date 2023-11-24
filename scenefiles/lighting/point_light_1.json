@@ -14,29 +14,12 @@
   },
   "groups": [
     {
+      "translate": [0, 3, 0],
       "lights": [
         {
-          "type": "directional",
-          "color": [0.5, 0.5, 0.5],
-          "direction": [0.0, -1.0, 0.0]
-        }
-      ]
-    },
-    {
-      "lights": [
-        {
-          "type": "directional",
-          "color": [0.5, 0.5, 0.5],
-          "direction": [0.0, -1.0, -1.0]
-        }
-      ]
-    },
-    {
-      "lights": [
-        {
-          "type": "directional",
-          "color": [0.5, 0.5, 0.5],
-          "direction": [0.0, -1.0, 1.0]
+          "type": "point",
+          "color": [1.0, 1.0, 1.0],
+          "attenuationCoeff": [0.8, 0.2, 0.0]
         }
       ]
     },
@@ -49,11 +32,7 @@
               "type": "cylinder",
               "diffuse": [0.8, 0.6, 0.6],
               "specular": [1.0, 1.0, 1.0],
-              "shininess": 15.0,
-              "blend": 1.0,
-              "textureFile": "texture_store/breakfast.gif",
-              "textureU": 2.0,
-              "textureV": 2.0
+              "shininess": 15.0
             }
           ]
         },
@@ -64,11 +43,7 @@
               "type": "cone",
               "diffuse": [0.6, 0.6, 0.8],
               "specular": [1.0, 1.0, 1.0],
-              "shininess": 15.0,
-              "blend": 1.0,
-              "textureFile": "texture_store/mandril.png",
-              "textureU": 2.0,
-              "textureV": 2.0
+              "shininess": 15.0
             }
           ]
         },
@@ -79,11 +54,7 @@
               "type": "sphere",
               "diffuse": [0.6, 0.8, 0.6],
               "specular": [1.0, 1.0, 1.0],
-              "shininess": 15.0,
-              "blend": 1.0,
-              "textureFile": "texture_store/earth.png",
-              "textureU": 2.0,
-              "textureV": 2.0
+              "shininess": 15.0
             }
           ]
         },
@@ -94,11 +65,7 @@
               "type": "cube",
               "diffuse": [0.7, 0.7, 0.7],
               "specular": [1.0, 1.0, 1.0],
-              "shininess": 15.0,
-              "blend": 1.0,
-              "textureFile": "texture_store/boxtexture.png",
-              "textureU": 2.0,
-              "textureV": 2.0
+              "shininess": 15.0
             }
           ]
         },
@@ -108,11 +75,7 @@
           "primitives": [
             {
               "type": "cube",
-              "diffuse": [0.1, 0.4, 0.8],
-              "blend": 1.0,
-              "textureFile": "texture_store/bark.png",
-              "textureU": 2.0,
-              "textureV": 2.0
+              "diffuse": [0.1, 0.4, 0.8]
             }
           ]
         }
