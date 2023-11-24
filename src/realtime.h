@@ -77,6 +77,7 @@ private:
   // Toggelable Options
   bool m_enableGammaCorrection;
   bool m_enableSoftShadow;
+  bool m_enableReflection;
 
   // PRIVATE METHODS
   void rayMarch();

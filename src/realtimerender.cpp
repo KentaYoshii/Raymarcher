@@ -218,6 +218,9 @@ void Realtime::configureSettingsUniforms(GLuint shader) {
   // Soft Shadow
   GLuint softLoc = glGetUniformLocation(shader, "enableSoftShadow");
   glUniform1i(softLoc, m_enableSoftShadow);
+  // Reflection
+  GLuint refLoc = glGetUniformLocation(shader, "enableReflection");
+  glUniform1i(refLoc, m_enableReflection);
 }
 
 void Realtime::configureShapesUniforms(GLuint shader) {
@@ -266,6 +269,11 @@ void Realtime::configureShapesUniforms(GLuint shader) {
     GLint cSpecularLoc = glGetUniformLocation(
         shader, ("objects[" + std::to_string(cnt) + "].cSpecular").c_str());
     glUniform3fv(cSpecularLoc, 1, &obj.m_material.cSpecular[0]);
+
+    // cReflective
+    GLint cReflectiveLoc = glGetUniformLocation(
+        shader, ("objects[" + std::to_string(cnt) + "].cReflective").c_str());
+    glUniform3fv(cReflectiveLoc, 1, &obj.m_material.cReflective[0]);
 
     // blend
     GLint blendLoc = glGetUniformLocation(

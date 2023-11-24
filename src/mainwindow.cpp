@@ -40,6 +40,10 @@ void MainWindow::initialize() {
   softShadow->setText(QStringLiteral("Soft Shadow"));
   softShadow->setChecked(false);
 
+  reflection = new QCheckBox();
+  reflection->setText(QStringLiteral("Reflection"));
+  reflection->setChecked(false);
+
   // Create file uploader for scene file
   uploadFile = new QPushButton();
   uploadFile->setText(QStringLiteral("Upload Scene File"));
@@ -96,6 +100,7 @@ void MainWindow::initialize() {
   vLayout->addWidget(farLayout);
   vLayout->addWidget(gammaCorrection);
   vLayout->addWidget(softShadow);
+  vLayout->addWidget(reflection);
 
   connectUIElements();
 
@@ -116,6 +121,7 @@ void MainWindow::connectUIElements() {
   connectFar();
   connectGammaCorrect();
   connectSoftShadow();
+  connectReflection();
 }
 
 void MainWindow::connectUploadFile() {
@@ -151,6 +157,10 @@ void MainWindow::connectGammaCorrect() {
 
 void MainWindow::connectSoftShadow() {
   connect(softShadow, &QCheckBox::clicked, this, &MainWindow::onSoftShadow);
+}
+
+void MainWindow::connectReflection() {
+  connect(reflection, &QCheckBox::clicked, this, &MainWindow::onReflection);
 }
 
 void MainWindow::onUploadFile() {
@@ -224,5 +234,10 @@ void MainWindow::onGammaCorrect() {
 
 void MainWindow::onSoftShadow() {
   settings.enableSoftShadow = !settings.enableSoftShadow;
+  realtime->settingsChanged();
+}
+
+void MainWindow::onReflection() {
+  settings.enableReflection = !settings.enableReflection;
   realtime->settingsChanged();
 }

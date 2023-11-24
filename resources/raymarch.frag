@@ -1,9 +1,10 @@
 #version 330 core
 const int MAX_STEPS = 200;
 const float SURFACE_DIST = 0.001;
-const float SHADOWRAY_OFFSET = 0.01;
+const float SHADOWRAY_OFFSET = 0.007;
 const float TEXTURE_EPS = 0.007;
 const float PI = 3.14159265;
+const int NUM_REFLECTION = 2;
 
 // PRIM TYPES
 const int CUBE = 0;
@@ -30,10 +31,11 @@ struct RayMarchObject
 
     // Material Property
     float shininess;
+    float blend;
     vec3 cAmbient;
     vec3 cDiffuse;
     vec3 cSpecular;
-    float blend;
+    vec3 cReflective;
 
     // -1 if not used.
     int texLoc;
@@ -105,6 +107,7 @@ uniform sampler2D objTextures[10];
 // Options
 uniform bool enableGammaCorrection;
 uniform bool enableSoftShadow;
+uniform bool enableReflection;
 // =================================
 
 
@@ -302,15 +305,13 @@ SceneMin sdScene(vec3 p){
 
 // Given intersection point, get the normal
 vec3 getNormal(in vec3 p) {
-    const vec3 small_step = vec3(0.001, 0.0, 0.0);
-
-    float gradient_x = sdScene(p + small_step.xyy).minD - sdScene(p - small_step.xyy).minD;
-    float gradient_y = sdScene(p + small_step.yxy).minD - sdScene(p - small_step.yxy).minD;
-    float gradient_z = sdScene(p + small_step.yyx).minD - sdScene(p - small_step.yyx).minD;
-
-    vec3 normal = vec3(gradient_x, gradient_y, gradient_z);
-
-    return normalize(normal);
+    vec3 e = vec3(1.0,-1.0, 0)*0.5773*0.0005;
+    return normalize(
+                e.xyy*sdScene(p + e.xyy).minD +
+                e.yyx*sdScene(p + e.yyx).minD +
+                e.yxy*sdScene(p + e.yxy).minD +
+                e.xxx*sdScene(p + e.xxx).minD
+                );
 }
 
 RayMarchRes raymarch(vec3 ro, vec3 rd, float end) {
@@ -322,15 +323,17 @@ RayMarchRes raymarch(vec3 ro, vec3 rd, float end) {
   for(int i = 0; i < MAX_STEPS; i++) {
     vec3 p = ro + rd * rayDepth;
     closest = sdScene(p);
-    rayDepth += closest.minD;
-    if (closest.minD < SURFACE_DIST || rayDepth >= end) {
+    if (abs(closest.minD) < SURFACE_DIST || rayDepth > end) {
         break;
     }
+    rayDepth += closest.minD;
   }
   RayMarchRes res;
-  if (closest.minD < SURFACE_DIST) {
+  if (abs(closest.minD) < SURFACE_DIST) {
       res.intersectObj = closest.minObjIdx;
-      res.d = rayDepth;
+      // Bruh don't ask me why we need this.
+      // Without this, normal calcuation somehow gets messed up
+      res.d = rayDepth - 0.001;
   } else {
       res.intersectObj = -1;
   }
@@ -475,27 +478,59 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 rd)
 }
 
 // =============================================================
+vec3 render(inout vec3 ro, inout vec3 rd, inout vec3 ref)
+{
+    // (note) "inout" allows you to modify ro and rd inside the function
+
+    // Raymarching
+    RayMarchRes res = raymarch(ro, rd, far);
+    ref = vec3(0);
+    if (res.intersectObj == -1) {
+        // NO HIT
+        return vec3(0.f);
+    }
+    // HIT
+    // - hit point
+    vec3 p = ro + rd * res.d;
+    // - normalized hit normal
+    vec3 pn = getNormal(p);
+    // - get color
+    vec3 col = getPhong(pn, res.intersectObj, p, rd);
+    if (enableGammaCorrection) {
+        col = pow(col, vec3(1.0/2.2));
+    }
+
+    // Reflection
+    // - get reflect dir
+    vec3 r = reflect(rd, pn);
+    ro = p + pn * SURFACE_DIST * 3.f;
+    rd = r;
+    // - set material reflectivity
+    ref = objects[res.intersectObj].cReflective;
+    return col;
+}
 
 void main() {
-    // Perspective divide
+    // Perspective divide and get Ray origin and Ray direction
     vec3 origin = nearClip.xyz / nearClip.w;
     vec3 farC = farClip.xyz / farClip.w;
     vec3 dir = farC - origin;
     dir = normalize(dir);
 
-    // Raymarching
-    RayMarchRes res = raymarch(origin, dir, far);
-    if (res.intersectObj != -1) {
-        // HIT
-        vec3 sp = origin + dir * res.d;
-        vec3 sn = getNormal(sp);
-        vec3 col = getPhong(sn, res.intersectObj, sp, dir);
-        if (enableGammaCorrection) {
-            col = pow(col, vec3(1.0/2.2));
+    // Material reflectiveness
+    vec3 ref;
+    vec3 fil = vec3(1.);
+    // Main render
+    vec3 col = render(origin, dir, ref);
+    if (enableReflection) {
+        // GLSL does not have recursion apparently :(
+        // Here is my work around
+        // - fil keeps track of the accumulated material reflectivity
+        for (int i = 0; i < NUM_REFLECTION; i++) {
+            fil *= ref;
+            vec3 bounce = ks * fil * render(origin, dir, ref);
+            col += bounce;
         }
-        fragColor = vec4(col, 1.f);
-    } else {
-        // NO HIT
-        fragColor = vec4(vec3(0.f), 1.f);
     }
+    fragColor = vec4(col, 1.f);
 }

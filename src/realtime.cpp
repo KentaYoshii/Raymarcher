@@ -101,6 +101,7 @@ void Realtime::settingsChanged() {
   // Update the options
   m_enableGammaCorrection = settings.enableGammaCorrection;
   m_enableSoftShadow = settings.enableSoftShadow;
+  m_enableReflection = settings.enableReflection;
   update();
 }
 

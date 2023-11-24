@@ -22,6 +22,7 @@ private:
   void connectFar();
   void connectGammaCorrect();
   void connectSoftShadow();
+  void connectReflection();
   void connectUploadFile();
   void connectSaveImage();
 
@@ -37,6 +38,7 @@ private:
 
   QCheckBox *gammaCorrection;
   QCheckBox *softShadow;
+  QCheckBox *reflection;
 
 private slots:
   void onUploadFile();
@@ -47,4 +49,5 @@ private slots:
   void onValChangeFarBox(double newValue);
   void onGammaCorrect();
   void onSoftShadow();
+  void onReflection();
 };
