@@ -1,5 +1,5 @@
 #version 330 core
-const int MAX_STEPS = 50;
+const int MAX_STEPS = 150;
 const float SURFACE_DIST = 0.001;
 const float eps = 0.005;
 
@@ -73,6 +73,7 @@ out vec4 fragColor;
 
 // Uniforms
 uniform vec4 eyePosition;
+uniform vec2 screenDimensions;
 uniform RayMarchObject objects[50];
 uniform LightSource lights[10];
 uniform int numObjects;
@@ -216,18 +217,17 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p)
         float aFall = 1.f;
         float d = length(p - lights[i].lightPos);
         vec3 currColor = vec3(0.f);
-        float cosalpha;
         vec3 L;
         if (lights[i].type == POINT) {
             L = normalize(lights[i].lightPos - p);
             fAtt = attenuationFactor(d, lights[i].lightFunc);
         } else if (lights[i].type == DIRECTIONAL) {
-            L = -normalize(lights[i].lightDir);
+            L = normalize(-lights[i].lightDir);
         } else if (lights[i].type == SPOT) {
             L = normalize(lights[i].lightPos - p);
             fAtt = attenuationFactor(d, lights[i].lightFunc);
             // Angular Falloff
-            cosalpha = dot(-normalize(lights[i].lightDir), L);
+            float cosalpha = dot(-normalize(lights[i].lightDir), L);
             float inner = lights[i].lightAngle - lights[i].lightPenumbra;
             if (cosalpha <= cos(lights[i].lightAngle)){
                 aFall = 0.f;
@@ -239,8 +239,12 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p)
              }
         }
         // Diffuse
-        float NdotL = clamp(dot(N, L), 0.f, 1.f);
-        currColor += getDiffuse(NdotL, obj.cDiffuse);
+        float NdotL = dot(N, L);
+        if (NdotL < 0.f) {
+            continue;
+        }
+        NdotL = clamp(dot(N, L), 0.f, 1.f);
+        currColor +=  getDiffuse(NdotL, obj.cDiffuse);
         // Specular
         vec3 R = reflect(-L, N);
         vec3 dirToCamera = normalize(vec3(eyePosition) - p);
@@ -262,6 +266,7 @@ RayMarchRes raymarch(vec3 ro, vec3 rd, float end) {
   // Start from eye pos
   float rayDepth = 0.0;
   SceneMin closest;
+  closest.minD = 100;
   // Start the march
   for(int i = 0; i < MAX_STEPS; i++) {
     vec3 p = ro + rd * rayDepth;

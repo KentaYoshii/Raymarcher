@@ -139,7 +139,7 @@ void Realtime::configureLightsUniforms(GLuint shader) {
     // Penumbra
     GLuint penumbraLoc = glGetUniformLocation(
         shader, ("lights[" + std::to_string(cnt) + "].lightPenumbra").c_str());
-    glUniform3fv(penumbraLoc, 1, &light.penumbra);
+    glUniform1f(penumbraLoc, light.penumbra);
     cnt += 1;
   }
   // Finally, record the number of lights
