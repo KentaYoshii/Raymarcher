@@ -1,0 +1,77 @@
+{
+  "name": "root",
+  "globalData": {
+    "ambientCoeff": 0.5,
+    "diffuseCoeff": 0.5,
+    "specularCoeff": 0.5,
+    "transparentCoeff": 1
+  },
+  "cameraData": {
+    "position": [-4.0, 2.0, 0.0],
+    "up": [0.0, 1.0, 0.0],
+    "look": [4.0, -2.0, 0.0],
+    "heightAngle": 30.0
+  },
+  "groups": [
+    {
+      "lights": [
+        {
+          "type": "point",
+          "color": [0.5, 0.5, 0.5],
+          "attenuationCoeff": [1, 0, 0]
+        }
+      ],
+      "translate": [10, 10, 10]
+    },
+    {
+      "lights": [
+        {
+          "type": "point",
+          "color": [0.8, 0.4, 0.8],
+          "attenuationCoeff": [1, 0, 0]
+        }
+      ],
+      "translate": [-2, -2, 2]
+    },
+    {
+      "lights": [
+        {
+          "type": "point",
+          "color": [0.8, 0.4, 0.8],
+          "attenuationCoeff": [1, 0, 0]
+        }
+      ],
+      "translate": [4, 4, 4]
+    },
+    {
+      "lights": [
+        {
+          "type": "point",
+          "color": [0.8, 0.4, 0.8],
+          "attenuationCoeff": [1, 0, 0]
+        }
+      ],
+      "translate": [-6, -6, -6]
+    },
+    {
+      "groups": [
+        {
+          "rotate": [0, 0, 1, -45],
+          "primitives": [
+            {
+              "type": "cone",
+              "diffuse": [1.0, 1.0, 1.0],
+              "specular": [1.0, 1.0, 1.0],
+              "shininess": 30.0,
+              "reflective": [0.9, 0.9, 0.9],
+              "blend": 1.0,
+              "textureFile": "textures/board.png",
+              "textureU": 2.0,
+              "textureV": 2.0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

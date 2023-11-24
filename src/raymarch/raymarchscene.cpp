@@ -105,7 +105,7 @@ void RayMarchScene::updateScene(Settings &s) {
 void RayMarchScene::resetCamera() { m_camera = Camera{}; };
 
 /**
- * @brief Function that initializes our RayMarch objs given a vec of
+ * @brief Function that initializes our RayMarch objs given a vec ofk
  * RenderShapeData
  */
 void RayMarchScene::initRayMarchObjs(

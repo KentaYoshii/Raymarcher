@@ -1,0 +1,127 @@
+{
+  "name": "root",
+  "globalData": {
+    "ambientCoeff": 0.5,
+    "diffuseCoeff": 0.5,
+    "specularCoeff": 0.5,
+    "transparentCoeff": 1
+  },
+  "cameraData": {
+    "position": [0.0, 0.0, 6.0],
+    "up": [0.0, 1.0, 0.0],
+    "focus": [0, 0, 0],
+    "heightAngle": 40.0
+  },
+  "groups": [
+    {
+      "translate": [0.0, 0.0, 4.0],
+      "lights": [
+        {
+          "type": "point",
+          "color": [1.0, 1.0, 1.0],
+          "attenuationCoeff": [1.0, 0.0, 0.0]
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "translate": [-1.2, 0.6, 0.0],
+          "rotate": [0.0, 1.0, 0.0, 0.0],
+          "primitives": [
+            {
+              "type": "sphere",
+              "ambient": [0.3, 0.0, 0.0],
+              "specular": [0.0, 0.0, 0.0],
+              "reflective": [0.0, 0.0, 0.0],
+              "blend": 1.0,
+              "textureFile": "textures/topleft.png",
+              "textureU": 1.0,
+              "textureV": 1.0
+            }
+          ]
+        },
+        {
+          "translate": [0.0, 0.6, 0.0],
+          "rotate": [0.0, 1.0, 0.0, 90.0],
+          "primitives": [
+            {
+              "type": "sphere",
+              "ambient": [0.3, 0.0, 0.0],
+              "specular": [0.0, 0.0, 0.0],
+              "reflective": [0.0, 0.0, 0.0],
+              "blend": 1.0,
+              "textureFile": "textures/topleft.png",
+              "textureU": 1.0,
+              "textureV": 1.0
+            }
+          ]
+        },
+        {
+          "translate": [1.2, 0.6, 0.0],
+          "rotate": [0.0, 1.0, 0.0, 180.0],
+          "primitives": [
+            {
+              "type": "sphere",
+              "ambient": [0.3, 0.0, 0.0],
+              "specular": [0.0, 0.0, 0.0],
+              "reflective": [0.0, 0.0, 0.0],
+              "blend": 1.0,
+              "textureFile": "textures/topleft.png",
+              "textureU": 1.0,
+              "textureV": 1.0
+            }
+          ]
+        },
+        {
+          "translate": [-1.2, -0.6, 0.0],
+          "rotate": [0.0, 1.0, 0.0, 270.0],
+          "primitives": [
+            {
+              "type": "sphere",
+              "ambient": [0.3, 0.0, 0.0],
+              "specular": [0.0, 0.0, 0.0],
+              "reflective": [0.0, 0.0, 0.0],
+              "blend": 1.0,
+              "textureFile": "textures/topleft.png",
+              "textureU": 1.0,
+              "textureV": 1.0
+            }
+          ]
+        },
+        {
+          "translate": [0.0, -0.6, 0.0],
+          "rotate": [1.0, 0.0, 0.0, 90.0],
+          "primitives": [
+            {
+              "type": "sphere",
+              "ambient": [0.3, 0.0, 0.0],
+              "specular": [0.0, 0.0, 0.0],
+              "reflective": [0.0, 0.0, 0.0],
+              "blend": 1.0,
+              "textureFile": "textures/topleft.png",
+              "textureU": 1.0,
+              "textureV": 1.0
+            }
+          ]
+        },
+        {
+          "translate": [1.2, -0.6, 0.0],
+          "rotate": [1.0, 0.0, 0.0, -90.0],
+          "primitives": [
+            {
+              "type": "sphere",
+              "ambient": [0.3, 0.0, 0.0],
+              "specular": [0.0, 0.0, 0.0],
+              "reflective": [0.0, 0.0, 0.0],
+              "blend": 1.0,
+              "textureFile": "textures/topleft.png",
+              "textureU": 1.0,
+              "textureV": 1.0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

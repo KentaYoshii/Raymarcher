@@ -1,7 +1,9 @@
 #version 330 core
-const int MAX_STEPS = 150;
+const int MAX_STEPS = 200;
 const float SURFACE_DIST = 0.001;
-const float eps = 0.01;
+const float SHADOWRAY_OFFSET = 0.01;
+const float TEXTURE_EPS = 0.007;
+const float PI = 3.14159265;
 
 // PRIM TYPES
 const int CUBE = 0;
@@ -153,37 +155,24 @@ float sdMatch(vec3 p, int type)
 vec2 uvMapCube(vec3 p, float repeatU, float repeatV)
 {
     float u, v;
-    float x = p[0], y = p[1], z = p[2];
-    float epsilon = 0.001;
-    if (abs(x + 0.5) < epsilon)
+    vec3 absP = abs(p);
+    float m = max(max(absP.x, absP.y), absP.z);
+
+    // Determine the major axis
+    if (m == absP.x)
     {
-        u = z + 0.5f;
-        v = y + 0.5f;
+        u = p.z + 0.5;
+        v = p.y + 0.5;
     }
-    else if (abs(x - 0.5) < epsilon)
+    else if (m == absP.y)
     {
-        u = -z + 0.5f;
-        v = y + 0.5f;
-    }
-    else if (abs(y + 0.5) < epsilon)
-    {
-        u = x + 0.5f;
-        v = z + 0.5f;
-    }
-    else if (abs(y - 0.5) < epsilon)
-    {
-        u = x + 0.5f;
-        v = -z + 0.5f;
-    }
-    else if (abs(z + 0.5) < epsilon)
-    {
-        u = -x + 0.5f;
-        v = y + 0.5f;
+        u = p.x + 0.5;
+        v = p.z + 0.5;
     }
     else
     {
-        u = x + 0.5f;
-        v = y + 0.5f;
+        u = p.x + 0.5;
+        v = p.y + 0.5;
     }
     return vec2(u * repeatU, v * repeatV);
 }
@@ -194,8 +183,7 @@ vec2 uvMapCone(vec3 p, float repeatU, float repeatV)
     // Along the y-axis
     float y = p[1];
     float u, v;
-    float epsilon = 0.001;
-    if (abs(y + 0.5) < 0.001)
+    if (abs(y + 0.5) < TEXTURE_EPS)
     {
         // intersect at flat base
         u = p[0] + 0.5f;
@@ -207,11 +195,11 @@ vec2 uvMapCone(vec3 p, float repeatU, float repeatV)
         float theta = atan(p[2], p[0]);
         if (theta < 0)
         {
-          u = -theta / (2 * 3.14159265);
+          u = -theta / (2 * PI);
         }
         else
         {
-          u = 1 - (theta / (2 * 3.14159265));
+          u = 1 - (theta / (2 * PI));
         }
         v = y + 0.5f;
     }
@@ -224,13 +212,12 @@ vec2 uvMapCylinder(vec3 p, float repeatU, float repeatV)
     // Along the y-axis
     float y = p[1];
     float u, v;
-    float epsilon = 0.001;
-    if (abs(y - 0.5) < epsilon)
+    if (abs(y - 0.5) < TEXTURE_EPS)
     {
         u = p[0] + 0.5f;
         v = -p[2] + 0.5f;
     }
-    else if (abs(y + 0.5) < epsilon)
+    else if (abs(y + 0.5) < TEXTURE_EPS)
     {
         u = p[0] + 0.5f;
         v = p[2] + 0.5f;
@@ -241,11 +228,11 @@ vec2 uvMapCylinder(vec3 p, float repeatU, float repeatV)
        float theta = atan(p[2], p[0]);
        if (theta < 0)
        {
-          u = -theta / (2 * 3.14159265);
+          u = -theta / (2 * PI);
        }
        else
        {
-          u = 1 - (theta / (2 * 3.14159265));
+          u = 1 - (theta / (2 * PI));
        }
         v = y + 0.5f;
       }
@@ -260,15 +247,15 @@ vec2 uvMapSphere(vec3 p, float repeatU, float repeatV)
     float theta = atan(p[2], p[0]);
     if (theta < 0)
     {
-        u = -theta / (2 * 3.14159265);
+        u = -theta / (2 * PI);
     }
     else
     {
-        u = 1 - (theta / (2 * 3.14159265));
+        u = 1 - (theta / (2 * PI));
     }
     // Compute V
     float phi = asin(p[1] / 0.5f);
-    v = phi / 3.14159265 + 0.5f;
+    v = phi / PI + 0.5f;
     if (v == 0.f || v == 1.f)
     {
        // Poles (singularity)
@@ -381,7 +368,7 @@ vec3 getDiffuse(int objId, vec3 p, vec3 n) {
     } else if (obj.type == SPHERE) {
         uv = uvMapSphere(po, obj.repeatU, obj.repeatV);
     }
-
+    vec2 scaledUV = vec2(obj.scaleFactor * uv[0], obj.scaleFactor * uv[1]);
     vec4 texVal = texture(objTextures[obj.texLoc], uv);
     return (1.f - obj.blend) * kd * obj.cDiffuse + obj.blend * vec3(texVal);
 }
@@ -447,7 +434,7 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 rd)
         }
 
         // Shadow
-        RayMarchRes res = softshadow(p, L, eps, maxT, 64);
+        RayMarchRes res = softshadow(p, L, SHADOWRAY_OFFSET, maxT, 8);
         if (res.intersectObj == 1) {
             continue;
         }
