@@ -23,6 +23,24 @@ void Realtime::finish() {
   killTimer(m_timer);
   this->makeCurrent();
 
+  // Destroy Shapes Textuers
+  destroyShapesTextures();
+
+  // Destroy Image Plane
+  glDeleteVertexArrays(1, &m_imagePlaneVAO);
+  glDeleteBuffers(1, &m_imagePlaneVBO);
+
+  // Destroy Full Screen Quad
+  glDeleteVertexArrays(1, &m_fullscreenVAO);
+  glDeleteBuffers(1, &m_fullscreenVBO);
+
+  // Destroy Defaults
+  glDeleteTextures(1, &m_defaultShapeTexture);
+
+  // Destroy Shaders
+  glDeleteProgram(m_rayMarchShader);
+  glDeleteProgram(m_fxaaShader);
+
   this->doneCurrent();
 }
 
@@ -54,8 +72,12 @@ void Realtime::initializeGL() {
   // Load the shaders
   m_rayMarchShader = ShaderLoader::createShaderProgram(
       ":/resources/raymarch.vert", ":/resources/raymarch.frag");
+  m_fxaaShader = ShaderLoader::createShaderProgram(
+      ":/resources/fullscreen.vert", ":/resources/fxaa.frag");
   // Initialize the image plane through which we march rays
   initImagePlane();
+  // Initialize the full screen quad
+  initFullScreenQuad();
   // Initialize any defaults
   initDefaults();
   // Initialize the shader
@@ -84,6 +106,8 @@ void Realtime::resizeGL(int w, int h) {
 
 void Realtime::sceneChanged() {
   if (scene.isInitialized()) {
+    // Destroy previous shapes textures
+    destroyShapesTextures();
   }
   // Initialize the Raymarch scene
   scene.initScene(settings);

@@ -69,6 +69,50 @@ void Realtime::initImagePlane() {
 }
 
 /**
+ * @brief Initializes full screen quad to be used to apply post processing
+ * effects
+ */
+void Realtime::initFullScreenQuad() {
+  // Construct a Fullscreen Quads (projector screen)
+  std::vector<GLfloat> fullscreen_quad_data = {
+      -1.f, 1.f,  0.0f, // top left
+      0.f,  1.f,        // tl uv
+      -1.f, -1.f, 0.0f, // bottom left
+      0.f,  0.f,        // bl uv
+      1.f,  -1.f, 0.0f, // bottom right
+      1.f,  0.f,        // br uv
+      1.f,  1.f,  0.0f, // top right
+      1.f,  1.f,        // tr uv
+      -1.f, 1.f,  0.0f, // top left
+      0.f,  1.f,        // tl uv
+      1.f,  -1.f, 0.0f, // bottom right
+      1.f,  0.f,        // br uv
+  };
+
+  // Generate and bind a VBO and VAO for a fullscreen quad
+
+  // - VBO
+  glGenBuffers(1, &m_fullscreenVBO);
+  glBindBuffer(GL_ARRAY_BUFFER, m_fullscreenVBO);
+  glBufferData(GL_ARRAY_BUFFER, fullscreen_quad_data.size() * sizeof(GLfloat),
+               fullscreen_quad_data.data(), GL_STATIC_DRAW);
+  // - VAO
+  glGenVertexArrays(1, &m_fullscreenVAO);
+  glBindVertexArray(m_fullscreenVAO);
+  // pos
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), nullptr);
+  // uv
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat),
+                        reinterpret_cast<void *>(3 * sizeof(GLfloat)));
+
+  // unbind the fullscreen quad's VBO and VAO
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+}
+
+/**
  * @brief Creates the material texture object for each shape
  * Invoke once when the scene is first loaded
  */
@@ -89,6 +133,9 @@ void Realtime::initShapesTextures() {
       rts.m_texture = texMap[texName];
     }
   }
+
+  // For destruction later
+  m_TextureMap = texMap;
 
   // For each texture, initialize
   std::map<std::string, TextureInfo> sceneTexs = scene.getShapesTextures();
@@ -388,4 +435,14 @@ void Realtime::configureShapesUniforms(GLuint shader) {
   // num objs
   GLuint numLoc = glGetUniformLocation(shader, "numObjects");
   glUniform1i(numLoc, cnt);
+}
+
+/**
+ * @brief Destroyes all generated shape material texture
+ */
+void Realtime::destroyShapesTextures() {
+  for (auto &[name, id] : m_TextureMap) {
+    glDeleteTextures(1, &id);
+  }
+  m_TextureMap.clear();
 }

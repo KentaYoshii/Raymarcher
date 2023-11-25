@@ -65,18 +65,25 @@ private:
   // Shader
   // - raymarch shader
   GLuint m_rayMarchShader;
+  // - fxaa shader
+  GLuint m_fxaaShader;
 
   // Textures
   // - default material texture
   GLuint m_defaultShapeTexture;
+  std::unordered_map<std::string, GLuint> m_TextureMap;
 
   // FBO
   // - application window FBO
   GLuint m_defaultFBO = 1;
 
-  // Image Plane (aka [-1,1] blank canvas)
+  // Image Plane through which we march rays
   GLuint m_imagePlaneVAO;
   GLuint m_imagePlaneVBO;
+
+  // Full Screen Quad for post processing
+  GLuint m_fullscreenVAO;
+  GLuint m_fullscreenVBO;
 
   // Toggelable Options
   // - gamma correction
@@ -101,6 +108,8 @@ private:
   void initDefaults();
   // Initializes [-1,1] blank canvas to be used for raymarching
   void initImagePlane();
+  // Initializes full screen quad
+  void initFullScreenQuad();
   // Initializes each and every material texture used in the scene
   void initShapesTextures();
 
@@ -117,4 +126,7 @@ private:
   void configureLightsUniforms(GLuint shader);
   // Sets the uniforms for all the rendering options
   void configureSettingsUniforms(GLuint shader);
+
+  // Destroies shapes textures
+  void destroyShapesTextures();
 };

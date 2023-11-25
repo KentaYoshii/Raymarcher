@@ -47,6 +47,8 @@ add_executable(${PROJECT_NAME}
     src/realtimerender.cpp
     resources/raymarch.frag resources/raymarch.vert
     src/utils/shaderloader.h
+    resources/fxaa.frag
+    resources/fullscreen.vert
 
 
 )
@@ -75,6 +77,8 @@ qt6_add_resources(${PROJECT_NAME} "Resources"
     FILES
         resources/raymarch.frag
         resources/raymarch.vert
+        resources/fullscreen.vert
+        resources/fxaa.frag
 )
 
 # GLEW: this provides support for Windows (including 64-bit)
