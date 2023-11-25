@@ -31,6 +31,9 @@ void MainWindow::initialize() {
   near_label->setText("Near Plane:");
   QLabel *far_label = new QLabel(); // Far plane label
   far_label->setText("Far Plane:");
+  QLabel *renderoption_label = new QLabel(); // Camera label
+  renderoption_label->setText("Render Options");
+  renderoption_label->setFont(font);
 
   gammaCorrection = new QCheckBox();
   gammaCorrection->setText(QStringLiteral("Gamma Correction"));
@@ -43,6 +46,10 @@ void MainWindow::initialize() {
   reflection = new QCheckBox();
   reflection->setText(QStringLiteral("Reflection"));
   reflection->setChecked(false);
+
+  refraction = new QCheckBox();
+  refraction->setText(QStringLiteral("Refraction"));
+  refraction->setChecked(false);
 
   // Create file uploader for scene file
   uploadFile = new QPushButton();
@@ -98,9 +105,11 @@ void MainWindow::initialize() {
   vLayout->addWidget(nearLayout);
   vLayout->addWidget(far_label);
   vLayout->addWidget(farLayout);
+  vLayout->addWidget(renderoption_label);
   vLayout->addWidget(gammaCorrection);
   vLayout->addWidget(softShadow);
   vLayout->addWidget(reflection);
+  vLayout->addWidget(refraction);
 
   connectUIElements();
 
@@ -122,6 +131,7 @@ void MainWindow::connectUIElements() {
   connectGammaCorrect();
   connectSoftShadow();
   connectReflection();
+  connectRefraction();
 }
 
 void MainWindow::connectUploadFile() {
@@ -161,6 +171,10 @@ void MainWindow::connectSoftShadow() {
 
 void MainWindow::connectReflection() {
   connect(reflection, &QCheckBox::clicked, this, &MainWindow::onReflection);
+}
+
+void MainWindow::connectRefraction() {
+  connect(refraction, &QCheckBox::clicked, this, &MainWindow::onRefraction);
 }
 
 void MainWindow::onUploadFile() {
@@ -239,5 +253,10 @@ void MainWindow::onSoftShadow() {
 
 void MainWindow::onReflection() {
   settings.enableReflection = !settings.enableReflection;
+  realtime->settingsChanged();
+}
+
+void MainWindow::onRefraction() {
+  settings.enableRefraction = !settings.enableRefraction;
   realtime->settingsChanged();
 }

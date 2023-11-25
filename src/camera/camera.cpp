@@ -65,11 +65,11 @@ void Camera::updateCamera(Settings &s) {
 }
 
 /**
- * @brief Compute the view matrix of the camera given "pos", "look", and "up"
- * vector. Additionally, set the world space position of the camera
+ * @brief Computes the view matrix of the camera given "pos", "look", and "up"
+ * vectors.
  * @param pos Position of the virtual camera
  * @param look Look vector of the virtual camera
- * @param up  Up vector of the virtual camera
+ * @param up Up vector of the virtual camera
  */
 void Camera::setViewMatrix() {
   // Translation Matrix
@@ -97,14 +97,13 @@ void Camera::setViewMatrix() {
 }
 
 /**
- * @brief Compute the projection matrix of the camera
+ * @brief Computes the projection matrix of the camera
  * - Get the Scale Matrix
  * - Get the unhinging Matrix
  * - Compute the projection matrix
  */
 void Camera::setProjMatrix() {
-  // First we find the Scale matrix
-
+  // Compute View Angle Dimensions
   m_viewAngleHeight = 2 * m_far * glm::tan(m_heightAngle / 2);
   m_viewAngleWidth = m_aspectRatio * m_viewAngleHeight;
 
@@ -113,24 +112,23 @@ void Camera::setProjMatrix() {
   float scaleY = 2 / m_viewAngleHeight;
   float scaleZ = 1 / m_far;
 
-  // Construct the matrix
+  // Construct the scale matrix
   glm::vec4 sc1(scaleX, 0, 0, 0);
   glm::vec4 sc2(0, scaleY, 0, 0);
   glm::vec4 sc3(0, 0, scaleZ, 0);
   glm::vec4 sc4(0, 0, 0, 1.f);
   glm::mat4 scaleMatrix(sc1, sc2, sc3, sc4);
 
-  // Then find the "unhinging" matrix
   float c = -float(m_near) / m_far;
 
-  // Construct the matrix
+  // Construct the unhinging matrix
   glm::vec4 c1(1.f, 0, 0, 0);
   glm::vec4 c2(0, 1.f, 0, 0);
   glm::vec4 c3(0, 0, 1.f / (1.f + c), -1.f);
   glm::vec4 c4(0, 0, -c / (1.f + c), 0);
   glm::mat4 unhingingMatrix(c1, c2, c3, c4);
 
-  // Finally, set the projection matrix
+  // Set the projection matrix
   m_proj = m_OpenGLRemapMatrix * unhingingMatrix * scaleMatrix;
 }
 
@@ -165,9 +163,8 @@ float Camera::getNearPlane() const { return m_near; }
 float Camera::getFarPlane() const { return m_far; }
 
 /**
- * @brief Given a vector representing the displacement from the current position
- * move the camera by that displacement and update the view matrix to reflect
- * the change
+ * @brief Moves the camera by the displacement and update the view matrix to
+ * reflect the change
  * @param disp Amount to move
  */
 void Camera::applyTranslation(glm::vec3 &disp) {
@@ -178,37 +175,37 @@ void Camera::applyTranslation(glm::vec3 &disp) {
 }
 
 /**
- * @brief Handle the W key (move along the look vector)
+ * @brief Handles the W key (move along the look vector)
  * @returns unit displacement with sensitivity applied
  */
 glm::vec3 Camera::onWPressed() { return 0.75f * m_look; }
 
 /**
- * @brief Handle the S key (move along the neg look vector)
+ * @brief Handles the S key (move along the neg look vector)
  * @returns unit displacement with sensitivity applied
  */
 glm::vec3 Camera::onSPressed() { return -0.75f * m_look; }
 
 /**
- * @brief Handle the A key (move to the left)
+ * @brief Handles the A key (move to the left)
  * @returns unit displacement with sensitivity applied
  */
 glm::vec3 Camera::onAPressed() { return -0.75f * glm::cross(m_look, m_up); }
 
 /**
- * @brief Handle the D key (move to the right)
+ * @brief Handles the D key (move to the right)
  * @returns unit displacement with sensitivity applied
  */
 glm::vec3 Camera::onDPressed() { return 0.75f * glm::cross(m_look, m_up); }
 
 /**
- * @brief Handle the Space key (move along <0, 1, 0> in world space)
+ * @brief Handles the Space key (move along <0, 1, 0> in world space)
  * @returns unit displacement with sensitivity applied
  */
 glm::vec3 Camera::onSpacePressed() { return glm::vec3(0, 1.f, 0); }
 
 /**
- * @brief Handle the Control key (move along <0, -1, 0> in world space)
+ * @brief Handles the Control key (move along <0, -1, 0> in world space)
  * @returns unit displacement with sensitivity applied
  */
 glm::vec3 Camera::onControlPressed() { return glm::vec3(0, -1.f, 0); }
@@ -226,7 +223,7 @@ void Camera::applyRotation(glm::mat3 &rotationMat) {
 }
 
 /**
- * @brief Handle the Mouse X movement which rotates the camera about
+ * @brief Handles the Mouse X movement which rotates the camera about
  * the axis defined by world space vector (0, 1, 0) by "angle".
  * We do a clock wise rotation
  * @param angle Amout which we want to rotate
@@ -241,7 +238,7 @@ void Camera::rotateX(float deltaX) {
 }
 
 /**
- * @brief Handle the Mouse Y movement which rotates the camera about the
+ * @brief Handles the Mouse Y movement which rotates the camera about the
  * axis defined by world space vector that is perpendicular to look and up
  * vector of the camera
  */

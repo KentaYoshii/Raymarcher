@@ -1,9 +1,16 @@
 #version 330 core
+// ============ CONST ==============
+// - max raymarching steps
 const int MAX_STEPS = 200;
+// - threshold for intersection
 const float SURFACE_DIST = 0.001;
+// - small offset for the origin of shadow rays
 const float SHADOWRAY_OFFSET = 0.007;
+// - small eps for computing uv mapping
 const float TEXTURE_EPS = 0.005;
+// - PI
 const float PI = 3.14159265;
+// - reflection depth
 const int NUM_REFLECTION = 2;
 
 // PRIM TYPES
@@ -18,12 +25,13 @@ const int DIRECTIONAL = 1;
 const int SPOT = 2;
 
 // ============ Structs ============
-// Struct for each shape
 struct RayMarchObject
 {
-    // Type of the concrete shape
+    // Struct for each shape
+
+    // Type of the shape
     int type;
-    // Bring point to obj space
+    // Bring ray to obj space
     mat4 invModelMatrix;
     // Scale
     // - to combat against non-rigid body transformation
@@ -41,36 +49,50 @@ struct RayMarchObject
 
     // -1 if not used.
     int texLoc;
+
+    // texture tiling
     float repeatU;
     float repeatV;
 };
 
-// Struct to store results of sdScene
 struct SceneMin
 {
+    // Struct to store results of sdScene
+
+    // Object with closest d
     int minObjIdx;
+    // Largest step we can make
     float minD;
 };
 
-// Struct to hold the result for RayMarch
 struct RayMarchRes
 {
+    // Struct to hold the result for a single Raymarch
+
+    // Id of the intersected object
     int intersectObj;
+    // Distance travelled along raydirection
     float d;
 };
 
-// Sturct to store intersection information
 struct IntersectionInfo
 {
+    // Sturct to store intersection information
+
+    // Ray Direction
     vec3 rd;
+    // Ray intersection point
     vec3 p;
+    // Intersection normal (normalized)
     vec3 n;
+    // Intersected object
     int intersectObj;
 };
 
-// Struct for lights in the scene
 struct LightSource
 {
+    // Struct for lights in the scene
+
     int type;
     vec3 lightPos;
     vec3 lightDir;
@@ -114,25 +136,33 @@ uniform sampler2D objTextures[10];
 uniform bool enableGammaCorrection;
 uniform bool enableSoftShadow;
 uniform bool enableReflection;
+uniform bool enableRefraction;
 
 // ============ Signed Distance Fields ==============
 // Define SDF for different shapes here
 // - Based on https://iquilezles.org/articles/distfunctions/
 
-// Sphere
+// Sphere Signed Distance Field
+// @param p Point in object space
+// @param r Radius
 float sdSphere(vec3 p, float r)
 {
   return length(p)-r;
 }
 
-// Box
-float sdBox( vec3 p, vec3 b )
+// Box Signed Distance Field
+// @param p Point in object space
+// @param b half-length dimensions of the box (x,y,z)
+float sdBox(vec3 p, vec3 b)
 {
   vec3 q = abs(p) - b;
   return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
 }
 
-// Cone
+// Cone Signed Distance Field
+// @param p Point in object space
+// @param r Radius of the base
+// @param h Half height of the cone
 float sdCone(vec3 p, float r, float h)
 {
     vec2 po = vec2(length(p.xz) - r, p.y + h);
@@ -145,31 +175,37 @@ float sdCone(vec3 p, float r, float h)
     return -min(d, po.y);
 }
 
-// Cylinder
-float sdCylinder( vec3 p, float h, float r )
+// Cylinder Signed Distance Field
+// @param p Point in object space
+// @param h Half height of the cone
+// @param r Radius of the base
+float sdCylinder(vec3 p, float h, float r)
 {
   vec2 d = abs(vec2(length(p.xz),p.y)) - vec2(r,h);
   return min(max(d.x,d.y),0.0) + length(max(d,0.0));
 }
 
-
+// Given a point in object space and type of the SDF
+// Invoke the appropriate SDF function and return the distance
+// @param p Point in object space
+// @param type Type of the object
 float sdMatch(vec3 p, int type)
 {
-    float d = 0.f;
     if (type == CUBE) {
-        d = sdBox(p, vec3(0.5));
+        return sdBox(p, vec3(0.5));
     } else if (type == CONE) {
-        d = sdCone(p, 0.5, 0.5);
+        return sdCone(p, 0.5, 0.5);
     } else if (type == CYLINDER) {
-        d = sdCylinder(p, 0.5, 0.5);
+        return sdCylinder(p, 0.5, 0.5);
     } else if (type == SPHERE) {
-        d = sdSphere(p, 0.5);
+        return sdSphere(p, 0.5);
     }
-    return d;
 }
 
 // ================ UV Mapping (non-procedual) ==========
-// Cube
+// uv mapping for simple primitives
+
+// uv Mapping for Cube
 vec2 uvMapCube(vec3 p, float repeatU, float repeatV)
 {
     float u, v;
@@ -177,8 +213,7 @@ vec2 uvMapCube(vec3 p, float repeatU, float repeatV)
     float m = max(max(absP.x, absP.y), absP.z);
 
     // Determine the major axis
-    if (m == absP.x)
-    {
+    if (m == absP.x) {
         if (p.x < 0) {
             u = p.z + 0.5;
             v = p.y + 0.5;
@@ -186,10 +221,7 @@ vec2 uvMapCube(vec3 p, float repeatU, float repeatV)
             u = -p.z + 0.5f;
             v = p.y + 0.5f;
         }
-
-    }
-    else if (m == absP.y)
-    {
+    } else if (m == absP.y) {
         if (p.y < 0) {
             u = p.x + 0.5;
             v = p.z + 0.5;
@@ -197,9 +229,7 @@ vec2 uvMapCube(vec3 p, float repeatU, float repeatV)
             u = p.x + 0.5f;
             v = -p.z + 0.5f;
         }
-    }
-    else
-    {
+    } else {
         if (p.z < 0) {
             u = -p.x + 0.5f;
             v = p.y + 0.5f;
@@ -211,28 +241,22 @@ vec2 uvMapCube(vec3 p, float repeatU, float repeatV)
     return vec2(u * repeatU, v * repeatV);
 }
 
-// Cone
+// uvMapping for Cone
 vec2 uvMapCone(vec3 p, float repeatU, float repeatV)
 {
     // Along the y-axis
     float y = p[1];
     float u, v;
-    if (abs(y + 0.5) < TEXTURE_EPS)
-    {
+    if (abs(y + 0.5) < TEXTURE_EPS) {
         // intersect at flat base
         u = p[0] + 0.5f;
         v = p[2] + 0.5f;
-    }
-    else
-    {
+    } else {
         // intersects at the side
         float theta = atan(p[2], p[0]);
-        if (theta < 0)
-        {
+        if (theta < 0) {
           u = -theta / (2 * PI);
-        }
-        else
-        {
+        } else {
           u = 1 - (theta / (2 * PI));
         }
         v = y + 0.5f;
@@ -240,32 +264,24 @@ vec2 uvMapCone(vec3 p, float repeatU, float repeatV)
     return vec2(u * repeatU, v * repeatV);
 }
 
-// Cylinder
+// uvMapping for Cylinder
 vec2 uvMapCylinder(vec3 p, float repeatU, float repeatV)
 {
     // Along the y-axis
     float y = p[1];
     float u, v;
-    if (abs(y - 0.5) < TEXTURE_EPS)
-    {
+    if (abs(y - 0.5) < TEXTURE_EPS) {
         u = p[0] + 0.5f;
         v = -p[2] + 0.5f;
-    }
-    else if (abs(y + 0.5) < TEXTURE_EPS)
-    {
+    } else if (abs(y + 0.5) < TEXTURE_EPS) {
         u = p[0] + 0.5f;
         v = p[2] + 0.5f;
-    }
-    else
-    {
+    } else {
        // at the side
        float theta = atan(p[2], p[0]);
-       if (theta < 0)
-       {
+       if (theta < 0) {
           u = -theta / (2 * PI);
-       }
-       else
-       {
+       } else {
           u = 1 - (theta / (2 * PI));
        }
         v = y + 0.5f;
@@ -273,25 +289,21 @@ vec2 uvMapCylinder(vec3 p, float repeatU, float repeatV)
       return vec2(u * repeatU, v * repeatV);
 }
 
-// Sphere
+// uvMapping for Sphere
 vec2 uvMapSphere(vec3 p, float repeatU, float repeatV)
 {
     float u, v;
     // Compute U
     float theta = atan(p[2], p[0]);
-    if (theta < 0)
-    {
+    if (theta < 0) {
         u = -theta / (2 * PI);
-    }
-    else
-    {
+    } else {
         u = 1 - (theta / (2 * PI));
     }
     // Compute V
     float phi = asin(p[1] / 0.5f);
     v = phi / PI + 0.5f;
-    if (v == 0.f || v == 1.f)
-    {
+    if (v == 0.f || v == 1.f) {
        // Poles (singularity)
        u = 0.5f;
     }
@@ -299,8 +311,11 @@ vec2 uvMapSphere(vec3 p, float repeatU, float repeatV)
 }
 
 // ================ Raymarch Algorithm ==================
-
-// Union of all SDFs
+// Union of all the SDFs in the scene
+// @param p Current raymarching point for which we wish to
+// find the distance
+// @returns SceneMin struct with closest distance and closest
+// object
 SceneMin sdScene(vec3 p){
     float minD = 1000000.f;
     int minObj = -1;
@@ -311,12 +326,15 @@ SceneMin sdScene(vec3 p){
         RayMarchObject obj = objects[i];
         // Conv to Object space
         po = vec3(obj.invModelMatrix * vec4(p, 1.f));
+        // Get the distance to the object
         currD = sdMatch(po, obj.type) * obj.scaleFactor;
         if (currD < minD) {
+            // Update if we found a closer object
             minD = currD;
             minObj = i;
         }
     }
+    // Populate the struct
     SceneMin res;
     res.minD = minD;
     res.minObjIdx = minObj;
@@ -324,6 +342,9 @@ SceneMin sdScene(vec3 p){
 }
 
 // Given intersection point, get the normal
+// - https://iquilezles.org/articles/normalsSDF
+// @param p Intersection point
+// @returns normalized intersection point normal
 vec3 getNormal(in vec3 p) {
     vec3 e = vec3(1.0,-1.0, 0)*0.5773*0.0005;
     return normalize(
@@ -334,6 +355,13 @@ vec3 getNormal(in vec3 p) {
                 );
 }
 
+// Performs raymarching
+// @param ro Ray origin
+// @param rd Ray direction
+// @param end Far plane
+// @param side Determines if we are inside or outside the object
+// - used in refraction
+// @returns structs that contains the result of raymarching
 RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
   // Start from eye pos
   float rayDepth = 0.0;
@@ -341,20 +369,26 @@ RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
   closest.minD = 100;
   // Start the march
   for(int i = 0; i < MAX_STEPS; i++) {
+    // Get the point
     vec3 p = ro + rd * rayDepth;
+    // Find the closest object in the scene
     closest = sdScene(p);
     if (abs(closest.minD) < SURFACE_DIST || rayDepth > end) {
+        // If hit or exceed the far plane, break
         break;
     }
+    // March the ray
     rayDepth += closest.minD * side;
   }
   RayMarchRes res;
   if (abs(closest.minD) < SURFACE_DIST) {
+      // HIT
       res.intersectObj = closest.minObjIdx;
       // Bruh don't ask me why we need this.
       // Without this, normal calcuation somehow gets messed up
       res.d = rayDepth - 0.001;
   } else {
+      // NO HIT
       res.intersectObj = -1;
   }
   return res;
@@ -363,6 +397,14 @@ RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
 // =============================================================
 
 // ================== Phong Total Illumination =================
+// Computes the shadow scale for soft shadow
+// - https://iquilezles.org/articles/rmshadows/
+// @param ro Ray origin
+// @param rd Ray direction
+// @param mint Starting t
+// @param maxt End t
+// @param k How "hard" we want the shadow to be
+// @retunrs Result of raymarching
 RayMarchRes softshadow(vec3 ro, vec3 rd, float mint, float maxt, float k )
 {
     float res = 1.0;
@@ -384,13 +426,17 @@ RayMarchRes softshadow(vec3 ro, vec3 rd, float mint, float maxt, float k )
     return r;
 }
 
-// Get the diffuse term
+// Gets the diffuse term
+// @param objId Id of the intersected object
+// @param p Intersection Point in world space
+// @param n Normal
 vec3 getDiffuse(int objId, vec3 p, vec3 n) {
     RayMarchObject obj = objects[objId];
     if (obj.texLoc == -1) {
+        // No texture used
         return kd * obj.cDiffuse;
     }
-
+    // Texture used -> find uv
     vec2 uv;
     vec3 po = vec3(obj.invModelMatrix * vec4(p, 1.f));
     if (obj.type == CUBE) {
@@ -402,11 +448,16 @@ vec3 getDiffuse(int objId, vec3 p, vec3 n) {
     } else if (obj.type == SPHERE) {
         uv = uvMapSphere(po, obj.repeatU, obj.repeatV);
     }
+    // Sample
     vec4 texVal = texture(objTextures[obj.texLoc], uv);
+    // Linear interpolate
     return (1.f - obj.blend) * kd * obj.cDiffuse + obj.blend * vec3(texVal);
 }
 
-// Get the specular term (special case when shininess = 0)
+// Gets the specular term (special case when shininess = 0)
+// @param RdotV R dot V
+// @param cspec Specular component of the object
+// @param shiniess
 vec3 getSpecular(float RdotV, vec3 cspec, float shi) {
     if (shi == 0) {
         return ks * RdotV * cspec;
@@ -414,18 +465,23 @@ vec3 getSpecular(float RdotV, vec3 cspec, float shi) {
     return ks * pow(RdotV, shi) * cspec;
 }
 
-// Get the angular fall off term
+// Gets the angular fall off term
 float angularFalloffFactor(float angle, float innerA, float outerA) {
     float t = (angle - innerA) / (outerA - innerA);
     return -2 * pow(t, 3) + 3 * pow(t, 2);
 }
 
-// Get the attenuation factor
+// Gets the attenuation factor
 float attenuationFactor(float d, vec3 func) {
     return min(1.f / (func[0] + (d * func[1]) + (d * d * func[2])), 1.f);
 }
 
-// Get Phong Light
+// Gets Phong Light
+// @param N normal
+// @param intersectObj Id of the intersected object
+// @param p Intersection point
+// @param rd Ray direction
+// @returns phong color for that fragment
 vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 rd)
 {
     vec3 total = vec3(0.f);
@@ -469,6 +525,7 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 rd)
         // Shadow
         RayMarchRes res = softshadow(p, L, SHADOWRAY_OFFSET, maxT, 8);
         if (res.intersectObj == 1) {
+            // Shadow Ray intersected an object
             continue;
         }
 
@@ -492,18 +549,19 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 rd)
         }
         total += currColor;
     }
-
     return total;
 }
 
 // =============================================================
-vec3 render(inout vec3 ro, inout vec3 rd, out IntersectionInfo i, float side)
+// Given ray origin and ray direction, performs a raymarching
+// @param ro Ray origin
+// @param rd Ray direction
+// @param i IntersectionInfo we are populating
+// @param side Determines if we are inside or outside of an object
+vec3 render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
 {
-    // (note) "inout" allows you to modify ro and rd inside the function
-
     // Raymarching
     RayMarchRes res = raymarch(ro, rd, far, side);
-    // ref = vec3(0);
     if (res.intersectObj == -1) {
         // NO HIT
         return vec3(0.f);
@@ -515,9 +573,6 @@ vec3 render(inout vec3 ro, inout vec3 rd, out IntersectionInfo i, float side)
     vec3 pn = getNormal(p);
     // - get color
     vec3 col = getPhong(pn, res.intersectObj, p, rd);
-    if (enableGammaCorrection) {
-        col = pow(col, vec3(1.0/2.2));
-    }
 
     i.p = p;
     i.n = pn;
@@ -530,6 +585,7 @@ vec3 render(inout vec3 ro, inout vec3 rd, out IntersectionInfo i, float side)
 
 void main() {
     // Perspective divide and get Ray origin and Ray direction
+    // - why we need this? refer to the ref in vertex shader
     vec3 origin = nearClip.xyz / nearClip.w;
     vec3 farC = farClip.xyz / farClip.w;
     vec3 dir = farC - origin;
@@ -539,10 +595,8 @@ void main() {
          refl = vec3(0.),
          refr = vec3(0.);
 
-
-    // Material reflectiveness
-    IntersectionInfo info;
-    IntersectionInfo originalInfo;
+    IntersectionInfo info,
+            originalInfo;
 
     // Main render
     phong = render(origin, dir, info, 1.f);
@@ -552,6 +606,7 @@ void main() {
        return;
     }
 
+    // Copy
     originalInfo.intersectObj = info.intersectObj;
     originalInfo.n = info.n;
     originalInfo.p = info.p;
@@ -572,28 +627,39 @@ void main() {
         }
     }
 
-    float ior = objects[originalInfo.intersectObj].ior;
-    vec3 ct = objects[originalInfo.intersectObj].cTransparent;
+    if (enableRefraction) {
+        // No recursion so hardcoded 2 refractions :(
+        // also it does not account for the reflected light contributions
+        // of the refracted rays (again, no recursion) so this is really wrong.
+        // I was able to find some article about backward raytracing that cleverly
+        // gets around this but, like many other things, for the time being this is
+        // good enough.
 
-    // Air -> Medium
-    vec3 rdIn = refract(originalInfo.rd, originalInfo.n, 1./ior);
-    vec3 pEnter = originalInfo.p - originalInfo.n * SURFACE_DIST * 3.f;
-    float dIn = raymarch(pEnter, rdIn, far, -1.).d;
+        float ior = objects[originalInfo.intersectObj].ior;
+        vec3 ct = objects[originalInfo.intersectObj].cTransparent;
 
-    vec3 pExit = pEnter + rdIn * dIn;
-    vec3 nExit = -getNormal(pExit);
+        // Air -> Medium
+        // - air ior is 1.
+        vec3 rdIn = refract(originalInfo.rd, originalInfo.n, 1./ior);
+        vec3 pEnter = originalInfo.p - originalInfo.n * SURFACE_DIST * 3.f;
+        float dIn = raymarch(pEnter, rdIn, far, -1.).d;
 
-    float side;
-    vec3 lastP;
-    vec3 rdOut = refract(rdIn, nExit, ior);
-    if (length(rdOut) == 0) {
-        // Total Internal Reflection
-        refr = vec3(0.);
-    } else {
-        side = 1.;
-        lastP = pExit - nExit * SURFACE_DIST*3.f;
-        refr += kt * ct * render(lastP, rdOut, info, side);
+        vec3 pExit = pEnter + rdIn * dIn;
+        vec3 nExit = -getNormal(pExit);
+
+        vec3 rdOut = refract(rdIn, nExit, ior);
+        if (length(rdOut) == 0) {
+            // Total Internal Reflection
+            refr = vec3(0.);
+        } else {
+            refr += kt * ct * render(pExit - nExit * SURFACE_DIST*3.f, rdOut, info, 1.);
+        }
     }
 
-    fragColor = vec4(phong + refl + refr, 1.f);
+    vec3 col = phong + refl + refr;
+
+    if (enableGammaCorrection) {
+        col = pow(col, vec3(1.0/2.2));
+    }
+    fragColor = vec4(col, 1.f);
 }

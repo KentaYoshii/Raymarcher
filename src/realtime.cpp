@@ -102,6 +102,7 @@ void Realtime::settingsChanged() {
   m_enableGammaCorrection = settings.enableGammaCorrection;
   m_enableSoftShadow = settings.enableSoftShadow;
   m_enableReflection = settings.enableReflection;
+  m_enableRefraction = settings.enableRefraction;
   update();
 }
 

@@ -58,42 +58,60 @@ private:
 
   // PRIVATE DATA
 
-  // Our RayMarch scene
+  // RayMarch scene
   RayMarchScene scene;
 
   // Shader
+  // - raymarch shader
   GLuint m_rayMarchShader;
 
   // Textures
+  // - default material texture
   GLuint m_defaultShapeTexture;
 
   // FBO
+  // - application window FBO
   GLuint m_defaultFBO = 1;
 
-  // Image Plane
+  // Image Plane (aka [-1,1] blank canvas)
   GLuint m_imagePlaneVAO;
   GLuint m_imagePlaneVBO;
 
   // Toggelable Options
+  // - gamma correction
   bool m_enableGammaCorrection;
+  // - soft shadow
   bool m_enableSoftShadow;
+  // - reflection
   bool m_enableReflection;
+  // - refraction
+  bool m_enableRefraction;
 
   // PRIVATE METHODS
+
+  // Performs raymarching using our raymarch shader
   void rayMarch();
 
+  // Initializes the shaders with constant uniforms
   void initShader();
+  // Initializes all the default variables used in shader
   void initDefaults();
+  // Initializes [-1,1] blank canvas to be used for raymarching
   void initImagePlane();
+  // Initializes each and every material texture used in the scene
   void initShapesTextures();
 
+  // Sets the output FBO
   void setFBO(GLuint fbo);
 
-  void draw(GLuint shader);
-
+  // Sets the uniforms for our screen-related stuff
   void configureScreenUniforms(GLuint shader);
+  // Sets the uniforms for camera-related stuff
   void configureCameraUniforms(GLuint shader);
+  // Sets the uniforms for each shape in the scene
   void configureShapesUniforms(GLuint shader);
+  // Sets the uniforms for each light in the scene
   void configureLightsUniforms(GLuint shader);
+  // Sets the uniforms for all the rendering options
   void configureSettingsUniforms(GLuint shader);
 };

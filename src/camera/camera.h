@@ -5,46 +5,48 @@
 #include "utils/scenedata.h"
 
 struct Camera {
+  // Struct that represents scene camera
+
 public:
   // PUBLIC METHODS
 
   // Sets the camera up with the new scene
   void initializeCamera(SceneCameraData &cd, Settings &s);
-  // Update the camera with new far and near plane values
+  // Updates the camera with new far and near plane values
   void updateCamera(Settings &s);
-  // Update the camera with new screen dimensions
+  // Updates the camera with new screen dimensions
   void updateCameraDimensions(int newWidth, int newHeight);
-  // Get near plane
+  // Gets near plane
   float getNearPlane() const;
-  // Get far plane
+  // Gets far plane
   float getFarPlane() const;
-  // Get the View Matrix of the camera
+  // Gets the View Matrix of the camera
   glm::mat4 getViewMatrix() const;
-  // Get the Projection Matrix of the camera
+  // Gets the Projection Matrix of the camera
   glm::mat4 getProjMatrix() const;
-  // Get the Camera Position in the world space
+  // Gets the Camera Position in the world space
   glm::vec4 getCameraPosition() const;
 
   // Translation
 
-  // Apply Accumulated Translation
+  // Applies Accumulated Translation
   void applyTranslation(glm::vec3 &disp);
-  // - move in dir of look vector
+  // Moves in dir of look vector
   glm::vec3 onWPressed();
-  // - move in oposite dir of look
+  // Moves in oposite dir of look
   glm::vec3 onSPressed();
-  // - move to the left, perpendicular to look and up
+  // Moves to the left, perpendicular to look and up
   glm::vec3 onAPressed();
-  // - move to the right, perpendicular to look and up
+  // Moves to the right, perpendicular to look and up
   glm::vec3 onDPressed();
-  // - move along world space (0, 1, 0)
+  // Moves along world space (0, 1, 0)
   glm::vec3 onSpacePressed();
-  // - move along world space (0, -1, 0)
+  // Moves along world space (0, -1, 0)
   glm::vec3 onControlPressed();
 
   // Rotation
 
-  // Apply Rotation
+  // Applies Rotation
   void applyRotation(glm::mat3 &mat);
   // Rotates the Camera about the axis defined by world space vector (0, 1, 0)
   void rotateX(float deltaX);
@@ -55,9 +57,9 @@ public:
 private:
   // PRIVATE METHODS
 
-  // Set the Projection Matrix of the camera
+  // Sets the Projection Matrix of the camera
   void setProjMatrix();
-  // Set the View Matrix and World space position of the camera
+  // Sets the View Matrix and World space position of the camera
   void setViewMatrix();
 
 private:

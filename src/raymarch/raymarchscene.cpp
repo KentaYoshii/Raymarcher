@@ -6,13 +6,13 @@
 #include <random>
 
 /**
- * @brief Function that gets the shapes in the scene
+ * @brief Gets the shapes in the scene
  * @returns vector containing RealTimeShapes
  */
 std::vector<RayMarchObj> &RayMarchScene::getShapes() { return m_shapes; }
 
 /**
- * @brief Function that gets the shapes texture data of the scene
+ * @brief Gets the shapes texture data of the scene
  * @returns map from texture file name to data
  */
 std::map<std::string, TextureInfo> &RayMarchScene::getShapesTextures() {
@@ -20,7 +20,7 @@ std::map<std::string, TextureInfo> &RayMarchScene::getShapesTextures() {
 }
 
 /**
- * @brief Function that gets the lights in the scene
+ * @brief Gets the lights in the scene
  * @returns vector containing SceneLightData
  */
 std::vector<SceneLightData> &RayMarchScene::getLights() { return m_lights; }
@@ -32,19 +32,19 @@ std::vector<SceneLightData> &RayMarchScene::getLights() { return m_lights; }
 bool RayMarchScene::isInitialized() const { return m_init; }
 
 /**
- * @brief Function that gets the Camera in the scene
- * @returns Camera
+ * @brief Gets the Camera in the scene
+ * @returns Camera object for the scene
  */
 Camera &RayMarchScene::getCamera() { return m_camera; }
 
 /**
- * @brief Function that gets the global data of the scene
- * @returns SceneGlobalData
+ * @brief Gets the global data of the scene
+ * @returns SceneGlobalData for the scene
  */
 SceneGlobalData &RayMarchScene::getGlobalData() { return m_globalData; }
 
 /**
- * @brief Function that initializes the scene for RealTime
+ * @brief Initializes the scene for Raymarching
  * This is called in sceneChanged() function with the new json file.
  * 1. Parse the scene json file
  * 2. Set up the scene
@@ -52,32 +52,30 @@ SceneGlobalData &RayMarchScene::getGlobalData() { return m_globalData; }
  *    - Camera
  *    - Lights
  *    - Shapes
- * @param from Latest Settings at the time of reading the scene json file
+ * @param from Latest settings at the time of reading the scene json file
  */
 void RayMarchScene::initScene(Settings &from) {
 
+  // Scene is initialized
   m_init = true;
 
-  // First, parse the scene json in to RenderData
+  // Parse the scene json in to RenderData
   RenderData rd;
   SceneParser::parse(from.sceneFilePath, rd);
 
-  // Then we construct our scene one by one
-
-  // ---- Global Data ----
+  // Construct our scene
+  // - Global Data
   m_globalData = rd.globalData;
-
-  // ---- Camera ----
+  //-  Camera
   m_camera.initializeCamera(rd.cameraData, from);
-
-  // ---- Shapes ----
+  // - Shapes
   initRayMarchObjs(m_textures, rd.shapes);
-  // ---- LIghts ----
+  // - Lights
   m_lights = rd.lights;
 }
 
 /**
- * @brief Function that resizes the scene
+ * @brief Resizes the scene
  * This is called in resizeGL() function
  * @param w New width
  * @param h New height
@@ -87,10 +85,9 @@ void RayMarchScene::resizeScene(int w, int h) {
 }
 
 /**
- * @brief Function that updates the scene based on the settings
- * This is called in settingsChanged() function with the updated settings passed
- * in
- * @param s Settings that is new
+ * @brief Updates the scene based on the settings
+ * This is called in settingsChanged() function with the updated settings
+ * @param s New settings
  */
 void RayMarchScene::updateScene(Settings &s) {
   // Update the camera, if necessary
@@ -98,26 +95,29 @@ void RayMarchScene::updateScene(Settings &s) {
 }
 
 /**
- * @brief Function that resets the camera
+ * @brief Resets the camera
  * Called in
  *   - RealTime::sceneChanged()
  */
 void RayMarchScene::resetCamera() { m_camera = Camera{}; };
 
 /**
- * @brief Function that initializes our RayMarch objs given a vec ofk
- * RenderShapeData
+ * @brief Initializes our Raymarch objs
+ * @param textureMap Texture Map that we want to populate
+ *        - a map from file name to TextureInfo struct with texture data
+ * @param rd RenderShapeData with which we initialize our Raymarch objs
  */
 void RayMarchScene::initRayMarchObjs(
     std::map<std::string, TextureInfo> &textureMap,
     std::vector<RenderShapeData> &rd) {
+  // Clean slate
   textureMap.clear();
   m_shapes.clear();
   m_shapes.reserve(rd.size());
   int id = 0;
   for (const RenderShapeData &shapeData : rd) {
-    // If texture is used, load up here
     if (shapeData.primitive.material.textureMap.isUsed) {
+      // If texture is used, load up here
       loadTextureFromPrim(textureMap,
                           shapeData.primitive.material.textureMap.filename);
     }
@@ -128,7 +128,8 @@ void RayMarchScene::initRayMarchObjs(
 }
 
 /**
- * @brief Load the texture given by "file" to our map
+ * @brief Loads the texture given by "file" to our map
+ * @param out Texture map we wish to populate
  * @param file Filepath we are loading from
  */
 void RayMarchScene::loadTextureFromPrim(std::map<std::string, TextureInfo> &out,

@@ -27,6 +27,7 @@ struct Settings {
   bool enableGammaCorrection;
   bool enableSoftShadow;
   bool enableReflection;
+  bool enableRefraction;
 };
 
 // The global Settings object, will be initialized by MainWindow

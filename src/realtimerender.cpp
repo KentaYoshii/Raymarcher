@@ -1,6 +1,13 @@
 #include "realtime.h"
 #include <iostream>
 
+/**
+ * @brief Performs Raymarching using our raymarch shader
+ * - Set the shader
+ * - Set the output FBO
+ * - Set the uniforms
+ * - Draws the Blank Screen
+ */
 void Realtime::rayMarch() {
   // Set ray march shader
   glUseProgram(m_rayMarchShader);
@@ -20,12 +27,20 @@ void Realtime::rayMarch() {
   glUseProgram(0);
 }
 
+/**
+ * @brief Sets destination FBO
+ * @param fbo FBO that we wish to render to
+ */
 void Realtime::setFBO(GLuint fbo) {
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
   glViewport(0, 0, scene.m_width, scene.m_height);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
+/**
+ * @brief Initializes the [-1,1] blank screen vao/vbo pairing to be used for
+ * raymarching
+ */
 void Realtime::initImagePlane() {
   // Four corners of Image Plane
   std::vector<GLfloat> verts = {
@@ -54,7 +69,8 @@ void Realtime::initImagePlane() {
 }
 
 /**
- * @brief Create the texture object for each shape
+ * @brief Creates the material texture object for each shape
+ * Invoke once when the scene is first loaded
  */
 void Realtime::initShapesTextures() {
   std::unordered_map<std::string, GLuint> texMap;
@@ -91,10 +107,12 @@ void Realtime::initShapesTextures() {
 }
 
 /**
- * @brief Initialize any default stuff here
+ * @brief Initializes default variables
  */
 void Realtime::initDefaults() {
-  // For shapes that don't have textures associated with them
+  // Default material texture
+  // - for shapes that don't have textures associated with them
+  //    - if we don't do this GLSL complains
   glActiveTexture(GL_TEXTURE0);
   glGenTextures(1, &m_defaultShapeTexture);
   glBindTexture(GL_TEXTURE_2D, m_defaultShapeTexture);
@@ -103,6 +121,9 @@ void Realtime::initDefaults() {
   glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+/**
+ * @brief Initializes the shader with constant uniforms
+ */
 void Realtime::initShader() {
   glUseProgram(m_rayMarchShader);
   // Set the textures to use correct slots
@@ -116,6 +137,10 @@ void Realtime::initShader() {
   glUseProgram(0);
 }
 
+/**
+ * @brief Sets the uniforms that are related to camera/eye
+ * @param shader Shader program we are using
+ */
 void Realtime::configureCameraUniforms(GLuint shader) {
   // Get all the stuff we want to use in our shader program
   glm::mat4 viewMatrix = scene.getCamera().getViewMatrix();
@@ -132,14 +157,17 @@ void Realtime::configureCameraUniforms(GLuint shader) {
   glUniform1f(farLoc, far);
 
   // View Matrix
+  // - world -> view
   GLint viewLoc = glGetUniformLocation(shader, "viewMatrix");
   glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &viewMatrix[0][0]);
 
   // Projection Matrix
+  // - view -> clip space
   GLint projLoc = glGetUniformLocation(shader, "projMatrix");
   glUniformMatrix4fv(projLoc, 1, GL_FALSE, &projMatrix[0][0]);
 
   // Camera Position
+  // - for lighting calc
   GLint eyePosLoc = glGetUniformLocation(shader, "eyePosition");
   glUniform4fv(eyePosLoc, 1, &camPosition[0]);
 
@@ -148,6 +176,10 @@ void Realtime::configureCameraUniforms(GLuint shader) {
   glUniformMatrix4fv(invProjViewLoc, 1, GL_FALSE, &invProjViewMatrix[0][0]);
 }
 
+/**
+ * @brief Sets the uniforms that are related to current screen
+ * @param shader Shader program we are using
+ */
 void Realtime::configureScreenUniforms(GLuint shader) {
   glm::vec2 screenD{
       scene.m_width,
@@ -157,6 +189,10 @@ void Realtime::configureScreenUniforms(GLuint shader) {
   glUniform2fv(screenDLoc, 1, &screenD[0]);
 }
 
+/**
+ * @brief Sets the uniforms for all the scene lights
+ * @param shader Shader program we are using
+ */
 void Realtime::configureLightsUniforms(GLuint shader) {
   // ka (ambience)
   GLint kaLoc = glGetUniformLocation(shader, "ka");
@@ -215,6 +251,10 @@ void Realtime::configureLightsUniforms(GLuint shader) {
   glUniform1i(numLightsLoc, cnt);
 }
 
+/**
+ * @brief Sets all the uniforms for all the rendering options that are available
+ * @param shader Shader program we are using
+ */
 void Realtime::configureSettingsUniforms(GLuint shader) {
   // Gamma Correction
   GLuint gammaLoc = glGetUniformLocation(shader, "enableGammaCorrection");
@@ -225,8 +265,15 @@ void Realtime::configureSettingsUniforms(GLuint shader) {
   // Reflection
   GLuint refLoc = glGetUniformLocation(shader, "enableReflection");
   glUniform1i(refLoc, m_enableReflection);
+  // Refraction
+  GLuint refrLoc = glGetUniformLocation(shader, "enableRefraction");
+  glUniform1i(refrLoc, m_enableRefraction);
 }
 
+/**
+ * @brief Sets all the uniforms for all the shapes in our scene
+ * @param shader Shader program we are using
+ */
 void Realtime::configureShapesUniforms(GLuint shader) {
   int cnt = 0;
   int texCnt = 0;
@@ -246,6 +293,7 @@ void Realtime::configureShapesUniforms(GLuint shader) {
         ("objects[" + std::to_string(cnt) + "].invModelMatrix").c_str());
     glUniformMatrix4fv(invModelLoc, 1, GL_FALSE, &obj.m_ctmInv[0][0]);
     // Scale Factor
+    // - need this to undo the side-effect of non-rigid tranform
     float scaleF =
         fmin(obj.m_scale[0][0], fmin(obj.m_scale[1][1], obj.m_scale[2][2]));
     GLuint scaleLoc = glGetUniformLocation(
@@ -294,21 +342,24 @@ void Realtime::configureShapesUniforms(GLuint shader) {
         shader, ("objects[" + std::to_string(cnt) + "].ior").c_str());
     glUniform1f(iorLoc, obj.m_material.ior);
 
-    // Texture
+    // repeatU
     GLint rULoc = glGetUniformLocation(
         shader, ("objects[" + std::to_string(cnt) + "].repeatU").c_str());
     glUniform1f(rULoc, obj.m_material.textureMap.repeatU);
 
+    // repeatV
     GLint rVLoc = glGetUniformLocation(
         shader, ("objects[" + std::to_string(cnt) + "].repeatV").c_str());
     glUniform1f(rVLoc, obj.m_material.textureMap.repeatV);
 
+    // texture unit to use for this object, if any
     GLuint texLocLoc = glGetUniformLocation(
         shader, ("objects[" + std::to_string(cnt) + "].texLoc").c_str());
 
     cnt++;
 
     if (obj.m_texture == 0) {
+      // if texture not used, set to -1
       glUniform1i(texLocLoc, -1);
       continue;
     }

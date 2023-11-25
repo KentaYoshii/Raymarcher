@@ -10,56 +10,56 @@
 #include <tuple>
 
 struct RayMarchScene {
-  // Struct that is a wrapper for everything in the scene
+  // Struct that contains everything in the scene
 
 public:
   // PUBLIC METHODS
 
-  // Initialize the Scene given a scene json file
-  // - called in realtime::sceneChanged()
+  // Initializes the Scene given a scene json file
   void initScene(Settings &from);
 
-  // Update the scene with new camera paramters
+  // Updates the scene with new camera paramters
   void updateScene(Settings &from);
 
-  // Resize the scene with new dimensions
+  // Resizes the scene with new dimensions
   void resizeScene(int newWidth, int newHeight);
 
-  // True if scene is initialized
+  // Returns True if scene is initialized
   bool isInitialized() const;
 
-  // Reset Camera for scene change
+  // Resets Camera for scene change
   void resetCamera();
 
-  // Get Shapes
+  // Gets Shapes
   std::vector<RayMarchObj> &getShapes();
 
-  // Get Shapes Textures
+  // Gets Shapes Textures
   std::map<std::string, TextureInfo> &getShapesTextures();
 
-  // Get Lights
+  // Gets Lights
   std::vector<SceneLightData> &getLights();
 
-  // Get Camera
+  // Gets Camera
   Camera &getCamera();
 
-  // Get Global Data
+  // Gets Global Data
   SceneGlobalData &getGlobalData();
 
 private:
   // PRIVATE METHODS
 
-  // Initialize objects read from json
+  // Initializes objects read from json
   void initRayMarchObjs(std::map<std::string, TextureInfo> &textureMap,
                         std::vector<RenderShapeData> &rd);
 
-  // Load texture if used
+  // Loads texture if used
   void loadTextureFromPrim(std::map<std::string, TextureInfo> &out,
                            const std::string &file);
 
 private:
   // PRIVATE MEMBERS
 
+  // Status of the scene. True if initialized
   bool m_init = false;
 
   // Global Data
