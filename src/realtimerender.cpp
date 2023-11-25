@@ -170,6 +170,10 @@ void Realtime::configureLightsUniforms(GLuint shader) {
   GLint ksLoc = glGetUniformLocation(shader, "ks");
   glUniform1f(ksLoc, scene.getGlobalData().ks);
 
+  // kt (transparent)
+  GLint ktLoc = glGetUniformLocation(shader, "kt");
+  glUniform1f(ktLoc, scene.getGlobalData().kt);
+
   int cnt = 0;
   for (const SceneLightData &light : scene.getLights()) {
     if (cnt == 10) {
@@ -275,10 +279,20 @@ void Realtime::configureShapesUniforms(GLuint shader) {
         shader, ("objects[" + std::to_string(cnt) + "].cReflective").c_str());
     glUniform3fv(cReflectiveLoc, 1, &obj.m_material.cReflective[0]);
 
+    // cTransparent
+    GLint cTransparentLoc = glGetUniformLocation(
+        shader, ("objects[" + std::to_string(cnt) + "].cTransparent").c_str());
+    glUniform3fv(cTransparentLoc, 1, &obj.m_material.cTransparent[0]);
+
     // blend
     GLint blendLoc = glGetUniformLocation(
         shader, ("objects[" + std::to_string(cnt) + "].blend").c_str());
     glUniform1f(blendLoc, obj.m_material.blend);
+
+    // ior
+    GLint iorLoc = glGetUniformLocation(
+        shader, ("objects[" + std::to_string(cnt) + "].ior").c_str());
+    glUniform1f(iorLoc, obj.m_material.ior);
 
     // Texture
     GLint rULoc = glGetUniformLocation(

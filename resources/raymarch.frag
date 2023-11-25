@@ -2,7 +2,7 @@
 const int MAX_STEPS = 200;
 const float SURFACE_DIST = 0.001;
 const float SHADOWRAY_OFFSET = 0.007;
-const float TEXTURE_EPS = 0.007;
+const float TEXTURE_EPS = 0.005;
 const float PI = 3.14159265;
 const int NUM_REFLECTION = 2;
 
@@ -32,10 +32,12 @@ struct RayMarchObject
     // Material Property
     float shininess;
     float blend;
+    float ior;
     vec3 cAmbient;
     vec3 cDiffuse;
     vec3 cSpecular;
     vec3 cReflective;
+    vec3 cTransparent;
 
     // -1 if not used.
     int texLoc;
@@ -57,6 +59,15 @@ struct RayMarchRes
     float d;
 };
 
+// Sturct to store intersection information
+struct IntersectionInfo
+{
+    vec3 rd;
+    vec3 p;
+    vec3 n;
+    int intersectObj;
+};
+
 // Struct for lights in the scene
 struct LightSource
 {
@@ -68,19 +79,13 @@ struct LightSource
     float lightAngle;
     float lightPenumbra;
 };
-// =================================
-
 
 // =============== In ==============
 in vec4 nearClip;
 in vec4 farClip;
-// =================================
-
-
 
 // =============== Out =============
 out vec4 fragColor;
-// =================================
 
 // =========== Uniforms ============
 // Screen/Camera
@@ -93,6 +98,7 @@ uniform float far;
 uniform float ka;
 uniform float kd;
 uniform float ks;
+uniform float kt;
 // - Scene Lights
 uniform LightSource lights[10];
 uniform int numLights;
@@ -108,8 +114,6 @@ uniform sampler2D objTextures[10];
 uniform bool enableGammaCorrection;
 uniform bool enableSoftShadow;
 uniform bool enableReflection;
-// =================================
-
 
 // ============ Signed Distance Fields ==============
 // Define SDF for different shapes here
@@ -175,18 +179,34 @@ vec2 uvMapCube(vec3 p, float repeatU, float repeatV)
     // Determine the major axis
     if (m == absP.x)
     {
-        u = p.z + 0.5;
-        v = p.y + 0.5;
+        if (p.x < 0) {
+            u = p.z + 0.5;
+            v = p.y + 0.5;
+        } else {
+            u = -p.z + 0.5f;
+            v = p.y + 0.5f;
+        }
+
     }
     else if (m == absP.y)
     {
-        u = p.x + 0.5;
-        v = p.z + 0.5;
+        if (p.y < 0) {
+            u = p.x + 0.5;
+            v = p.z + 0.5;
+        } else {
+            u = p.x + 0.5f;
+            v = -p.z + 0.5f;
+        }
     }
     else
     {
-        u = p.x + 0.5;
-        v = p.y + 0.5;
+        if (p.z < 0) {
+            u = -p.x + 0.5f;
+            v = p.y + 0.5f;
+        } else {
+            u = p.x + 0.5f;
+            v = p.y + 0.5f;
+        }
     }
     return vec2(u * repeatU, v * repeatV);
 }
@@ -314,7 +334,7 @@ vec3 getNormal(in vec3 p) {
                 );
 }
 
-RayMarchRes raymarch(vec3 ro, vec3 rd, float end) {
+RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
   // Start from eye pos
   float rayDepth = 0.0;
   SceneMin closest;
@@ -326,7 +346,7 @@ RayMarchRes raymarch(vec3 ro, vec3 rd, float end) {
     if (abs(closest.minD) < SURFACE_DIST || rayDepth > end) {
         break;
     }
-    rayDepth += closest.minD;
+    rayDepth += closest.minD * side;
   }
   RayMarchRes res;
   if (abs(closest.minD) < SURFACE_DIST) {
@@ -382,7 +402,6 @@ vec3 getDiffuse(int objId, vec3 p, vec3 n) {
     } else if (obj.type == SPHERE) {
         uv = uvMapSphere(po, obj.repeatU, obj.repeatV);
     }
-    vec2 scaledUV = vec2(obj.scaleFactor * uv[0], obj.scaleFactor * uv[1]);
     vec4 texVal = texture(objTextures[obj.texLoc], uv);
     return (1.f - obj.blend) * kd * obj.cDiffuse + obj.blend * vec3(texVal);
 }
@@ -478,13 +497,13 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 rd)
 }
 
 // =============================================================
-vec3 render(inout vec3 ro, inout vec3 rd, inout vec3 ref)
+vec3 render(inout vec3 ro, inout vec3 rd, out IntersectionInfo i, float side)
 {
     // (note) "inout" allows you to modify ro and rd inside the function
 
     // Raymarching
-    RayMarchRes res = raymarch(ro, rd, far);
-    ref = vec3(0);
+    RayMarchRes res = raymarch(ro, rd, far, side);
+    // ref = vec3(0);
     if (res.intersectObj == -1) {
         // NO HIT
         return vec3(0.f);
@@ -500,15 +519,14 @@ vec3 render(inout vec3 ro, inout vec3 rd, inout vec3 ref)
         col = pow(col, vec3(1.0/2.2));
     }
 
-    // Reflection
-    // - get reflect dir
-    vec3 r = reflect(rd, pn);
-    ro = p + pn * SURFACE_DIST * 3.f;
-    rd = r;
-    // - set material reflectivity
-    ref = objects[res.intersectObj].cReflective;
+    i.p = p;
+    i.n = pn;
+    i.rd = rd;
+    i.intersectObj = res.intersectObj;
+
     return col;
 }
+
 
 void main() {
     // Perspective divide and get Ray origin and Ray direction
@@ -517,20 +535,65 @@ void main() {
     vec3 dir = farC - origin;
     dir = normalize(dir);
 
+    vec3 phong = vec3(0.),
+         refl = vec3(0.),
+         refr = vec3(0.);
+
+
     // Material reflectiveness
-    vec3 ref;
-    vec3 fil = vec3(1.);
+    IntersectionInfo info;
+    IntersectionInfo originalInfo;
+
     // Main render
-    vec3 col = render(origin, dir, ref);
+    phong = render(origin, dir, info, 1.f);
+    if (length(phong) == 0) {
+        // No hit
+       fragColor = vec4(phong, 1.f);
+       return;
+    }
+
+    originalInfo.intersectObj = info.intersectObj;
+    originalInfo.n = info.n;
+    originalInfo.p = info.p;
+    originalInfo.rd = info.rd;
+
     if (enableReflection) {
+        vec3 fil = vec3(1.);
         // GLSL does not have recursion apparently :(
         // Here is my work around
         // - fil keeps track of the accumulated material reflectivity
         for (int i = 0; i < NUM_REFLECTION; i++) {
-            fil *= ref;
-            vec3 bounce = ks * fil * render(origin, dir, ref);
-            col += bounce;
+            // Reflect ray
+            vec3 r = reflect(info.rd, info.n);
+            vec3 shiftedRO = info.p + info.n * SURFACE_DIST * 3.f;
+            fil *= objects[info.intersectObj].cReflective;
+            vec3 bounce = ks * fil * render(shiftedRO, r, info, 1.f);
+            refl += bounce;
         }
     }
-    fragColor = vec4(col, 1.f);
+
+    float ior = objects[originalInfo.intersectObj].ior;
+    vec3 ct = objects[originalInfo.intersectObj].cTransparent;
+
+    // Air -> Medium
+    vec3 rdIn = refract(originalInfo.rd, originalInfo.n, 1./ior);
+    vec3 pEnter = originalInfo.p - originalInfo.n * SURFACE_DIST * 3.f;
+    float dIn = raymarch(pEnter, rdIn, far, -1.).d;
+
+    vec3 pExit = pEnter + rdIn * dIn;
+    vec3 nExit = -getNormal(pExit);
+
+    float side;
+    vec3 lastP;
+    vec3 rdOut = refract(rdIn, nExit, ior);
+    if (length(rdOut) == 0) {
+        // Total Internal Reflection
+        refr = vec3(0.);
+    } else {
+        side = 1.;
+        lastP = pExit - nExit * SURFACE_DIST*3.f;
+        refr += kt * ct * render(lastP, rdOut, info, side);
+    }
+
+    fragColor = vec4(phong + refl + refr, 1.f);
 }
