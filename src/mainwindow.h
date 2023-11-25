@@ -24,6 +24,7 @@ private:
   void connectSoftShadow();
   void connectReflection();
   void connectRefraction();
+  void connectAmbientOcculusion();
   void connectUploadFile();
   void connectSaveImage();
 
@@ -41,6 +42,7 @@ private:
   QCheckBox *softShadow;
   QCheckBox *reflection;
   QCheckBox *refraction;
+  QCheckBox *ambientOcculusion;
 
 private slots:
   void onUploadFile();
@@ -53,4 +55,5 @@ private slots:
   void onSoftShadow();
   void onReflection();
   void onRefraction();
+  void onAmbientOcculusion();
 };

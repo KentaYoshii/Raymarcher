@@ -44,6 +44,7 @@ private:
   int m_timer; // Stores timer which attempts to run ~60 times per second
   QElapsedTimer m_elapsedTimer; // Stores timer which keeps track of actual time
                                 // between frames
+  float m_delta;
 
   // Input Related Variables
   bool m_mouseDown = false;   // Stores state of left mouse button
@@ -86,6 +87,8 @@ private:
   bool m_enableReflection;
   // - refraction
   bool m_enableRefraction;
+  // - ambient occulusion
+  bool m_enableAmbientOcclusion;
 
   // PRIVATE METHODS
 

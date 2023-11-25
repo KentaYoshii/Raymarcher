@@ -103,6 +103,7 @@ void Realtime::settingsChanged() {
   m_enableSoftShadow = settings.enableSoftShadow;
   m_enableReflection = settings.enableReflection;
   m_enableRefraction = settings.enableRefraction;
+  m_enableAmbientOcclusion = settings.enableAmbientOcculusion;
   update();
 }
 
@@ -139,6 +140,10 @@ void Realtime::mouseMoveEvent(QMouseEvent *event) {
       return;
     }
 
+    if (deltaX == 0 && deltaY == 0) {
+      return;
+    }
+
     Camera &cam = scene.getCamera();
     cam.rotateX(deltaX);
     cam.rotateY(deltaY);
@@ -150,6 +155,7 @@ void Realtime::mouseMoveEvent(QMouseEvent *event) {
 void Realtime::timerEvent(QTimerEvent *event) {
   int elapsedms = m_elapsedTimer.elapsed();
   float deltaTime = elapsedms * 0.001f;
+  m_delta += deltaTime;
   m_elapsedTimer.restart();
 
   if (!scene.isInitialized()) {

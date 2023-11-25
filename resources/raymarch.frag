@@ -1,7 +1,7 @@
 #version 330 core
 // ============ CONST ==============
 // - max raymarching steps
-const int MAX_STEPS = 200;
+const int MAX_STEPS = 256;
 // - threshold for intersection
 const float SURFACE_DIST = 0.001;
 // - small offset for the origin of shadow rays
@@ -11,13 +11,14 @@ const float TEXTURE_EPS = 0.005;
 // - PI
 const float PI = 3.14159265;
 // - reflection depth
-const int NUM_REFLECTION = 2;
+const int NUM_REFLECTION = 3;
 
 // PRIM TYPES
 const int CUBE = 0;
 const int CONE = 1;
 const int CYLINDER = 2;
 const int SPHERE = 3;
+const int OCTAHEDRON = 4;
 
 // LIGHT TYPES
 const int POINT = 0;
@@ -132,11 +133,21 @@ uniform int numObjects;
 // Textures
 uniform sampler2D objTextures[10];
 
+// Timer
+uniform float iTime;
+
 // Options
 uniform bool enableGammaCorrection;
 uniform bool enableSoftShadow;
 uniform bool enableReflection;
 uniform bool enableRefraction;
+uniform bool enableAmbientOcculusion;
+
+// ================== Utility =======================
+vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
+    return mix(dot(axis, p)*axis, p, cos(angle)) + cross(axis,p)*sin(angle);
+}
+
 
 // ============ Signed Distance Fields ==============
 // Define SDF for different shapes here
@@ -185,12 +196,31 @@ float sdCylinder(vec3 p, float h, float r)
   return min(max(d.x,d.y),0.0) + length(max(d,0.0));
 }
 
+// Octahedron Signed Distance Field
+// @param p Point in object space
+// @param h Half height of the cone
+// @param r Radius of the base
+float sdOctahedron(vec3 p, float s)
+{
+    p = abs(p);
+    float m = p.x + p.y + p.z - s;
+    vec3 r = 3.0*p - m;
+    vec3 q;
+    if( r.x < 0.0 ) q = p.xyz;
+    else if( r.y < 0.0 ) q = p.yzx;
+    else if( r.z < 0.0 ) q = p.zxy;
+    else return m*0.57735027;
+    float k = clamp(0.5*(q.z-q.y+s),0.0,s);
+    return length(vec3(q.x,q.y-s+k,q.z-k));
+}
+
 // Given a point in object space and type of the SDF
 // Invoke the appropriate SDF function and return the distance
 // @param p Point in object space
 // @param type Type of the object
 float sdMatch(vec3 p, int type)
 {
+    p = rotateAxis(p, vec3(0, 1, 0), iTime);
     if (type == CUBE) {
         return sdBox(p, vec3(0.5));
     } else if (type == CONE) {
@@ -199,6 +229,8 @@ float sdMatch(vec3 p, int type)
         return sdCylinder(p, 0.5, 0.5);
     } else if (type == SPHERE) {
         return sdSphere(p, 0.5);
+    } else if (type == OCTAHEDRON) {
+        return sdOctahedron(p, 0.5);
     }
 }
 
@@ -413,7 +445,7 @@ RayMarchRes softshadow(vec3 ro, vec3 rd, float mint, float maxt, float k )
     for( int i=0; i<MAX_STEPS && rayDepth<maxt; i++ )
     {
         float h = sdScene(ro + rd*rayDepth).minD;
-        if( h<SURFACE_DIST ) {
+        if( h< SURFACE_DIST ) {
             r.d = 0.0;
             r.intersectObj = 1;
             return r;
@@ -424,6 +456,23 @@ RayMarchRes softshadow(vec3 ro, vec3 rd, float mint, float maxt, float k )
     r.intersectObj = -1;
     r.d = res;
     return r;
+}
+
+// Calculate the ambient occlusion
+// https://iquilezles.org/articles/nvscene2008/rwwtt.pdf
+float calcAO(in vec3 pos, in vec3 nor)
+{
+    float occ = 0.0;
+    float sca = 1.0;
+    for( int i=0; i<5; i++ )
+    {
+        float h = 0.01 + 0.12*float(i)/4.0;
+        float d = sdScene(pos + h*nor).minD;
+        occ += (h-d)*sca;
+        sca *= 0.95;
+        if( occ>0.35 ) break;
+    }
+    return clamp( 1.0 - 3.0*occ, 0.0, 1.0 ) * (0.5+0.5*nor.y);
 }
 
 // Gets the diffuse term
@@ -488,7 +537,11 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 rd)
     RayMarchObject obj = objects[intersectObj];
 
     // Ambience
-    total += obj.cAmbient * ka;
+    float ao = 1.f;
+    if (enableAmbientOcculusion) {
+        ao = calcAO(p, N);
+    }
+    total += obj.cAmbient * ka * ao;
 
     // Loop Lights
     for (int i = 0; i < numLights; i++) {
@@ -504,7 +557,7 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 rd)
             maxT = length(lights[i].lightPos - p);
         } else if (lights[i].type == DIRECTIONAL) {
             L = normalize(-lights[i].lightDir);
-            maxT = 100.f;
+            maxT = far;
         } else if (lights[i].type == SPOT) {
             L = normalize(lights[i].lightPos - p);
             fAtt = attenuationFactor(d, lights[i].lightFunc);
@@ -523,24 +576,24 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 rd)
         }
 
         // Shadow
-        RayMarchRes res = softshadow(p, L, SHADOWRAY_OFFSET, maxT, 8);
+        RayMarchRes res = softshadow(p + N * SURFACE_DIST * 3., L, 0, far, 8);
         if (res.intersectObj == 1) {
             // Shadow Ray intersected an object
             continue;
         }
-
         // Diffuse
         float NdotL = dot(N, L);
-        if (NdotL < 0) {
+        if (NdotL <= 0.005f) {
             // Pointing away
             continue;
         }
         NdotL = clamp(NdotL, 0.f, 1.f);
         currColor +=  getDiffuse(intersectObj, p, N) * NdotL * lights[i].lightColor;
+
         // Specular
         vec3 R = reflect(-L, N);
         vec3 dirToCamera = normalize(-rd);
-        float RdotV = max(dot(R, dirToCamera), 0.f);
+        float RdotV = clamp(dot(R, dirToCamera), 0.f, 1.f);
         currColor += getSpecular(RdotV, obj.cSpecular, obj.shininess) * lights[i].lightColor;
         // Add the light source's contribution
         currColor *= fAtt * aFall;
@@ -612,8 +665,9 @@ void main() {
     originalInfo.p = info.p;
     originalInfo.rd = info.rd;
 
-    if (enableReflection) {
-        vec3 fil = vec3(1.);
+    RayMarchObject obj = objects[info.intersectObj];
+    if (enableReflection && length(obj.cReflective) != 0) {
+        vec3 fil = vec3(1.f);
         // GLSL does not have recursion apparently :(
         // Here is my work around
         // - fil keeps track of the accumulated material reflectivity
@@ -627,7 +681,7 @@ void main() {
         }
     }
 
-    if (enableRefraction) {
+    if (enableRefraction && length(obj.cTransparent) != 0) {
         // No recursion so hardcoded 2 refractions :(
         // also it does not account for the reflected light contributions
         // of the refracted rays (again, no recursion) so this is really wrong.

@@ -19,7 +19,7 @@ enum class PrimitiveType {
   PRIMITIVE_CONE,
   PRIMITIVE_CYLINDER,
   PRIMITIVE_SPHERE,
-  PRIMITIVE_MESH
+  PRIMITIVE_OCTAHEDRON,
 };
 
 // Enum of the types of transformations that can be applied
@@ -117,17 +117,15 @@ struct SceneFileMap {
 // Struct which contains data for a material (e.g. one which might be assigned
 // to an object)
 struct SceneMaterial {
-  SceneColor cAmbient;  // Ambient term
-  SceneColor cDiffuse;  // Diffuse term
-  SceneColor cSpecular; // Specular term
-  float shininess;      // Specular exponent
+  SceneColor cAmbient;
+  SceneColor cDiffuse;
+  SceneColor cSpecular;
+  float shininess;
 
-  SceneColor cReflective; // Used to weight contribution of reflected ray
-                          // lighting (via multiplication)
+  SceneColor cReflective;
 
-  SceneColor
-      cTransparent; // Transparency;        used for extra credit (refraction)
-  float ior;        // Index of refraction; used for extra credit (refraction)
+  SceneColor cTransparent;
+  float ior;
 
   SceneFileMap textureMap; // Used for texture mapping
   float blend;             // Used for texture mapping

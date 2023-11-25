@@ -1,0 +1,97 @@
+{
+  "name": "root",
+  "globalData": {
+    "ambientCoeff": 0.5,
+    "diffuseCoeff": 0.5,
+    "specularCoeff": 0.5,
+    "transparentCoeff": 0.5
+  },
+  "cameraData": {
+    "position": [-6.0, 3.0, 3.0],
+    "up": [0.0, 1.0, 0.0],
+    "heightAngle": 30.0,
+    "focus": [0.0, 0.0, 0.0]
+  },
+  "groups": [
+    {
+        "lights": [
+          {
+            "type": "directional",
+            "color": [1, 1, 1],
+            "direction": [0, -0.5, 0]
+          }
+        ]
+      },
+    {
+      "lights": [
+        {
+          "type": "directional",
+          "color": [1, 1, 1],
+          "direction": [-1.0, -0.5, 0]
+        }
+      ]
+    },
+    {
+      "lights": [
+        {
+          "type": "directional",
+          "color": [0, 0, 1],
+          "direction": [1.0, -0.5, 0]
+        }
+      ]
+    },
+    {
+      "lights": [
+        {
+          "type": "directional",
+          "color": [1.0, 0, 0.0],
+          "direction": [0, -0.5, -1]
+        }
+      ]
+    },
+    {
+      "lights": [
+        {
+          "type": "directional",
+          "color": [0, 1, 0.0],
+          "direction": [0, -0.5, 1]
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "scale": [2, 2, 2],
+          "primitives": [
+            {
+              "type": "octahedron",
+              "ambient": [0.2, 0.2, 0.2],
+              "diffuse": [0.9, 0.9, 0.9],
+              "specular": [0.7, 0.7, 0.7],
+              "shininess": 100.0,
+              "reflective": [1, 1, 1],
+              "transparent": [1, 1, 1],
+              "ior": 1.5
+            }
+          ]
+        },
+        {
+          "translate": [0.0, -1.05, 0.0],
+          "scale": [40.0, 0.1, 40.0],
+          "primitives": [
+            {
+              "type": "cube",
+              "diffuse": [0.7, 0.7, 0.7],
+              "reflective": [0.5, 0.5, 0.5],
+              "shininess": 40.0,
+              "blend": 0.8,
+              "textureFile": "texture_store/blackmarble.png",
+              "textureU": 1.0,
+              "textureV": 5.0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

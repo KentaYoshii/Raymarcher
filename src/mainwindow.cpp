@@ -51,6 +51,10 @@ void MainWindow::initialize() {
   refraction->setText(QStringLiteral("Refraction"));
   refraction->setChecked(false);
 
+  ambientOcculusion = new QCheckBox();
+  ambientOcculusion->setText(QStringLiteral("Ambient Occulusion"));
+  ambientOcculusion->setChecked(false);
+
   // Create file uploader for scene file
   uploadFile = new QPushButton();
   uploadFile->setText(QStringLiteral("Upload Scene File"));
@@ -110,6 +114,7 @@ void MainWindow::initialize() {
   vLayout->addWidget(softShadow);
   vLayout->addWidget(reflection);
   vLayout->addWidget(refraction);
+  vLayout->addWidget(ambientOcculusion);
 
   connectUIElements();
 
@@ -132,6 +137,7 @@ void MainWindow::connectUIElements() {
   connectSoftShadow();
   connectReflection();
   connectRefraction();
+  connectAmbientOcculusion();
 }
 
 void MainWindow::connectUploadFile() {
@@ -177,6 +183,10 @@ void MainWindow::connectRefraction() {
   connect(refraction, &QCheckBox::clicked, this, &MainWindow::onRefraction);
 }
 
+void MainWindow::connectAmbientOcculusion() {
+  connect(ambientOcculusion, &QCheckBox::clicked, this,
+          &MainWindow::onAmbientOcculusion);
+}
 void MainWindow::onUploadFile() {
   // Get abs path of scene file
   QString configFilePath = QFileDialog::getOpenFileName(
@@ -258,5 +268,10 @@ void MainWindow::onReflection() {
 
 void MainWindow::onRefraction() {
   settings.enableRefraction = !settings.enableRefraction;
+  realtime->settingsChanged();
+}
+
+void MainWindow::onAmbientOcculusion() {
+  settings.enableAmbientOcculusion = !settings.enableAmbientOcculusion;
   realtime->settingsChanged();
 }

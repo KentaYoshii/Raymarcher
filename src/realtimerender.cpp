@@ -181,12 +181,16 @@ void Realtime::configureCameraUniforms(GLuint shader) {
  * @param shader Shader program we are using
  */
 void Realtime::configureScreenUniforms(GLuint shader) {
+  // Screen Dimensions
   glm::vec2 screenD{
       scene.m_width,
       scene.m_height,
   };
   GLuint screenDLoc = glGetUniformLocation(shader, "screenDimensions");
   glUniform2fv(screenDLoc, 1, &screenD[0]);
+  // ITime
+  GLuint iTimeLoc = glGetUniformLocation(shader, "iTime");
+  glUniform1f(iTimeLoc, m_delta);
 }
 
 /**
@@ -268,6 +272,9 @@ void Realtime::configureSettingsUniforms(GLuint shader) {
   // Refraction
   GLuint refrLoc = glGetUniformLocation(shader, "enableRefraction");
   glUniform1i(refrLoc, m_enableRefraction);
+  // Ambient Occulusion
+  GLuint ambLoc = glGetUniformLocation(shader, "enableAmbientOcculusion");
+  glUniform1i(ambLoc, m_enableAmbientOcclusion);
 }
 
 /**

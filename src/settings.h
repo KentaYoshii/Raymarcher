@@ -28,6 +28,7 @@ struct Settings {
   bool enableSoftShadow;
   bool enableReflection;
   bool enableRefraction;
+  bool enableAmbientOcculusion;
 };
 
 // The global Settings object, will be initialized by MainWindow
