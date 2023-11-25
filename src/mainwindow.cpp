@@ -55,6 +55,10 @@ void MainWindow::initialize() {
   ambientOcculusion->setText(QStringLiteral("Ambient Occulusion"));
   ambientOcculusion->setChecked(false);
 
+  fxaa = new QCheckBox();
+  fxaa->setText(QStringLiteral("FXAA"));
+  fxaa->setChecked(false);
+
   // Create file uploader for scene file
   uploadFile = new QPushButton();
   uploadFile->setText(QStringLiteral("Upload Scene File"));
@@ -115,12 +119,13 @@ void MainWindow::initialize() {
   vLayout->addWidget(reflection);
   vLayout->addWidget(refraction);
   vLayout->addWidget(ambientOcculusion);
+  vLayout->addWidget(fxaa);
 
   connectUIElements();
 
   // Set default values for near and far planes
   onValChangeNearBox(0.1f);
-  onValChangeFarBox(10.f);
+  onValChangeFarBox(100.f);
 }
 
 void MainWindow::finish() {
@@ -138,6 +143,7 @@ void MainWindow::connectUIElements() {
   connectReflection();
   connectRefraction();
   connectAmbientOcculusion();
+  connectFXAA();
 }
 
 void MainWindow::connectUploadFile() {
@@ -187,6 +193,11 @@ void MainWindow::connectAmbientOcculusion() {
   connect(ambientOcculusion, &QCheckBox::clicked, this,
           &MainWindow::onAmbientOcculusion);
 }
+
+void MainWindow::connectFXAA() {
+  connect(fxaa, &QCheckBox::clicked, this, &MainWindow::onFXAA);
+}
+
 void MainWindow::onUploadFile() {
   // Get abs path of scene file
   QString configFilePath = QFileDialog::getOpenFileName(
@@ -273,5 +284,10 @@ void MainWindow::onRefraction() {
 
 void MainWindow::onAmbientOcculusion() {
   settings.enableAmbientOcculusion = !settings.enableAmbientOcculusion;
+  realtime->settingsChanged();
+}
+
+void MainWindow::onFXAA() {
+  settings.enableFXAA = !settings.enableFXAA;
   realtime->settingsChanged();
 }

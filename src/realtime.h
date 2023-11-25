@@ -71,11 +71,18 @@ private:
   // Textures
   // - default material texture
   GLuint m_defaultShapeTexture;
+  // - map from file name to texture object
   std::unordered_map<std::string, GLuint> m_TextureMap;
+  // - fxaa texture
+  GLuint m_fxaaTexture;
 
   // FBO
   // - application window FBO
-  GLuint m_defaultFBO = 1;
+  GLuint m_defaultFBO = 2;
+  // - custom FBO
+  GLuint m_customFBO;
+  GLuint m_customFBOColorTexture;
+  GLuint m_customFBORenderBuffer;
 
   // Image Plane through which we march rays
   GLuint m_imagePlaneVAO;
@@ -96,11 +103,17 @@ private:
   bool m_enableRefraction;
   // - ambient occulusion
   bool m_enableAmbientOcclusion;
+  // - FXAA
+  bool m_enableFXAA;
 
   // PRIVATE METHODS
 
   // Performs raymarching using our raymarch shader
   void rayMarch();
+  // Applies FXAA post processing
+  void applyFXAA();
+  // Draws to the fullsreen quad with given tex
+  void drawToQuadWithTex(GLuint tex);
 
   // Initializes the shaders with constant uniforms
   void initShader();
@@ -112,6 +125,8 @@ private:
   void initFullScreenQuad();
   // Initializes each and every material texture used in the scene
   void initShapesTextures();
+  // Initializes our custom FBO for offline rendering
+  void initCustomFBO();
 
   // Sets the output FBO
   void setFBO(GLuint fbo);
@@ -126,7 +141,11 @@ private:
   void configureLightsUniforms(GLuint shader);
   // Sets the uniforms for all the rendering options
   void configureSettingsUniforms(GLuint shader);
+  // Sets the uniforms for FXAA
+  void configureFXAAUniforms(GLuint shader);
 
   // Destroies shapes textures
   void destroyShapesTextures();
+  // Destroy custom FBO
+  void destroyCustomFBO();
 };

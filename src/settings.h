@@ -29,6 +29,7 @@ struct Settings {
   bool enableReflection;
   bool enableRefraction;
   bool enableAmbientOcculusion;
+  bool enableFXAA;
 };
 
 // The global Settings object, will be initialized by MainWindow

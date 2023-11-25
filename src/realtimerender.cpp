@@ -5,6 +5,8 @@
  * @brief Performs Raymarching using our raymarch shader
  * - Set the shader
  * - Set the output FBO
+ *   - If FXAA enabled, offline render first
+ *   - Else just render to the wnd
  * - Set the uniforms
  * - Draws the Blank Screen
  */
@@ -12,7 +14,13 @@ void Realtime::rayMarch() {
   // Set ray march shader
   glUseProgram(m_rayMarchShader);
   // Set FBO
-  setFBO(m_defaultFBO);
+  if (m_enableFXAA) {
+    // If FXAA enabled, render offline first
+    setFBO(m_customFBO);
+  } else {
+    // Else go straight to application window
+    setFBO(m_defaultFBO);
+  }
   // Set Uniforms
   configureScreenUniforms(m_rayMarchShader);
   configureCameraUniforms(m_rayMarchShader);
@@ -25,6 +33,40 @@ void Realtime::rayMarch() {
   // Un-set
   glBindVertexArray(0);
   glUseProgram(0);
+  // Apply FXAA, if enabled
+  if (m_enableFXAA) {
+    applyFXAA();
+  }
+}
+
+/**
+ * @brief Applies FXAA
+ */
+void Realtime::applyFXAA() {
+  setFBO(m_defaultFBO);
+  glUseProgram(m_fxaaShader);
+  // Set Uniforms
+  configureFXAAUniforms(m_fxaaShader);
+  // Draw to Full Screen Quad using offline rendered texture
+  drawToQuadWithTex(m_customFBOColorTexture);
+  glBindFramebuffer(GL_FRAMEBUFFER, m_defaultFBO);
+  glUseProgram(0);
+}
+
+/**
+ * @brief Given tex, draw to a full screen quad
+ * @param texture we want to sample from
+ */
+void Realtime::drawToQuadWithTex(GLuint tex) {
+  // Bind full screen quad vao
+  glBindVertexArray(m_fullscreenVAO);
+  // Activate 0
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, tex);
+  // Draw
+  glDrawArrays(GL_TRIANGLES, 0, 6);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glBindVertexArray(0);
 }
 
 /**
@@ -166,6 +208,14 @@ void Realtime::initDefaults() {
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE,
                std::vector<GLfloat>{0, 0}.data());
   glBindTexture(GL_TEXTURE_2D, 0);
+  // FXAA Texture
+  glGenTextures(1, &m_fxaaTexture);
+  glBindTexture(GL_TEXTURE_2D, m_fxaaTexture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, scene.m_width, scene.m_height, 0,
+               GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 /**
@@ -182,6 +232,34 @@ void Realtime::initShader() {
     glUniform1i(texsLoc + i, i);
   }
   glUseProgram(0);
+}
+
+/**
+ * @brief Initializes the custom FBO for offline rendering
+ */
+void Realtime::initCustomFBO() {
+  // ColorBuffer
+  glGenTextures(1, &m_customFBOColorTexture);
+  glBindTexture(GL_TEXTURE_2D, m_customFBOColorTexture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, scene.m_width, scene.m_height, 0,
+               GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  // RenderBuffer
+  glGenRenderbuffers(1, &m_customFBORenderBuffer);
+  glBindRenderbuffer(GL_RENDERBUFFER, m_customFBORenderBuffer);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, scene.m_width,
+                        scene.m_height);
+  glBindRenderbuffer(GL_RENDERBUFFER, 0);
+  // FBO
+  glGenFramebuffers(1, &m_customFBO);
+  glBindFramebuffer(GL_FRAMEBUFFER, m_customFBO);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                         m_customFBOColorTexture, 0);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                            GL_RENDERBUFFER, m_customFBORenderBuffer);
+  glBindFramebuffer(GL_FRAMEBUFFER, m_defaultFBO);
 }
 
 /**
@@ -438,6 +516,23 @@ void Realtime::configureShapesUniforms(GLuint shader) {
 }
 
 /**
+ * @brief Initializes fxaa uniforms
+ */
+void Realtime::configureFXAAUniforms(GLuint shader) {
+  float inverseWidth = 1.0 / scene.m_width;
+  float inverseHeight = 1.0 / scene.m_height;
+  glm::vec2 inverseScreen{inverseWidth, inverseHeight};
+
+  // Inverse Screen Dimensions
+  GLuint inverseScreenSizeLoc =
+      glGetUniformLocation(shader, "inverseScreenSize");
+  glUniform2fv(inverseScreenSizeLoc, 1, &inverseScreen[0]);
+
+  GLuint screenTextureLoc = glGetUniformLocation(shader, "screenTexture");
+  glUniform1i(screenTextureLoc, 0);
+}
+
+/**
  * @brief Destroyes all generated shape material texture
  */
 void Realtime::destroyShapesTextures() {
@@ -445,4 +540,13 @@ void Realtime::destroyShapesTextures() {
     glDeleteTextures(1, &id);
   }
   m_TextureMap.clear();
+}
+
+/**
+ * @brief Clean up any rss allocated for our custom FBO
+ */
+void Realtime::destroyCustomFBO() {
+  glDeleteTextures(1, &m_customFBOColorTexture);
+  glDeleteRenderbuffers(1, &m_customFBORenderBuffer);
+  glDeleteFramebuffers(1, &m_customFBO);
 }

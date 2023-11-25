@@ -36,6 +36,10 @@ void Realtime::finish() {
 
   // Destroy Defaults
   glDeleteTextures(1, &m_defaultShapeTexture);
+  glDeleteTextures(1, &m_fxaaTexture);
+
+  // Destroy FBO
+  destroyCustomFBO();
 
   // Destroy Shaders
   glDeleteProgram(m_rayMarchShader);
@@ -82,6 +86,8 @@ void Realtime::initializeGL() {
   initDefaults();
   // Initialize the shader
   initShader();
+  // Initialize the custom FBO
+  initCustomFBO();
 }
 
 void Realtime::paintGL() {
@@ -102,6 +108,9 @@ void Realtime::resizeGL(int w, int h) {
   }
   // Resize the scene and update the camera
   scene.resizeScene(scene.m_width, scene.m_height);
+  // Destroy and re-Init FBO
+  destroyCustomFBO();
+  initCustomFBO();
 }
 
 void Realtime::sceneChanged() {
@@ -128,6 +137,7 @@ void Realtime::settingsChanged() {
   m_enableReflection = settings.enableReflection;
   m_enableRefraction = settings.enableRefraction;
   m_enableAmbientOcclusion = settings.enableAmbientOcculusion;
+  m_enableFXAA = settings.enableFXAA;
   update();
 }
 
