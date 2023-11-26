@@ -26,6 +26,7 @@ private:
   void connectRefraction();
   void connectAmbientOcculusion();
   void connectFXAA();
+  void connectSkyBox();
   void connectUploadFile();
   void connectSaveImage();
 
@@ -45,6 +46,7 @@ private:
   QCheckBox *refraction;
   QCheckBox *ambientOcculusion;
   QCheckBox *fxaa;
+  QCheckBox *skybox;
 
 private slots:
   void onUploadFile();
@@ -59,4 +61,5 @@ private slots:
   void onRefraction();
   void onAmbientOcculusion();
   void onFXAA();
+  void onSkyBox();
 };

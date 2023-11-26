@@ -106,6 +106,14 @@ struct LightSource
     float lightPenumbra;
 };
 
+struct RenderInfo
+{
+    // Struct for holding render results.
+    // We need this to differentiate the color values between true hit and environment
+    vec3 fragColor;
+    bool isEnv;
+};
+
 // =============== In ==============
 in vec4 nearClip;
 in vec4 farClip;
@@ -135,6 +143,7 @@ uniform int numObjects;
 
 // Textures
 uniform sampler2D objTextures[10];
+uniform samplerCube skybox;
 
 // Timer
 uniform float iTime;
@@ -145,6 +154,7 @@ uniform bool enableSoftShadow;
 uniform bool enableReflection;
 uniform bool enableRefraction;
 uniform bool enableAmbientOcculusion;
+uniform bool enableSkyBox;
 
 // ================== Utility =======================
 // Transforms p along axis by angle
@@ -156,7 +166,7 @@ vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
 vec3 Transform(in vec3 p)
 {
 //  p = rotateAxis(p, vec3(1, 0, 0), iTime);
-//  p = rotateAxis(p, vec3(0, 1, 0), iTime);
+  p = rotateAxis(p, vec3(0, 1, 0), iTime);
 //  p = rotateAxis(p, vec3(0, 0, 1), iTime);
   return p;
 }
@@ -270,7 +280,7 @@ float sdMatch(vec3 p, int type)
     } else if (type == SPHERE) {
         return sdSphere(p, 0.5);
     } else if (type == OCTAHEDRON) {
-        return sdOctahedron(p, 0.5);
+        return sdOctahedron(Transform(p), 0.5);
     } else if (type == TORUS) {
         return sdTorus(p, vec2(0.5, 0.5/4));
     } else if (type == CAPSULE) {
@@ -404,8 +414,8 @@ SceneMin sdScene(vec3 p){
         RayMarchObject obj = objects[i];
         // Conv to Object space
         // - (Note) for global transformation
-        po = vec3(obj.invModelMatrix * vec4(Transform(p), 1.f));
-        //po = vec3(obj.invModelMatrix * vec4(p, 1.f));
+        //po = vec3(obj.invModelMatrix * vec4(Transform(p), 1.f));
+        po = vec3(obj.invModelMatrix * vec4(p, 1.f));
 
         // Get the distance to the object
         currD = sdMatch(po, obj.type) * obj.scaleFactor;
@@ -536,8 +546,8 @@ vec3 getDiffuse(int objId, vec3 p, vec3 n) {
     // Texture used -> find uv
     vec2 uv;
     // (Note) For global transformation
-    vec3 po = vec3(obj.invModelMatrix * vec4(Transform(p), 1.f));
-    // vec3 po = vec3(obj.invModelMatrix * vec4(p, 1.f));
+    // vec3 po = vec3(obj.invModelMatrix * vec4(Transform(p), 1.f));
+    vec3 po = vec3(obj.invModelMatrix * vec4(p, 1.f));
     if (obj.type == CUBE) {
         uv = uvMapCube(po, obj.repeatU, obj.repeatV);
     } else if (obj.type == CONE) {
@@ -661,18 +671,28 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 rd)
 // @param rd Ray direction
 // @param i IntersectionInfo we are populating
 // @param side Determines if we are inside or outside of an object
-vec3 render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
+RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
 {
+    RenderInfo ri;
     // Raymarching
     RayMarchRes res = raymarch(ro, rd, far, side);
     if (res.intersectObj == -1) {
-        // NO HIT
-        return vec3(0.f);
+        // If no hit but sky box is used, sample
+        if (enableSkyBox) {
+            ri.fragColor = vec3(texture(skybox, rd).rgb);
+            ri.isEnv = true;
+            return ri;
+        } else {
+            // Simple black screen
+            ri.fragColor = vec3(0.f);
+            ri.isEnv = true;
+            return ri;
+        }
     }
+
     // HIT
     // - hit point
     vec3 p = ro + rd * res.d;
-    // p = Transform(p);
     // - normalized hit normal
     vec3 pn = getNormal(p);
     // - get color
@@ -683,7 +703,10 @@ vec3 render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
     i.rd = rd;
     i.intersectObj = res.intersectObj;
 
-    return col;
+    ri.fragColor = col;
+    ri.isEnv = false;
+
+    return ri;
 }
 
 
@@ -703,12 +726,13 @@ void main() {
             originalInfo;
 
     // Main render
-    phong = render(origin, dir, info, 1.f);
-    if (length(phong) == 0) {
-        // No hit
-       fragColor = vec4(phong, 1.f);
+    RenderInfo ri = render(origin, dir, info, 1.f);
+    if (ri.isEnv) {
+       fragColor = vec4(ri.fragColor, 1.f);
        return;
     }
+
+    phong = ri.fragColor;
 
     // Copy
     originalInfo.intersectObj = info.intersectObj;
@@ -727,8 +751,16 @@ void main() {
             vec3 r = reflect(info.rd, info.n);
             vec3 shiftedRO = info.p + r * SURFACE_DIST * 3.f;
             fil *= objects[info.intersectObj].cReflective;
-            vec3 bounce = ks * fil * render(shiftedRO, r, info, 1.f);
+            // Render the reflected ray
+            RenderInfo res = render(shiftedRO, r, info, 1.f);
+            // Always want to incorporate the first reflected ray's color val
+            vec3 bounce = ks * fil * res.fragColor;
             refl += bounce;
+            if (res.isEnv) {
+                // If reflected ray did not hit anything, we break
+                // since we cannot reflect off a skybox/void
+                break;
+            }
         }
     }
 
@@ -757,7 +789,7 @@ void main() {
             // Total Internal Reflection
             refr = vec3(0.);
         } else {
-            refr += kt * ct * render(pExit - nExit * SURFACE_DIST*3.f, rdOut, info, 1.);
+            refr += kt * ct * render(pExit - nExit * SURFACE_DIST*3.f, rdOut, info, 1.).fragColor;
         }
     }
 

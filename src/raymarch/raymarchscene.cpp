@@ -44,6 +44,28 @@ Camera &RayMarchScene::getCamera() { return m_camera; }
 SceneGlobalData &RayMarchScene::getGlobalData() { return m_globalData; }
 
 /**
+ * @brief Gets the file paths to be used for cube map
+ * @returns vector containing the file names
+ */
+std::vector<std::string> RayMarchScene::getCubeMapWithType(CUBEMAP type) {
+  switch (type) {
+  case UNUSED: {
+    return std::vector<std::string>();
+  }
+  case BEACH: {
+    return std::vector<std::string>{
+        "texture_store/cube_map/beach/+x.jpg",
+        "texture_store/cube_map/beach/-x.jpg",
+        "texture_store/cube_map/beach/+y.jpg",
+        "texture_store/cube_map/beach/-y.jpg",
+        "texture_store/cube_map/beach/+z.jpg",
+        "texture_store/cube_map/beach/-z.jpg",
+    };
+  }
+  }
+}
+
+/**
  * @brief Initializes the scene for Raymarching
  * This is called in sceneChanged() function with the new json file.
  * 1. Parse the scene json file

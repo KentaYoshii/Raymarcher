@@ -45,6 +45,9 @@ public:
   // Gets Global Data
   SceneGlobalData &getGlobalData();
 
+  // Gets the file paths for cube map based on the type
+  std::vector<std::string> getCubeMapWithType(CUBEMAP type);
+
 private:
   // PRIVATE METHODS
 

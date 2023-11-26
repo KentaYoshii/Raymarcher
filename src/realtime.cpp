@@ -34,9 +34,15 @@ void Realtime::finish() {
   glDeleteVertexArrays(1, &m_fullscreenVAO);
   glDeleteBuffers(1, &m_fullscreenVBO);
 
+  // Destroy Sky Box
+  glDeleteVertexArrays(1, &m_skyBoxVAO);
+  glDeleteBuffers(1, &m_skyBoxVBO);
+
   // Destroy Defaults
   glDeleteTextures(1, &m_defaultShapeTexture);
   glDeleteTextures(1, &m_fxaaTexture);
+  glDeleteTextures(1, &m_cubeMapTexture);
+  glDeleteTextures(1, &m_nullCubeMapTexture);
 
   // Destroy FBO
   destroyCustomFBO();
@@ -78,10 +84,13 @@ void Realtime::initializeGL() {
       ":/resources/raymarch.vert", ":/resources/raymarch.frag");
   m_fxaaShader = ShaderLoader::createShaderProgram(
       ":/resources/fullscreen.vert", ":/resources/fxaa.frag");
+
   // Initialize the image plane through which we march rays
   initImagePlane();
   // Initialize the full screen quad
   initFullScreenQuad();
+  // Initialize the sky box
+  initSkyBox();
   // Initialize any defaults
   initDefaults();
   // Initialize the shader
@@ -138,6 +147,10 @@ void Realtime::settingsChanged() {
   m_enableRefraction = settings.enableRefraction;
   m_enableAmbientOcclusion = settings.enableAmbientOcculusion;
   m_enableFXAA = settings.enableFXAA;
+  if (!m_enableSkyBox && settings.enableSkyBox) {
+    initCubeMap(CUBEMAP::BEACH);
+  }
+  m_enableSkyBox = settings.enableSkyBox;
   update();
 }
 

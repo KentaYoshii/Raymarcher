@@ -1,4 +1,5 @@
 #include "realtime.h"
+#include <filesystem>
 #include <iostream>
 
 /**
@@ -216,21 +217,42 @@ void Realtime::initDefaults() {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glBindTexture(GL_TEXTURE_2D, 0);
+  // NULL CUBE MAP TEXTURE
+  glGenTextures(1, &m_nullCubeMapTexture);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, m_nullCubeMapTexture);
+  for (int i = 0; i < 6; i++) {
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA, 1, 1, 0,
+                 GL_RGBA, GL_UNSIGNED_BYTE, std::vector<GLfloat>{0, 0}.data());
+  }
+  glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 /**
  * @brief Initializes the shader with constant uniforms
  */
 void Realtime::initShader() {
+  // Raymarch shader
   glUseProgram(m_rayMarchShader);
   // Set the textures to use correct slots
   GLuint texsLoc = glGetUniformLocation(m_rayMarchShader, "objTextures");
-  for (int i = 0; i <= 10; i++) {
+  for (int i = 0; i < 10; i++) {
     // Bind to default
     glActiveTexture(GL_TEXTURE0 + i);
     glBindTexture(GL_TEXTURE_2D, m_defaultShapeTexture);
     glUniform1i(texsLoc + i, i);
   }
+  // Set the skybox tex unit to the next available
+  GLuint skyBoxLoc = glGetUniformLocation(m_rayMarchShader, "skybox");
+  // Bind to default cube map (= null cube map)
+  glActiveTexture(GL_TEXTURE0 + 10);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, m_nullCubeMapTexture);
+  glUniform1i(skyBoxLoc, 10);
+  glUseProgram(0);
+
+  // FXAA Shader
+  glUseProgram(m_fxaaShader);
+  GLuint screenLoc = glGetUniformLocation(m_rayMarchShader, "screenTexture");
+  glUniform1i(screenLoc, 0);
   glUseProgram(0);
 }
 
@@ -260,6 +282,80 @@ void Realtime::initCustomFBO() {
   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
                             GL_RENDERBUFFER, m_customFBORenderBuffer);
   glBindFramebuffer(GL_FRAMEBUFFER, m_defaultFBO);
+}
+
+/**
+ * @brief Sets the cube map texture
+ */
+void Realtime::initCubeMap(CUBEMAP type) {
+  if (type == CUBEMAP::UNUSED)
+    return;
+  std::filesystem::path basepath =
+      std::filesystem::path(settings.sceneFilePath).parent_path().parent_path();
+  // Get the image paths
+  std::vector<std::string> faces = scene.getCubeMapWithType(type);
+  glGenTextures(1, &m_cubeMapTexture);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, m_cubeMapTexture);
+  int width, height;
+  for (int i = 0; i < faces.size(); i++) {
+    // Load up each face
+    QImage myImage;
+    std::filesystem::path fileRelativePath(faces[i]);
+    QString str((basepath / fileRelativePath).string().data());
+    if (!myImage.load(str)) {
+      std::cout << "Failed to load in image" << std::endl;
+      return;
+    }
+    myImage = myImage.convertToFormat(QImage::Format_RGBA8888).mirrored();
+    width = myImage.width();
+    height = myImage.height();
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA, width, height,
+                 0, GL_RGBA, GL_UNSIGNED_BYTE, myImage.bits());
+  }
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+}
+
+/**
+ * @brief Initializes the VBO/VAO for sky box
+ * reference: https://learnopengl.com/Advanced-OpenGL/Cubemaps
+ */
+void Realtime::initSkyBox() {
+  float skyboxVertices[] = {
+      // positions for six faces
+      -1.0f, 1.0f,  -1.0f, -1.0f, -1.0f, -1.0f, 1.0f,  -1.0f, -1.0f,
+      1.0f,  -1.0f, -1.0f, 1.0f,  1.0f,  -1.0f, -1.0f, 1.0f,  -1.0f,
+
+      -1.0f, -1.0f, 1.0f,  -1.0f, -1.0f, -1.0f, -1.0f, 1.0f,  -1.0f,
+      -1.0f, 1.0f,  -1.0f, -1.0f, 1.0f,  1.0f,  -1.0f, -1.0f, 1.0f,
+
+      1.0f,  -1.0f, -1.0f, 1.0f,  -1.0f, 1.0f,  1.0f,  1.0f,  1.0f,
+      1.0f,  1.0f,  1.0f,  1.0f,  1.0f,  -1.0f, 1.0f,  -1.0f, -1.0f,
+
+      -1.0f, -1.0f, 1.0f,  -1.0f, 1.0f,  1.0f,  1.0f,  1.0f,  1.0f,
+      1.0f,  1.0f,  1.0f,  1.0f,  -1.0f, 1.0f,  -1.0f, -1.0f, 1.0f,
+
+      -1.0f, 1.0f,  -1.0f, 1.0f,  1.0f,  -1.0f, 1.0f,  1.0f,  1.0f,
+      1.0f,  1.0f,  1.0f,  -1.0f, 1.0f,  1.0f,  -1.0f, 1.0f,  -1.0f,
+
+      -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f,  1.0f,  -1.0f, -1.0f,
+      1.0f,  -1.0f, -1.0f, -1.0f, -1.0f, 1.0f,  1.0f,  -1.0f, 1.0f};
+
+  // VBO/VAO
+  glGenVertexArrays(1, &m_skyBoxVAO);
+  glGenBuffers(1, &m_skyBoxVBO);
+  glBindVertexArray(m_skyBoxVAO);
+  glBindBuffer(GL_ARRAY_BUFFER, m_skyBoxVBO);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices,
+               GL_STATIC_DRAW);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
 }
 
 /**
@@ -316,6 +412,13 @@ void Realtime::configureScreenUniforms(GLuint shader) {
   // ITime
   GLuint iTimeLoc = glGetUniformLocation(shader, "iTime");
   glUniform1f(iTimeLoc, m_delta);
+  // Sky Box
+  glActiveTexture(GL_TEXTURE0 + 10);
+  if (m_enableSkyBox) {
+    glBindTexture(GL_TEXTURE_CUBE_MAP, m_cubeMapTexture);
+  } else {
+    glBindTexture(GL_TEXTURE_CUBE_MAP, m_nullCubeMapTexture);
+  }
 }
 
 /**
@@ -400,6 +503,9 @@ void Realtime::configureSettingsUniforms(GLuint shader) {
   // Ambient Occulusion
   GLuint ambLoc = glGetUniformLocation(shader, "enableAmbientOcculusion");
   glUniform1i(ambLoc, m_enableAmbientOcclusion);
+  // Sky Box
+  GLuint skyBoxLoc = glGetUniformLocation(shader, "enableSkyBox");
+  glUniform1i(skyBoxLoc, m_enableSkyBox);
 }
 
 /**
@@ -527,9 +633,6 @@ void Realtime::configureFXAAUniforms(GLuint shader) {
   GLuint inverseScreenSizeLoc =
       glGetUniformLocation(shader, "inverseScreenSize");
   glUniform2fv(inverseScreenSizeLoc, 1, &inverseScreen[0]);
-
-  GLuint screenTextureLoc = glGetUniformLocation(shader, "screenTexture");
-  glUniform1i(screenTextureLoc, 0);
 }
 
 /**

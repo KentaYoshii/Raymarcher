@@ -75,6 +75,10 @@ private:
   std::unordered_map<std::string, GLuint> m_TextureMap;
   // - fxaa texture
   GLuint m_fxaaTexture;
+  // - cube map texture
+  GLuint m_cubeMapTexture;
+  // - null cube map texture
+  GLuint m_nullCubeMapTexture;
 
   // FBO
   // - application window FBO
@@ -92,6 +96,10 @@ private:
   GLuint m_fullscreenVAO;
   GLuint m_fullscreenVBO;
 
+  // SKY BOX
+  GLuint m_skyBoxVAO;
+  GLuint m_skyBoxVBO;
+
   // Toggelable Options
   // - gamma correction
   bool m_enableGammaCorrection;
@@ -105,6 +113,8 @@ private:
   bool m_enableAmbientOcclusion;
   // - FXAA
   bool m_enableFXAA;
+  // - sky box
+  bool m_enableSkyBox;
 
   // PRIVATE METHODS
 
@@ -127,6 +137,10 @@ private:
   void initShapesTextures();
   // Initializes our custom FBO for offline rendering
   void initCustomFBO();
+  // Initializes our cube map
+  void initCubeMap(CUBEMAP type);
+  // Initializes our sky box
+  void initSkyBox();
 
   // Sets the output FBO
   void setFBO(GLuint fbo);

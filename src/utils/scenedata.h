@@ -33,6 +33,11 @@ enum class TransformationType {
   TRANSFORMATION_MATRIX
 };
 
+enum CUBEMAP {
+  UNUSED,
+  BEACH,
+};
+
 // A wrapper for texture
 struct TextureInfo {
   QImage image;

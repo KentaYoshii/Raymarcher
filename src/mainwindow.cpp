@@ -59,6 +59,10 @@ void MainWindow::initialize() {
   fxaa->setText(QStringLiteral("FXAA"));
   fxaa->setChecked(false);
 
+  skybox = new QCheckBox();
+  skybox->setText(QStringLiteral("Sky Box"));
+  skybox->setChecked(false);
+
   // Create file uploader for scene file
   uploadFile = new QPushButton();
   uploadFile->setText(QStringLiteral("Upload Scene File"));
@@ -120,6 +124,7 @@ void MainWindow::initialize() {
   vLayout->addWidget(refraction);
   vLayout->addWidget(ambientOcculusion);
   vLayout->addWidget(fxaa);
+  vLayout->addWidget(skybox);
 
   connectUIElements();
 
@@ -144,6 +149,7 @@ void MainWindow::connectUIElements() {
   connectRefraction();
   connectAmbientOcculusion();
   connectFXAA();
+  connectSkyBox();
 }
 
 void MainWindow::connectUploadFile() {
@@ -196,6 +202,10 @@ void MainWindow::connectAmbientOcculusion() {
 
 void MainWindow::connectFXAA() {
   connect(fxaa, &QCheckBox::clicked, this, &MainWindow::onFXAA);
+}
+
+void MainWindow::connectSkyBox() {
+  connect(skybox, &QCheckBox::clicked, this, &MainWindow::onSkyBox);
 }
 
 void MainWindow::onUploadFile() {
@@ -289,5 +299,10 @@ void MainWindow::onAmbientOcculusion() {
 
 void MainWindow::onFXAA() {
   settings.enableFXAA = !settings.enableFXAA;
+  realtime->settingsChanged();
+}
+
+void MainWindow::onSkyBox() {
+  settings.enableSkyBox = !settings.enableSkyBox;
   realtime->settingsChanged();
 }
