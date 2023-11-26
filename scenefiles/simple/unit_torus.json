@@ -57,7 +57,7 @@
           "scale": [2, 2, 2],
           "primitives": [
             {
-              "type": "sphere",
+              "type": "torus",
               "ambient": [0.2, 0.2, 0.2],
               "diffuse": [0.9, 0.9, 0.9],
               "specular": [0.7, 0.7, 0.7],
@@ -69,7 +69,7 @@
           ]
         },
         {
-          "translate": [0.0, -1.05, 0.0],
+          "translate": [0.0, -1.35, 0.0],
           "scale": [40.0, 0.1, 40.0],
           "primitives": [
             {

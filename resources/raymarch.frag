@@ -19,6 +19,9 @@ const int CONE = 1;
 const int CYLINDER = 2;
 const int SPHERE = 3;
 const int OCTAHEDRON = 4;
+const int TORUS = 5;
+const int CAPSULE = 6;
+const int DEATHSTAR = 7;
 
 // LIGHT TYPES
 const int POINT = 0;
@@ -144,10 +147,19 @@ uniform bool enableRefraction;
 uniform bool enableAmbientOcculusion;
 
 // ================== Utility =======================
+// Transforms p along axis by angle
 vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
     return mix(dot(axis, p)*axis, p, cos(angle)) + cross(axis,p)*sin(angle);
 }
 
+// Applies transformation
+vec3 Transform(in vec3 p)
+{
+//  p = rotateAxis(p, vec3(1, 0, 0), iTime);
+  p = rotateAxis(p, vec3(0, 1, 0), iTime);
+//  p = rotateAxis(p, vec3(0, 0, 1), iTime);
+  return p;
+}
 
 // ============ Signed Distance Fields ==============
 // Define SDF for different shapes here
@@ -214,13 +226,41 @@ float sdOctahedron(vec3 p, float s)
     return length(vec3(q.x,q.y-s+k,q.z-k));
 }
 
+float sdTorus(vec3 p, vec2 t)
+{
+    vec2 q = vec2(length(p.xz)-t.x,p.y);
+    return length(q)-t.y;
+}
+
+float sdCapsule(vec3 p, float h, float r)
+{
+  p.y -= clamp(p.y, 0.0, h);
+  return length(p) - r;
+}
+
+float sdDeathStar( in vec3 p2, in float ra, float rb, in float d )
+{
+    vec2 p = vec2( p2.x, length(p2.yz) );
+
+    float a = (ra*ra - rb*rb + d*d)/(2.0*d);
+    float b = sqrt(max(ra*ra-a*a,0.0));
+    if( p.x*b-p.y*a > d*max(b-p.y,0.0) )
+    {
+        return length(p-vec2(a,b));
+    }
+    else
+    {
+        return max( (length(p          )-ra),
+                   -(length(p-vec2(d,0))-rb));
+    }
+}
+
 // Given a point in object space and type of the SDF
 // Invoke the appropriate SDF function and return the distance
 // @param p Point in object space
 // @param type Type of the object
 float sdMatch(vec3 p, int type)
 {
-    p = rotateAxis(p, vec3(0, 1, 0), iTime);
     if (type == CUBE) {
         return sdBox(p, vec3(0.5));
     } else if (type == CONE) {
@@ -231,6 +271,12 @@ float sdMatch(vec3 p, int type)
         return sdSphere(p, 0.5);
     } else if (type == OCTAHEDRON) {
         return sdOctahedron(p, 0.5);
+    } else if (type == TORUS) {
+        return sdTorus(p, vec2(0.5, 0.5/4));
+    } else if (type == CAPSULE) {
+        return sdCapsule(p, 0.5, 0.1);
+    } else if (type == DEATHSTAR) {
+        return sdDeathStar(p, 0.5, 0.35, 0.5);
     }
 }
 
@@ -357,7 +403,10 @@ SceneMin sdScene(vec3 p){
         // Get current obj
         RayMarchObject obj = objects[i];
         // Conv to Object space
-        po = vec3(obj.invModelMatrix * vec4(p, 1.f));
+        // - (Note) for global transformation
+        po = vec3(obj.invModelMatrix * vec4(Transform(p), 1.f));
+        //po = vec3(obj.invModelMatrix * vec4(p, 1.f));
+
         // Get the distance to the object
         currD = sdMatch(po, obj.type) * obj.scaleFactor;
         if (currD < minD) {
@@ -464,8 +513,7 @@ float calcAO(in vec3 pos, in vec3 nor)
 {
     float occ = 0.0;
     float sca = 1.0;
-    for( int i=0; i<5; i++ )
-    {
+    for (int i=0; i<5; i++) {
         float h = 0.01 + 0.12*float(i)/4.0;
         float d = sdScene(pos + h*nor).minD;
         occ += (h-d)*sca;
@@ -487,7 +535,9 @@ vec3 getDiffuse(int objId, vec3 p, vec3 n) {
     }
     // Texture used -> find uv
     vec2 uv;
-    vec3 po = vec3(obj.invModelMatrix * vec4(p, 1.f));
+    // (Note) For global transformation
+    vec3 po = vec3(obj.invModelMatrix * vec4(Transform(p), 1.f));
+    // vec3 po = vec3(obj.invModelMatrix * vec4(p, 1.f));
     if (obj.type == CUBE) {
         uv = uvMapCube(po, obj.repeatU, obj.repeatV);
     } else if (obj.type == CONE) {
@@ -622,12 +672,13 @@ vec3 render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
     // HIT
     // - hit point
     vec3 p = ro + rd * res.d;
+    // p = Transform(p);
     // - normalized hit normal
     vec3 pn = getNormal(p);
     // - get color
     vec3 col = getPhong(pn, res.intersectObj, p, rd);
 
-    i.p = p;
+    i.p = ro + rd * res.d;
     i.n = pn;
     i.rd = rd;
     i.intersectObj = res.intersectObj;
@@ -674,7 +725,7 @@ void main() {
         for (int i = 0; i < NUM_REFLECTION; i++) {
             // Reflect ray
             vec3 r = reflect(info.rd, info.n);
-            vec3 shiftedRO = info.p + info.n * SURFACE_DIST * 3.f;
+            vec3 shiftedRO = info.p + r * SURFACE_DIST * 3.f;
             fil *= objects[info.intersectObj].cReflective;
             vec3 bounce = ks * fil * render(shiftedRO, r, info, 1.f);
             refl += bounce;

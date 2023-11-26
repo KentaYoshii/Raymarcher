@@ -20,6 +20,9 @@ enum class PrimitiveType {
   PRIMITIVE_CYLINDER,
   PRIMITIVE_SPHERE,
   PRIMITIVE_OCTAHEDRON,
+  PRIMITIVE_TORUS,
+  PRIMITIVE_CAPSULE,
+  PRIMITIVE_DEATHSTAR,
 };
 
 // Enum of the types of transformations that can be applied
