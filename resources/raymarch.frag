@@ -156,7 +156,7 @@ vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
 vec3 Transform(in vec3 p)
 {
 //  p = rotateAxis(p, vec3(1, 0, 0), iTime);
-  p = rotateAxis(p, vec3(0, 1, 0), iTime);
+//  p = rotateAxis(p, vec3(0, 1, 0), iTime);
 //  p = rotateAxis(p, vec3(0, 0, 1), iTime);
   return p;
 }
