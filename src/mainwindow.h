@@ -36,8 +36,6 @@ private:
 
   QPushButton *uploadFile;
   QPushButton *saveImage;
-  QSlider *nearSlider;
-  QSlider *farSlider;
   QDoubleSpinBox *nearBox;
   QDoubleSpinBox *farBox;
 
@@ -52,8 +50,6 @@ private:
 private slots:
   void onUploadFile();
   void onSaveImage();
-  void onValChangeNearSlider(int newValue);
-  void onValChangeFarSlider(int newValue);
   void onValChangeNearBox(double newValue);
   void onValChangeFarBox(double newValue);
   void onGammaCorrect();

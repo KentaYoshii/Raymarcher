@@ -218,13 +218,13 @@ void Realtime::initDefaults() {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glBindTexture(GL_TEXTURE_2D, 0);
   // NULL CUBE MAP TEXTURE
+  glActiveTexture(GL_TEXTURE0 + MAX_NUM_TEXTURES);
   glGenTextures(1, &m_nullCubeMapTexture);
   glBindTexture(GL_TEXTURE_CUBE_MAP, m_nullCubeMapTexture);
   for (int i = 0; i < 6; i++) {
     glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA, 1, 1, 0,
                  GL_RGBA, GL_UNSIGNED_BYTE, std::vector<GLfloat>{0, 0}.data());
   }
-  glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 /**
@@ -235,7 +235,7 @@ void Realtime::initShader() {
   glUseProgram(m_rayMarchShader);
   // Set the textures to use correct slots
   GLuint texsLoc = glGetUniformLocation(m_rayMarchShader, "objTextures");
-  for (int i = 0; i < 10; i++) {
+  for (int i = 0; i < MAX_NUM_TEXTURES; i++) {
     // Bind to default
     glActiveTexture(GL_TEXTURE0 + i);
     glBindTexture(GL_TEXTURE_2D, m_defaultShapeTexture);
@@ -244,9 +244,9 @@ void Realtime::initShader() {
   // Set the skybox tex unit to the next available
   GLuint skyBoxLoc = glGetUniformLocation(m_rayMarchShader, "skybox");
   // Bind to default cube map (= null cube map)
-  glActiveTexture(GL_TEXTURE0 + 10);
+  glActiveTexture(GL_TEXTURE0 + MAX_NUM_TEXTURES);
   glBindTexture(GL_TEXTURE_CUBE_MAP, m_nullCubeMapTexture);
-  glUniform1i(skyBoxLoc, 10);
+  glUniform1i(skyBoxLoc, MAX_NUM_TEXTURES);
   glUseProgram(0);
 
   // FXAA Shader
@@ -376,7 +376,7 @@ void Realtime::configureScreenUniforms(GLuint shader) {
   GLuint iTimeLoc = glGetUniformLocation(shader, "iTime");
   glUniform1f(iTimeLoc, m_delta);
   // Sky Box
-  glActiveTexture(GL_TEXTURE0 + 10);
+  glActiveTexture(GL_TEXTURE0 + MAX_NUM_TEXTURES);
   if (m_idxSkyBox) {
     glBindTexture(GL_TEXTURE_CUBE_MAP, m_cubeMapTexture);
   } else {
@@ -567,7 +567,7 @@ void Realtime::configureShapesUniforms(GLuint shader) {
 
     std::string texName = obj.m_material.textureMap.filename;
 
-    if (texMap.find(texName) == texMap.end() && texCnt != 10) {
+    if (texMap.find(texName) == texMap.end() && texCnt != MAX_NUM_TEXTURES) {
       // If texture not bound yet and we have not reached the limit
       glActiveTexture(GL_TEXTURE0 + texCnt);
       glBindTexture(GL_TEXTURE_2D, obj.m_texture);

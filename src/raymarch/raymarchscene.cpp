@@ -44,7 +44,7 @@ Camera &RayMarchScene::getCamera() { return m_camera; }
 SceneGlobalData &RayMarchScene::getGlobalData() { return m_globalData; }
 
 /**
- * @brief Gets the file paths to be used for cube map
+ * @brief Gets the file paths to be used for each type of cube map.
  * @returns vector containing the file names
  */
 std::vector<std::string> RayMarchScene::getCubeMapWithType(CUBEMAP type) {

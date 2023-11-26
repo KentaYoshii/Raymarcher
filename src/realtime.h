@@ -14,6 +14,8 @@
 #include <QTimer>
 #include <unordered_map>
 
+#define MAX_NUM_TEXTURES 10
+
 class Realtime : public QOpenGLWidget {
 public:
   Realtime(QWidget *parent = nullptr);

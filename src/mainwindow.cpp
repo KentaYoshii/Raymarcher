@@ -28,9 +28,9 @@ void MainWindow::initialize() {
   camera_label->setText("Camera");
   camera_label->setFont(font);
   QLabel *near_label = new QLabel(); // Near plane label
-  near_label->setText("Near Plane:");
+  near_label->setText("Near Plane");
   QLabel *far_label = new QLabel(); // Far plane label
-  far_label->setText("Far Plane:");
+  far_label->setText("Far Plane");
   QLabel *renderoption_label = new QLabel(); // Camera label
   renderoption_label->setText("Render Options");
   renderoption_label->setFont(font);
@@ -76,52 +76,36 @@ void MainWindow::initialize() {
   saveImage = new QPushButton();
   saveImage->setText(QStringLiteral("Save image"));
 
-  // Creates the boxes containing the camera sliders and number boxes
+  nearBox = new QDoubleSpinBox();
+  nearBox->setMinimum(0.01f);
+  nearBox->setMaximum(10.f);
+  nearBox->setSingleStep(0.5f);
+  nearBox->setValue(0.1f);
+
+  farBox = new QDoubleSpinBox();
+  farBox->setMinimum(10.f);
+  farBox->setMaximum(100.f);
+  farBox->setSingleStep(0.5f);
+  farBox->setValue(100.f);
+
   QGroupBox *nearLayout = new QGroupBox(); // horizonal near slider alignment
   QHBoxLayout *lnear = new QHBoxLayout();
   QGroupBox *farLayout = new QGroupBox(); // horizonal far slider alignment
   QHBoxLayout *lfar = new QHBoxLayout();
 
-  // Create slider controls to control near/far planes
-  nearSlider = new QSlider(Qt::Orientation::Horizontal); // Near plane slider
-  nearSlider->setTickInterval(1);
-  nearSlider->setMinimum(1);
-  nearSlider->setMaximum(1000);
-  nearSlider->setValue(10);
-
-  nearBox = new QDoubleSpinBox();
-  nearBox->setMinimum(0.01f);
-  nearBox->setMaximum(10.f);
-  nearBox->setSingleStep(0.1f);
-  nearBox->setValue(0.1f);
-
-  farSlider = new QSlider(Qt::Orientation::Horizontal); // Far plane slider
-  farSlider->setTickInterval(1);
-  farSlider->setMinimum(1000);
-  farSlider->setMaximum(10000);
-  farSlider->setValue(10000);
-
-  farBox = new QDoubleSpinBox();
-  farBox->setMinimum(10.f);
-  farBox->setMaximum(100.f);
-  farBox->setSingleStep(0.1f);
-  farBox->setValue(100.f);
-
   // Adds the slider and number box to the parameter layouts
-  lnear->addWidget(nearSlider);
+  lnear->addWidget(near_label);
   lnear->addWidget(nearBox);
   nearLayout->setLayout(lnear);
 
-  lfar->addWidget(farSlider);
+  lfar->addWidget(far_label);
   lfar->addWidget(farBox);
   farLayout->setLayout(lfar);
 
   vLayout->addWidget(uploadFile);
   vLayout->addWidget(saveImage);
   vLayout->addWidget(camera_label);
-  vLayout->addWidget(near_label);
   vLayout->addWidget(nearLayout);
-  vLayout->addWidget(far_label);
   vLayout->addWidget(farLayout);
   vLayout->addWidget(renderoption_label);
   vLayout->addWidget(gammaCorrection);
@@ -169,8 +153,6 @@ void MainWindow::connectSaveImage() {
 }
 
 void MainWindow::connectNear() {
-  connect(nearSlider, &QSlider::valueChanged, this,
-          &MainWindow::onValChangeNearSlider);
   connect(nearBox,
           static_cast<void (QDoubleSpinBox::*)(double)>(
               &QDoubleSpinBox::valueChanged),
@@ -178,8 +160,6 @@ void MainWindow::connectNear() {
 }
 
 void MainWindow::connectFar() {
-  connect(farSlider, &QSlider::valueChanged, this,
-          &MainWindow::onValChangeFarSlider);
   connect(farBox,
           static_cast<void (QDoubleSpinBox::*)(double)>(
               &QDoubleSpinBox::valueChanged),
@@ -253,29 +233,13 @@ void MainWindow::onSaveImage() {
   realtime->saveViewportImage(filePath.toStdString());
 }
 
-void MainWindow::onValChangeNearSlider(int newValue) {
-  // nearSlider->setValue(newValue);
-  nearBox->setValue(newValue / 100.f);
-  settings.nearPlane = nearBox->value();
-  realtime->settingsChanged();
-}
-
-void MainWindow::onValChangeFarSlider(int newValue) {
-  // farSlider->setValue(newValue);
-  farBox->setValue(newValue / 100.f);
-  settings.farPlane = farBox->value();
-  realtime->settingsChanged();
-}
-
 void MainWindow::onValChangeNearBox(double newValue) {
-  nearSlider->setValue(int(newValue * 100.f));
   // nearBox->setValue(newValue);
   settings.nearPlane = nearBox->value();
   realtime->settingsChanged();
 }
 
 void MainWindow::onValChangeFarBox(double newValue) {
-  farSlider->setValue(int(newValue * 100.f));
   // farBox->setValue(newValue);
   settings.farPlane = farBox->value();
   realtime->settingsChanged();
