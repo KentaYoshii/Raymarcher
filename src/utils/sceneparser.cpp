@@ -95,6 +95,10 @@ void SceneParser::parseHelper(RenderData &renderData, SceneNode *currScene,
     auto sceneLightData =
         getSceneLightDataFromSceneLight(*currScene->lights[i], ctm);
     renderData.lights.push_back(sceneLightData);
+    if (sceneLightData.type == LightType::LIGHT_AREA) {
+      // We need to render area lights
+      renderData.isAreaLightUsed = true;
+    }
   }
   // For each child scene, recursively call this function
   for (int i = 0; i < currScene->children.size(); i++) {

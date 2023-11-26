@@ -16,7 +16,7 @@ public:
   // PUBLIC METHODS
 
   // Initializes the Scene given a scene json file
-  void initScene(Settings &from);
+  void initScene(Settings &from, bool &isAreaLightUsed);
 
   // Updates the scene with new camera paramters
   void updateScene(Settings &from);

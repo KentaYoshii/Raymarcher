@@ -69,6 +69,8 @@ private:
   GLuint m_rayMarchShader;
   // - fxaa shader
   GLuint m_fxaaShader;
+  // - area light shader
+  GLuint m_areaLightShader;
 
   // Textures
   // - default material texture
@@ -97,6 +99,16 @@ private:
   // Full Screen Quad for post processing
   GLuint m_fullscreenVAO;
   GLuint m_fullscreenVBO;
+
+  // Area Light
+  // source: https://learnopengl.com/Guest-Articles/2022/Area-Lights
+  bool m_isAreaLightUsed = false;
+  GLuint m_areaLightVAO;
+  GLuint m_areaLightVBO;
+  GLuint m_mTexture;
+  GLuint m_ltuTexture;
+  void loadMTexture();
+  void loadLTUTexture();
 
   // Toggelable Options
   // - gamma correction

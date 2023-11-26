@@ -49,8 +49,9 @@ add_executable(${PROJECT_NAME}
     src/utils/shaderloader.h
     resources/fxaa.frag
     resources/fullscreen.vert
-
-
+    resources/mvp.vert
+    resources/arealight.frag
+    src/utils/ltc_matrix.h
 )
 
 # GLM: this creates its library and allows you to `#include "glm/..."`
@@ -79,6 +80,8 @@ qt6_add_resources(${PROJECT_NAME} "Resources"
         resources/raymarch.vert
         resources/fullscreen.vert
         resources/fxaa.frag
+        resources/mvp.vert
+        resources/arealight.frag
 )
 
 # GLEW: this provides support for Windows (including 64-bit)

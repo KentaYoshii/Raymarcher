@@ -206,8 +206,9 @@ bool ScenefileReader::parseGlobalData(const QJsonObject &globalData) {
 bool ScenefileReader::parseLightData(const QJsonObject &lightData,
                                      SceneNode *node) {
   QStringList requiredFields = {"type", "color"};
-  QStringList optionalFields = {"name", "attenuationCoeff", "direction",
-                                "penumbra", "angle"};
+  QStringList optionalFields = {
+      "name",  "attenuationCoeff", "direction", "penumbra", "angle", "width",
+      "height"};
   QStringList allFields = requiredFields + optionalFields;
   for (auto &field : lightData.keys()) {
     if (!allFields.contains(field)) {
@@ -384,6 +385,29 @@ bool ScenefileReader::parseLightData(const QJsonObject &lightData,
       return false;
     }
     light->angle = lightData["angle"].toDouble() * M_PI / 180.f;
+  } else if (lightType == "area") {
+    QStringList areaRequiredFields = {"width", "height"};
+    for (auto &field : areaRequiredFields) {
+      if (!lightData.contains(field)) {
+        std::cout << "missing required field \"" << field.toStdString()
+                  << "\" on area light object" << std::endl;
+        return false;
+      }
+    }
+    light->type = LightType::LIGHT_AREA;
+    // parse width
+    if (!lightData["width"].isDouble()) {
+      std::cout << "area width must be of type float" << std::endl;
+      return false;
+    }
+    light->width = lightData["width"].toDouble();
+
+    // parse height
+    if (!lightData["height"].isDouble()) {
+      std::cout << "area height must be of type float" << std::endl;
+      return false;
+    }
+    light->height = lightData["height"].toDouble();
   } else {
     std::cout << "unknown light type \"" << lightType << "\"" << std::endl;
     return false;

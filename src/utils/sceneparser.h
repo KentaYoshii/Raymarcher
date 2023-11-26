@@ -18,6 +18,8 @@ struct RenderData {
 
   std::vector<SceneLightData> lights;
   std::vector<RenderShapeData> shapes;
+
+  bool isAreaLightUsed;
 };
 
 class SceneParser {

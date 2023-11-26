@@ -34,6 +34,12 @@ void Realtime::finish() {
   glDeleteVertexArrays(1, &m_fullscreenVAO);
   glDeleteBuffers(1, &m_fullscreenVBO);
 
+  // Destroy Area Light
+  glDeleteVertexArrays(1, &m_areaLightVAO);
+  glDeleteBuffers(1, &m_areaLightVBO);
+  glDeleteTextures(1, &m_mTexture);
+  glDeleteTextures(1, &m_ltuTexture);
+
   // Destroy Defaults
   glDeleteTextures(1, &m_defaultShapeTexture);
   glDeleteTextures(1, &m_fxaaTexture);
@@ -80,6 +86,8 @@ void Realtime::initializeGL() {
       ":/resources/raymarch.vert", ":/resources/raymarch.frag");
   m_fxaaShader = ShaderLoader::createShaderProgram(
       ":/resources/fullscreen.vert", ":/resources/fxaa.frag");
+  m_areaLightShader = ShaderLoader::createShaderProgram(
+      ":/resources/mvp.vert", ":/resources/arealight.frag");
 
   // Initialize the image plane through which we march rays
   initImagePlane();
@@ -120,9 +128,10 @@ void Realtime::sceneChanged() {
   if (scene.isInitialized()) {
     // Destroy previous shapes textures
     destroyShapesTextures();
+    m_isAreaLightUsed = false;
   }
   // Initialize the Raymarch scene
-  scene.initScene(settings);
+  scene.initScene(settings, m_isAreaLightUsed);
   // Initialize the textures
   initShapesTextures();
   update();

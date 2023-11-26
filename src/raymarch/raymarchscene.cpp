@@ -96,7 +96,7 @@ std::vector<std::string> RayMarchScene::getCubeMapWithType(CUBEMAP type) {
  *    - Shapes
  * @param from Latest settings at the time of reading the scene json file
  */
-void RayMarchScene::initScene(Settings &from) {
+void RayMarchScene::initScene(Settings &from, bool &isAreaLightUsed) {
 
   // Scene is initialized
   m_init = true;
@@ -114,6 +114,7 @@ void RayMarchScene::initScene(Settings &from) {
   initRayMarchObjs(m_textures, rd.shapes);
   // - Lights
   m_lights = rd.lights;
+  isAreaLightUsed = rd.isAreaLightUsed;
 }
 
 /**

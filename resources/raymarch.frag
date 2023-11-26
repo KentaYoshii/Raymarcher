@@ -27,6 +27,7 @@ const int DEATHSTAR = 7;
 const int POINT = 0;
 const int DIRECTIONAL = 1;
 const int SPOT = 2;
+const int AREA = 3;
 
 // ============ Structs ============
 struct RayMarchObject
@@ -97,13 +98,19 @@ struct LightSource
 {
     // Struct for lights in the scene
 
+    // Common
     int type;
-    vec3 lightPos;
-    vec3 lightDir;
     vec3 lightColor;
+
+    vec3 lightDir;
+    vec3 lightPos;
     vec3 lightFunc;
     float lightAngle;
     float lightPenumbra;
+
+    // Area Light
+    vec4 points;
+    float intensity;
 };
 
 struct RenderInfo

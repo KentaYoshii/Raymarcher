@@ -616,3 +616,17 @@ void Realtime::destroyCustomFBO() {
   glDeleteRenderbuffers(1, &m_customFBORenderBuffer);
   glDeleteFramebuffers(1, &m_customFBO);
 }
+
+// =============== AREA Lights ==============
+// Most of this is lowk black magic
+// source: https://learnopengl.com/Guest-Articles/2022/Area-Lights
+
+/**
+ * @brief Load M Texture
+ */
+void Realtime::loadMTexture() {}
+
+/**
+ * @brief Load LTU Texture
+ */
+void Realtime::loadLTUTexture() {}
