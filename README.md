@@ -8,6 +8,7 @@
     * [Reflection and Refraction](#reflection-and-refraction)
     * [Ambient Occulusion](#ambient-occulusion)
     * [Fast Approximate Anti-Aliasing](#fast-approximate-anti-aliasing)
+    * [Sky Box](#sky-box)
 * [Project Proposal](#project-proposal)
     * [Idea](#idea)
     * [Technical Features](#technical-features)
@@ -80,6 +81,16 @@ Without FXAA       |  With FXAA
 :-------------------------:|:-------------------------:
 <img src = "./output/misc/no_fxaa.png" width=300>  |  <img src = "./output/misc/yes_fxaa.png" width=300>
 </p>
+
+## Sky Box
+- Using Cube Map, we simulate an external environment. Cube Map is basically a bounding cube with 6 textures (1 for each cube face) that describe the world around you.
+- As a POC, we only implemented __static Sky Box__. 
+- Whenever a ray misses an SDF, we sample from this cube map using the Ray Direction as the uv coordinate. 
+- Just by this simple trick, and combined with reflection and refraction, we get pretty stunning results.
+
+Beach       |  Island |  Night Sky
+:-------------------------:|:-------------------------:|:-------------------------
+![](./output/misc/beach.png)  |  ![](./output/misc/island.png) |  ![](./output/misc/nightsky.png)
 
 ## Project Proposal
 ### __Idea__
