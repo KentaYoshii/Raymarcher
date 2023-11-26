@@ -36,6 +36,8 @@ enum class TransformationType {
 enum CUBEMAP {
   UNUSED,
   BEACH,
+  NIGHTSKY,
+  ISLAND,
 };
 
 // A wrapper for texture

@@ -3,6 +3,7 @@
 #include "realtime.h"
 #include "utils/aspectratiowidget/aspectratiowidget.hpp"
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QMainWindow>
 #include <QPushButton>
@@ -46,7 +47,7 @@ private:
   QCheckBox *refraction;
   QCheckBox *ambientOcculusion;
   QCheckBox *fxaa;
-  QCheckBox *skybox;
+  QComboBox *skyboxOption;
 
 private slots:
   void onUploadFile();
@@ -61,5 +62,5 @@ private slots:
   void onRefraction();
   void onAmbientOcculusion();
   void onFXAA();
-  void onSkyBox();
+  void onSkyBox(int idx);
 };

@@ -96,10 +96,6 @@ private:
   GLuint m_fullscreenVAO;
   GLuint m_fullscreenVBO;
 
-  // SKY BOX
-  GLuint m_skyBoxVAO;
-  GLuint m_skyBoxVBO;
-
   // Toggelable Options
   // - gamma correction
   bool m_enableGammaCorrection;
@@ -114,7 +110,7 @@ private:
   // - FXAA
   bool m_enableFXAA;
   // - sky box
-  bool m_enableSkyBox;
+  int m_idxSkyBox;
 
   // PRIVATE METHODS
 
@@ -139,8 +135,6 @@ private:
   void initCustomFBO();
   // Initializes our cube map
   void initCubeMap(CUBEMAP type);
-  // Initializes our sky box
-  void initSkyBox();
 
   // Sets the output FBO
   void setFBO(GLuint fbo);

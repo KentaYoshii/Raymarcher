@@ -69,7 +69,7 @@
           "translate": [0.65, 0.0, -0.65],
           "primitives": [
             {
-              "type": "octahedron",
+              "type": "sphere",
               "diffuse": [0.15, 0.2, 0.15],
               "specular": [1.0, 1.0, 1.0],
               "shininess": 25.0,
@@ -83,7 +83,7 @@
           "translate": [0.65, 0.0, 0.65],
           "primitives": [
             {
-              "type": "octahedron",
+              "type": "sphere",
               "diffuse": [0.17, 0.17, 0.17],
               "specular": [1.0, 1.0, 1.0],
               "shininess": 25.0,

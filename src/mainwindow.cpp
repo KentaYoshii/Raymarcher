@@ -34,6 +34,9 @@ void MainWindow::initialize() {
   QLabel *renderoption_label = new QLabel(); // Camera label
   renderoption_label->setText("Render Options");
   renderoption_label->setFont(font);
+  QLabel *skybox_label = new QLabel();
+  skybox_label->setText("Select SkyBox");
+  skybox_label->setFont(font);
 
   gammaCorrection = new QCheckBox();
   gammaCorrection->setText(QStringLiteral("Gamma Correction"));
@@ -59,9 +62,12 @@ void MainWindow::initialize() {
   fxaa->setText(QStringLiteral("FXAA"));
   fxaa->setChecked(false);
 
-  skybox = new QCheckBox();
-  skybox->setText(QStringLiteral("Sky Box"));
-  skybox->setChecked(false);
+  skyboxOption = new QComboBox();
+  skyboxOption->addItem("None");
+  skyboxOption->addItem("Beach");
+  skyboxOption->addItem("Night Sky");
+  skyboxOption->addItem("Island");
+  skyboxOption->setCurrentIndex(0);
 
   // Create file uploader for scene file
   uploadFile = new QPushButton();
@@ -124,13 +130,15 @@ void MainWindow::initialize() {
   vLayout->addWidget(refraction);
   vLayout->addWidget(ambientOcculusion);
   vLayout->addWidget(fxaa);
-  vLayout->addWidget(skybox);
+  vLayout->addWidget(skybox_label);
+  vLayout->addWidget(skyboxOption);
 
   connectUIElements();
 
   // Set default values for near and far planes
   onValChangeNearBox(0.1f);
   onValChangeFarBox(100.f);
+  onSkyBox(0);
 }
 
 void MainWindow::finish() {
@@ -205,7 +213,8 @@ void MainWindow::connectFXAA() {
 }
 
 void MainWindow::connectSkyBox() {
-  connect(skybox, &QCheckBox::clicked, this, &MainWindow::onSkyBox);
+  connect(skyboxOption, &QComboBox::currentIndexChanged, this,
+          &MainWindow::onSkyBox);
 }
 
 void MainWindow::onUploadFile() {
@@ -302,7 +311,7 @@ void MainWindow::onFXAA() {
   realtime->settingsChanged();
 }
 
-void MainWindow::onSkyBox() {
-  settings.enableSkyBox = !settings.enableSkyBox;
+void MainWindow::onSkyBox(int idx) {
+  settings.idxSkyBox = idx;
   realtime->settingsChanged();
 }

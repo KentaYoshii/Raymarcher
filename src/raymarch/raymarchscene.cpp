@@ -62,6 +62,26 @@ std::vector<std::string> RayMarchScene::getCubeMapWithType(CUBEMAP type) {
         "texture_store/cube_map/beach/-z.jpg",
     };
   }
+  case NIGHTSKY: {
+    return std::vector<std::string>{
+        "texture_store/cube_map/night/-x.png",
+        "texture_store/cube_map/night/+x.png",
+        "texture_store/cube_map/night/-y.png",
+        "texture_store/cube_map/night/+y.png",
+        "texture_store/cube_map/night/+z.png",
+        "texture_store/cube_map/night/-z.png",
+    };
+  }
+  case ISLAND: {
+    return std::vector<std::string>{
+        "texture_store/cube_map/island/+x.png",
+        "texture_store/cube_map/island/-x.png",
+        "texture_store/cube_map/island/+y.png",
+        "texture_store/cube_map/island/-y.png",
+        "texture_store/cube_map/island/+z.png",
+        "texture_store/cube_map/island/-z.png",
+    };
+  }
   }
 }
 

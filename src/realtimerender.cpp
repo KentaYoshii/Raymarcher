@@ -306,7 +306,9 @@ void Realtime::initCubeMap(CUBEMAP type) {
       std::cout << "Failed to load in image" << std::endl;
       return;
     }
+
     myImage = myImage.convertToFormat(QImage::Format_RGBA8888).mirrored();
+
     width = myImage.width();
     height = myImage.height();
     glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA, width, height,
@@ -317,45 +319,6 @@ void Realtime::initCubeMap(CUBEMAP type) {
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-}
-
-/**
- * @brief Initializes the VBO/VAO for sky box
- * reference: https://learnopengl.com/Advanced-OpenGL/Cubemaps
- */
-void Realtime::initSkyBox() {
-  float skyboxVertices[] = {
-      // positions for six faces
-      -1.0f, 1.0f,  -1.0f, -1.0f, -1.0f, -1.0f, 1.0f,  -1.0f, -1.0f,
-      1.0f,  -1.0f, -1.0f, 1.0f,  1.0f,  -1.0f, -1.0f, 1.0f,  -1.0f,
-
-      -1.0f, -1.0f, 1.0f,  -1.0f, -1.0f, -1.0f, -1.0f, 1.0f,  -1.0f,
-      -1.0f, 1.0f,  -1.0f, -1.0f, 1.0f,  1.0f,  -1.0f, -1.0f, 1.0f,
-
-      1.0f,  -1.0f, -1.0f, 1.0f,  -1.0f, 1.0f,  1.0f,  1.0f,  1.0f,
-      1.0f,  1.0f,  1.0f,  1.0f,  1.0f,  -1.0f, 1.0f,  -1.0f, -1.0f,
-
-      -1.0f, -1.0f, 1.0f,  -1.0f, 1.0f,  1.0f,  1.0f,  1.0f,  1.0f,
-      1.0f,  1.0f,  1.0f,  1.0f,  -1.0f, 1.0f,  -1.0f, -1.0f, 1.0f,
-
-      -1.0f, 1.0f,  -1.0f, 1.0f,  1.0f,  -1.0f, 1.0f,  1.0f,  1.0f,
-      1.0f,  1.0f,  1.0f,  -1.0f, 1.0f,  1.0f,  -1.0f, 1.0f,  -1.0f,
-
-      -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f,  1.0f,  -1.0f, -1.0f,
-      1.0f,  -1.0f, -1.0f, -1.0f, -1.0f, 1.0f,  1.0f,  -1.0f, 1.0f};
-
-  // VBO/VAO
-  glGenVertexArrays(1, &m_skyBoxVAO);
-  glGenBuffers(1, &m_skyBoxVBO);
-  glBindVertexArray(m_skyBoxVAO);
-  glBindBuffer(GL_ARRAY_BUFFER, m_skyBoxVBO);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices,
-               GL_STATIC_DRAW);
-  glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
-
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindVertexArray(0);
 }
 
 /**
@@ -414,7 +377,7 @@ void Realtime::configureScreenUniforms(GLuint shader) {
   glUniform1f(iTimeLoc, m_delta);
   // Sky Box
   glActiveTexture(GL_TEXTURE0 + 10);
-  if (m_enableSkyBox) {
+  if (m_idxSkyBox) {
     glBindTexture(GL_TEXTURE_CUBE_MAP, m_cubeMapTexture);
   } else {
     glBindTexture(GL_TEXTURE_CUBE_MAP, m_nullCubeMapTexture);
@@ -505,7 +468,7 @@ void Realtime::configureSettingsUniforms(GLuint shader) {
   glUniform1i(ambLoc, m_enableAmbientOcclusion);
   // Sky Box
   GLuint skyBoxLoc = glGetUniformLocation(shader, "enableSkyBox");
-  glUniform1i(skyBoxLoc, m_enableSkyBox);
+  glUniform1i(skyBoxLoc, m_idxSkyBox);
 }
 
 /**

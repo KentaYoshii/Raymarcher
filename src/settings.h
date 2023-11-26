@@ -30,7 +30,7 @@ struct Settings {
   bool enableRefraction;
   bool enableAmbientOcculusion;
   bool enableFXAA;
-  bool enableSkyBox;
+  int idxSkyBox;
 };
 
 // The global Settings object, will be initialized by MainWindow
