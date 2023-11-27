@@ -9,6 +9,7 @@
     * [Ambient Occulusion](#ambient-occulusion)
     * [Fast Approximate Anti-Aliasing](#fast-approximate-anti-aliasing)
     * [Sky Box](#sky-box)
+    * [Area Lights](#area-lights)
 * [Project Proposal](#project-proposal)
     * [Idea](#idea)
     * [Technical Features](#technical-features)
@@ -91,6 +92,16 @@ Without FXAA       |  With FXAA
 Beach       |  Island |  Night Sky
 :-------------------------:|:-------------------------:|:-------------------------
 ![](./output/misc/beach.png)  |  ![](./output/misc/island.png) |  ![](./output/misc/nightsky.png)
+
+## Area Lights
+![](./output/misc/area_light.png)
+- Simple Area Lights implemented based on [this](https://learnopengl.com/Guest-Articles/2022/Area-Lights) amazing guest article. 
+- For getting shadow effects, we sample configurable number of rays from the rectangle surface of the light source and average their contributions.
+- We also note that area light sources themselves need to be rendered into the scene.
+
+<p align="center">
+    <img src="./output/misc/area_light.gif">
+</p>
 
 ## Project Proposal
 ### __Idea__
