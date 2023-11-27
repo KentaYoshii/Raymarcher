@@ -454,7 +454,7 @@ void Realtime::configureLightsUniforms(GLuint shader) {
       // Area Light Intensity
       GLuint intensityLoc = glGetUniformLocation(
           shader, ("lights[" + std::to_string(cnt) + "].intensity").c_str());
-      glUniform1f(intensityLoc, AREA_LIGHT_INTENSITY);
+      glUniform1f(intensityLoc, light.intensity);
       // Area Light Two-Sided ness
       GLuint twoSideLoc = glGetUniformLocation(
           shader, ("lights[" + std::to_string(cnt) + "].twoSided").c_str());
@@ -462,7 +462,7 @@ void Realtime::configureLightsUniforms(GLuint shader) {
       // Area Light Position
       // - assume unit square
       for (int i = 0; i < 4; i++) {
-        auto currCorner = glm::mat4(1.f) * glm::vec4(corners[i], 1.f);
+        auto currCorner = glm::mat4(light.ctm) * glm::vec4(corners[i], 1.f);
         GLuint posLoc =
             glGetUniformLocation(shader, ("lights[" + std::to_string(cnt) +
                                           "].points[" + std::to_string(i) + "]")

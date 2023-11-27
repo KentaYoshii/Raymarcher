@@ -123,7 +123,7 @@ void RayMarchScene::initScene(Settings &from, bool &isAreaLightUsed) {
     SceneLightData &lightData = rd.lights[i];
     if (lightData.type != LightType::LIGHT_AREA)
       continue;
-    m_shapes.emplace_back(m_shapes.size(), PrimitiveType::PRIMITIVE_CUBE,
+    m_shapes.emplace_back(m_shapes.size(), PrimitiveType::PRIMITIVE_RECTANGLE,
                           lightData.ctm, lightData.color, i);
   }
 }

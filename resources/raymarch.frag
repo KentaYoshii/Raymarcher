@@ -8,6 +8,8 @@ const float SURFACE_DIST = 0.001;
 const float SHADOWRAY_OFFSET = 0.007;
 // - small eps for computing uv mapping
 const float TEXTURE_EPS = 0.005;
+// - area light samples
+const int AREA_LIGHT_SAMPLES = 5;
 // - PI
 const float PI = 3.14159265;
 // - reflection depth
@@ -27,7 +29,7 @@ const int OCTAHEDRON = 4;
 const int TORUS = 5;
 const int CAPSULE = 6;
 const int DEATHSTAR = 7;
-const int PLANE = 8;
+const int RECTANGLE = 8;
 
 // LIGHT TYPES
 const int POINT = 0;
@@ -285,6 +287,27 @@ const float gamma = 2.2;
 vec3 ToLinear(vec3 v) { return PowVec3(v, gamma); }
 vec3 ToSRGB(vec3 v)   { return PowVec3(v, 1.0/gamma); }
 
+// Simple hash function
+float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+// Function to generate a random 2D vector based on a seed
+vec2 random2(vec2 seed) {
+    return vec2(hash(seed), hash(seed + vec2(1.0)));
+}
+
+vec3 samplePointOnRectangleAreaLight(vec3 lightPos1, vec3 lightPos2, vec3 lightPos3, vec3 lightPos4, vec2 randomUV) {
+    // Calculate vectors defining the rectangle
+    vec3 side1 = lightPos2 - lightPos1;
+    vec3 side2 = lightPos4 - lightPos1;
+
+    // Use barycentric coordinates to interpolate a point on the rectangle
+    vec3 randomPoint = lightPos1 + randomUV.x * side1 + randomUV.y * side2;
+
+    return randomPoint;
+}
+
 // ============ Signed Distance Fields ==============
 // Define SDF for different shapes here
 // - Based on https://iquilezles.org/articles/distfunctions/
@@ -407,8 +430,9 @@ float sdMatch(vec3 p, int type)
         return sdCapsule(p, 0.5, 0.1);
     } else if (type == DEATHSTAR) {
         return sdDeathStar(p, 0.5, 0.35, 0.5);
-    } else if (type == PLANE) {
-        return sdPlane(p, vec3(1, 0, 0), 0.5);
+    } else if (type == RECTANGLE) {
+        // in 2d
+        return sdBox(p, vec3(0.5, 0.5, 0));
     }
 }
 
@@ -626,19 +650,24 @@ RayMarchRes softshadow(vec3 ro, vec3 rd, float mint, float maxt, float k )
     float rayDepth = mint;
     RayMarchRes r;
     SceneMin closest;
-    for( int i=0; i<MAX_STEPS && rayDepth<maxt; i++ )
+    for(int i=0; i < MAX_STEPS; i++)
     {
         closest = sdScene(ro + rd*rayDepth);
-        if( closest.minD < SURFACE_DIST ) {
-            r.d = 0.0;
-            r.intersectObj = closest.minObjIdx;
-            return r;
+        if(abs(closest.minD) < SURFACE_DIST || rayDepth > maxt) {
+           break;
         }
-        res = min( res, k * closest.minD/(rayDepth));
-        rayDepth += closest.minD;
+        res = min(res, k * closest.minD/(rayDepth));
+        // March the ray
+        rayDepth += abs(closest.minD);
     }
-    r.intersectObj = -1;
-    r.d = res;
+    if (abs(closest.minD) < SURFACE_DIST) {
+        // HIT
+        r.intersectObj = closest.minObjIdx;
+        r.d = res;
+    } else {
+        // NO HIT
+        r.intersectObj = -1;
+    }
     return r;
 }
 
@@ -719,10 +748,8 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, int objIdx)
     uv = uv*LUT_SCALE + LUT_BIAS;
     // get 4 parameters for inverse_M
     vec4 t1 = texture(LTC1, uv);
-
     // Get 2 parameters for Fresnel calculation
     vec4 t2 = texture(LTC2, uv);
-
     mat3 Minv = mat3(
         vec3(t1.x, 0, t1.y),
         vec3(  0,  1,    0),
@@ -732,7 +759,7 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, int objIdx)
     LightSource areaLight = lights[lightIdx];
     RayMarchObject obj = objects[objIdx];
     vec3 mDiffuse = obj.cDiffuse;
-    vec3 mSpecular = ToLinear(obj.cSpecular);
+    vec3 mSpecular = obj.cSpecular;
     // Evaluate LTC shading
     vec3 diffuse = LTC_Evaluate(N, V, P, mat3(1), areaLight.points, areaLight.twoSided);
     vec3 specular = LTC_Evaluate(N, V, P, Minv, areaLight.points, areaLight.twoSided);
@@ -770,6 +797,7 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 rd)
         vec3 currColor = vec3(0.f);
         vec3 L;
         float maxT;
+        vec3 center;
         if (lights[i].type == POINT) {
             L = normalize(lights[i].lightPos - p);
             fAtt = attenuationFactor(d, lights[i].lightFunc);
@@ -794,38 +822,66 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 rd)
              }
         }
 
-        // Shadow
-        RayMarchRes res = softshadow(p + N * SURFACE_DIST * 3., L, 0, far, 8);
-        if (res.intersectObj != -1) {
-            // Shadow Ray intersected an object
-            // If this light is an area light, we need to check if the intersected object
-            // is indeed area light or not
-            if (objects[res.intersectObj].lightIdx != i) continue;
-        }
-
         vec3 V = normalize(-rd);
+        // Area Light Calculation
         if (lights[i].type == AREA) {
-            return getAreaLight(N, V, p, i, intersectObj);
+            vec3 areaColor = vec3(0.f);
+            vec3 p1 = lights[i].points[0],
+                 p2 = lights[i].points[1],
+                 p3 = lights[i].points[2],
+                 p4 = lights[i].points[3];
+            for (int i = 0; i < AREA_LIGHT_SAMPLES; i++) {
+                // Sample a point and cast a shadow ray towards it
+                vec3 randomP = samplePointOnRectangleAreaLight(p1,p2,p3,p4,vec2(rd + i));
+                L = normalize(randomP - p);
+                float NdotL = dot(N, L);
+                if (NdotL <= 0.005f) {
+                    // Pointing away
+                    continue;
+                }
+                maxT = length(randomP - p);
+                // Check for shadow
+                RayMarchRes res = softshadow(p + N * SURFACE_DIST, L, 0, maxT, 8);
+                if (res.intersectObj != -1) {
+                    // Shadow Ray intersected an object
+                    // We need to check if the intersected object
+                    // is indeed area light or not
+                    if (objects[res.intersectObj].lightIdx != i) {
+                        // Intersected others
+                        continue;
+                    }
+                }
+                // calculate light contribution
+                areaColor += getAreaLight(N, V, p, i, intersectObj);
+            }
+            currColor += areaColor / AREA_LIGHT_SAMPLES;
+        } else {
+            // Shadow
+            RayMarchRes res = softshadow(p + N * SURFACE_DIST, L, 0, maxT, 8);
+            if (res.intersectObj != -1) {
+                // Shadow ray intersect
+                continue;
+            }
+            // Diffuse
+            float NdotL = dot(N, L);
+            if (NdotL <= 0.005f) {
+                // Pointing away
+                continue;
+            }
+            NdotL = clamp(NdotL, 0.f, 1.f);
+            currColor +=  getDiffuse(intersectObj, p, N) * NdotL * lights[i].lightColor;
+
+            // Specular
+            vec3 R = reflect(-L, N);
+            float RdotV = clamp(dot(R, V), 0.f, 1.f);
+            currColor += getSpecular(RdotV, obj.cSpecular, obj.shininess) * lights[i].lightColor;
+            // Add the light source's contribution
+            currColor *= fAtt * aFall;
+            if (enableSoftShadow) {
+                currColor *= res.d;
+            }
         }
 
-        // Diffuse
-        float NdotL = dot(N, L);
-        if (NdotL <= 0.005f) {
-            // Pointing away
-            continue;
-        }
-        NdotL = clamp(NdotL, 0.f, 1.f);
-        currColor +=  getDiffuse(intersectObj, p, N) * NdotL * lights[i].lightColor;
-
-        // Specular
-        vec3 R = reflect(-L, N);
-        float RdotV = clamp(dot(R, V), 0.f, 1.f);
-        currColor += getSpecular(RdotV, obj.cSpecular, obj.shininess) * lights[i].lightColor;
-        // Add the light source's contribution
-        currColor *= fAtt * aFall;
-        if (enableSoftShadow) {
-            currColor *= res.d;
-        }
         total += currColor;
     }
     return total;
@@ -853,7 +909,6 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
         ri.isEnv = true;
         return ri;
     }
-
     // HIT
     // - hit point
     vec3 p = ro + rd * res.d;
@@ -869,7 +924,6 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
         col = getPhong(pn, res.intersectObj, p, rd);
         ri.isEnv = false;
     }
-
     i.p = ro + rd * res.d;
     i.n = pn;
     i.rd = rd;

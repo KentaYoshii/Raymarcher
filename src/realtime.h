@@ -20,7 +20,6 @@
 #define SKYBOX_TEX_UNIT_OFF 10
 #define LTC1_TEX_UNIT_OFF 11
 #define LTC2_TEX_UNIT_OFF 12
-#define AREA_LIGHT_INTENSITY 0.4
 
 class Realtime : public QOpenGLWidget {
 public:
@@ -112,10 +111,10 @@ private:
   void loadMTexture();
   void loadLTUTexture();
   const std::vector<glm::vec3> corners = {
-      glm::vec3(-8.0f, 2.4f, -1.0f), // tl
-      glm::vec3(-8.0f, 2.4f, 1.0f),  // tr
-      glm::vec3(-8.0f, 0.4f, 1.0f),  // bl
-      glm::vec3(-8.0f, 0.4f, -1.0f), // br
+      glm::vec3(-0.5f, 0.5f, 0.f),  // tl
+      glm::vec3(0.5f, 0.5f, 0.f),   // tr
+      glm::vec3(0.5f, -0.5f, 0.f),  // br
+      glm::vec3(-0.5f, -0.5f, 0.f), // bl
   };
 
   // Toggelable Options

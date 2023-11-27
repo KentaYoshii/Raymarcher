@@ -207,8 +207,8 @@ bool ScenefileReader::parseLightData(const QJsonObject &lightData,
                                      SceneNode *node) {
   QStringList requiredFields = {"type", "color"};
   QStringList optionalFields = {
-      "name",  "attenuationCoeff", "direction", "penumbra", "angle", "width",
-      "height"};
+      "name",  "attenuationCoeff", "direction", "penumbra", "angle",
+      "width", "height",           "intensity"};
   QStringList allFields = requiredFields + optionalFields;
   for (auto &field : lightData.keys()) {
     if (!allFields.contains(field)) {
@@ -386,7 +386,7 @@ bool ScenefileReader::parseLightData(const QJsonObject &lightData,
     }
     light->angle = lightData["angle"].toDouble() * M_PI / 180.f;
   } else if (lightType == "area") {
-    QStringList areaRequiredFields = {"width", "height"};
+    QStringList areaRequiredFields = {"width", "height", "intensity"};
     for (auto &field : areaRequiredFields) {
       if (!lightData.contains(field)) {
         std::cout << "missing required field \"" << field.toStdString()
@@ -408,6 +408,38 @@ bool ScenefileReader::parseLightData(const QJsonObject &lightData,
       return false;
     }
     light->height = lightData["height"].toDouble();
+    // parse intensity
+    if (!lightData["intensity"].isDouble()) {
+      std::cout << "area intensity must be of type float" << std::endl;
+      return false;
+    }
+    // parse the attenuation coefficient
+    if (!lightData.contains("attenuationCoeff")) {
+      std::cout << "area light must contain field \"attenuationCoeff\""
+                << std::endl;
+      return false;
+    }
+    if (!lightData["attenuationCoeff"].isArray()) {
+      std::cout << "area light attenuationCoeff must be of type array"
+                << std::endl;
+      return false;
+    }
+    QJsonArray attenuationArray = lightData["attenuationCoeff"].toArray();
+    if (attenuationArray.size() != 3) {
+      std::cout << "area light attenuationCoeff must be of size 3" << std::endl;
+      return false;
+    }
+    if (!attenuationArray[0].isDouble() || !attenuationArray[1].isDouble() ||
+        !attenuationArray[2].isDouble()) {
+      std::cout
+          << "area light attenuationCoeff must contain floating-point values"
+          << std::endl;
+      return false;
+    }
+    light->function.x = attenuationArray[0].toDouble();
+    light->function.y = attenuationArray[1].toDouble();
+    light->function.z = attenuationArray[2].toDouble();
+    light->intensity = lightData["intensity"].toDouble();
   } else {
     std::cout << "unknown light type \"" << lightType << "\"" << std::endl;
     return false;
@@ -923,8 +955,8 @@ bool ScenefileReader::parsePrimitive(const QJsonObject &prim, SceneNode *node) {
     primitive->type = PrimitiveType::PRIMITIVE_CAPSULE;
   else if (primType == "deathstar")
     primitive->type = PrimitiveType::PRIMITIVE_DEATHSTAR;
-  else if (primType == "plane")
-    primitive->type = PrimitiveType::PRIMITIVE_PLANE;
+  else if (primType == "rectangle")
+    primitive->type = PrimitiveType::PRIMITIVE_RECTANGLE;
   else {
     std::cout << "unknown primitive type \"" << primType << "\"" << std::endl;
     return false;
