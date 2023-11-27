@@ -9,7 +9,7 @@ const float SHADOWRAY_OFFSET = 0.007;
 // - small eps for computing uv mapping
 const float TEXTURE_EPS = 0.005;
 // - area light samples
-const int AREA_LIGHT_SAMPLES = 5;
+const int AREA_LIGHT_SAMPLES = 1;
 // - PI
 const float PI = 3.14159265;
 // - reflection depth
@@ -432,6 +432,7 @@ float sdMatch(vec3 p, int type)
         return sdDeathStar(p, 0.5, 0.35, 0.5);
     } else if (type == RECTANGLE) {
         // in 2d
+        p.y = p.y - sin(iTime)/2;
         return sdBox(p, vec3(0.5, 0.5, 0));
     }
 }
@@ -744,7 +745,7 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, int objIdx)
 {
     float dotNV = clamp(dot(N, V), 0.0f, 1.0f);
     // use roughness and sqrt(1-cos_theta) to sample M_texture
-    vec2 uv = vec2(ROUGHNESS, sqrt(1.0f - dotNV));
+    vec2 uv = vec2(0, sqrt(1.0f - dotNV));
     uv = uv*LUT_SCALE + LUT_BIAS;
     // get 4 parameters for inverse_M
     vec4 t1 = texture(LTC1, uv);
@@ -761,8 +762,13 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, int objIdx)
     vec3 mDiffuse = obj.cDiffuse;
     vec3 mSpecular = obj.cSpecular;
     // Evaluate LTC shading
-    vec3 diffuse = LTC_Evaluate(N, V, P, mat3(1), areaLight.points, areaLight.twoSided);
-    vec3 specular = LTC_Evaluate(N, V, P, Minv, areaLight.points, areaLight.twoSided);
+    vec3 transformed[4] = areaLight.points;
+    transformed[0].y = areaLight.points[0].y + sin(iTime)/2;
+    transformed[1].y = areaLight.points[1].y + sin(iTime)/2;
+    transformed[2].y = areaLight.points[2].y + sin(iTime)/2;
+    transformed[3].y = areaLight.points[3].y + sin(iTime)/2;
+    vec3 diffuse = LTC_Evaluate(N, V, P, mat3(1), transformed, areaLight.twoSided) * 0.5;
+    vec3 specular = LTC_Evaluate(N, V, P, Minv, transformed, areaLight.twoSided) * 0.5;
     // GGX BRDF shadowing and Fresnel
     // t2.x: shadowedF90 (F90 normally it should be 1.0)
     // t2.y: Smith function for Geometric Attenuation Term, it is dot(V or L, H).
@@ -830,9 +836,9 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 rd)
                  p2 = lights[i].points[1],
                  p3 = lights[i].points[2],
                  p4 = lights[i].points[3];
-            for (int i = 0; i < AREA_LIGHT_SAMPLES; i++) {
+            for (int idx = 0; idx < AREA_LIGHT_SAMPLES; idx++) {
                 // Sample a point and cast a shadow ray towards it
-                vec3 randomP = samplePointOnRectangleAreaLight(p1,p2,p3,p4,vec2(rd + i));
+                vec3 randomP = samplePointOnRectangleAreaLight(p1,p2,p3,p4,vec2(rd + idx));
                 L = normalize(randomP - p);
                 float NdotL = dot(N, L);
                 if (NdotL <= 0.005f) {
