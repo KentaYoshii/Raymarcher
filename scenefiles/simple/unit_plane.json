@@ -14,9 +14,9 @@
   },
   "groups": [
     {
-      "translate": [1.0, 2.0, 0],
-      "rotate": [0, 0, 1, 45],
-      "scale": [1, 0.1, 1],
+      "translate": [-8, 1.4, 0],
+      "rotate": [0, 1, 0, 90],
+      "scale": [1, 2, 2],
       "lights": [
         {
           "type": "area",
@@ -29,22 +29,21 @@
     {
       "groups": [
         {
-          "scale": [1, 1, 1],
+          "translate": [-5, 1, 1],
           "primitives": [
             {
               "type": "cube",
-              "ambient": [0.2, 0.2, 0.2],
-              "diffuse": [0.9, 0.9, 0.9],
-              "specular": [0.7, 0.7, 0.7],
-              "shininess": 100.0,
-              "reflective": [1, 1, 1],
-              "transparent": [1, 1, 1],
-              "ior": 1.5
+              "diffuse": [0.7, 0.7, 0.7],
+              "reflective": [0.5, 0.5, 0.5],
+              "shininess": 40.0,
+              "blend": 0.8,
+              "textureU": 1.0,
+              "textureV": 5.0
             }
           ]
         },
         {
-          "translate": [0.0, -1.05, 0.0],
+          "translate": [-10, -0.5, 0.0],
           "scale": [40.0, 0.1, 40.0],
           "primitives": [
             {

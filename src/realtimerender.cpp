@@ -185,9 +185,10 @@ void Realtime::initShapesTextures() {
 
   // For each texture, initialize
   std::map<std::string, TextureInfo> sceneTexs = scene.getShapesTextures();
-  glActiveTexture(GL_TEXTURE0);
+  int cnt = 0;
   for (auto const &[name, id] : texMap) {
     TextureInfo texInfo = sceneTexs[name];
+    glActiveTexture(GL_TEXTURE0 + cnt);
     glBindTexture(GL_TEXTURE_2D, id);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texInfo.width, texInfo.height, 0,
                  GL_RGBA, GL_UNSIGNED_BYTE, texInfo.image.bits());
@@ -195,7 +196,7 @@ void Realtime::initShapesTextures() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    cnt++;
   }
 }
 
@@ -221,7 +222,7 @@ void Realtime::initDefaults() {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glBindTexture(GL_TEXTURE_2D, 0);
   // NULL CUBE MAP TEXTURE
-  glActiveTexture(GL_TEXTURE0 + MAX_NUM_TEXTURES);
+  glActiveTexture(GL_TEXTURE0 + SKYBOX_TEX_UNIT_OFF);
   glGenTextures(1, &m_nullCubeMapTexture);
   glBindTexture(GL_TEXTURE_CUBE_MAP, m_nullCubeMapTexture);
   for (int i = 0; i < 6; i++) {
@@ -263,13 +264,6 @@ void Realtime::initShader() {
   glUseProgram(m_fxaaShader);
   GLuint screenLoc = glGetUniformLocation(m_fxaaShader, "screenTexture");
   glUniform1i(screenLoc, 0);
-  glUseProgram(0);
-
-  // Area Light Shader
-  glUseProgram(m_areaLightShader);
-  GLuint useModelLoc = glGetUniformLocation(m_areaLightShader, "useModel");
-  // - CTM already applied
-  glUniform1i(useModelLoc, false);
   glUseProgram(0);
 }
 
@@ -456,11 +450,36 @@ void Realtime::configureLightsUniforms(GLuint shader) {
     GLuint penumbraLoc = glGetUniformLocation(
         shader, ("lights[" + std::to_string(cnt) + "].lightPenumbra").c_str());
     glUniform1f(penumbraLoc, light.penumbra);
+    if (light.type == LightType::LIGHT_AREA) {
+      // Area Light Intensity
+      GLuint intensityLoc = glGetUniformLocation(
+          shader, ("lights[" + std::to_string(cnt) + "].intensity").c_str());
+      glUniform1f(intensityLoc, AREA_LIGHT_INTENSITY);
+      // Area Light Two-Sided ness
+      GLuint twoSideLoc = glGetUniformLocation(
+          shader, ("lights[" + std::to_string(cnt) + "].twoSided").c_str());
+      glUniform1i(twoSideLoc, true);
+      // Area Light Position
+      // - assume unit square
+      for (int i = 0; i < 4; i++) {
+        auto currCorner = glm::mat4(1.f) * glm::vec4(corners[i], 1.f);
+        GLuint posLoc =
+            glGetUniformLocation(shader, ("lights[" + std::to_string(cnt) +
+                                          "].points[" + std::to_string(i) + "]")
+                                             .c_str());
+        glUniform3fv(posLoc, 1, &currCorner[0]);
+      }
+    }
     cnt += 1;
   }
-  // Finally, record the number of lights
+  // Record the number of lights
   GLint numLightsLoc = glGetUniformLocation(shader, "numLights");
   glUniform1i(numLightsLoc, cnt);
+
+  glActiveTexture(GL_TEXTURE0 + LTC1_TEX_UNIT_OFF);
+  glBindTexture(GL_TEXTURE_2D, m_mTexture);
+  glActiveTexture(GL_TEXTURE0 + LTC2_TEX_UNIT_OFF);
+  glBindTexture(GL_TEXTURE_2D, m_ltuTexture);
 }
 
 /**
@@ -579,6 +598,11 @@ void Realtime::configureShapesUniforms(GLuint shader) {
     GLint colorLoc = glGetUniformLocation(
         shader, ("objects[" + std::to_string(cnt) + "].color").c_str());
     glUniform3fv(colorLoc, 1, &obj.m_color[0]);
+
+    // lightidx
+    GLint lightIdxLoc = glGetUniformLocation(
+        shader, ("objects[" + std::to_string(cnt) + "].lightIdx").c_str());
+    glUniform1i(lightIdxLoc, obj.m_lightIdx);
 
     // texture unit to use for this object, if any
     GLuint texLocLoc = glGetUniformLocation(

@@ -13,12 +13,14 @@ struct RayMarchObj {
         m_ctmInv(glm::inverse(ctm)), m_material(mat) {}
 
   // Area light cstr
-  RayMarchObj(int id, PrimitiveType t, const glm::mat4 &ctm, const glm::vec4 &c)
-      : m_id(id), m_type(t), m_ctm(ctm), m_scale(glm::mat4(0.1)),
+  RayMarchObj(int id, PrimitiveType t, const glm::mat4 &ctm, const glm::vec4 &c,
+              int lightIdx)
+      : m_id(id), m_type(t), m_ctm(ctm), m_scale(glm::mat4(1)),
         m_ctmInv(glm::inverse(ctm)), m_isEmissive(true), m_color(c),
         m_material(SceneMaterial{glm::vec4(0), glm::vec4(0), glm::vec4(0), 0.0,
                                  glm::vec4(0), glm::vec4(0), 0, SceneFileMap{},
-                                 0, glm::vec4(0), SceneFileMap{}}) {}
+                                 0, glm::vec4(0), SceneFileMap{}}),
+        m_lightIdx(lightIdx) {}
 
   // Unique ID for this object
   int m_id;
@@ -38,6 +40,8 @@ struct RayMarchObj {
 
   // Area Light
   bool m_isEmissive = false;
+  // - we need this idx for shadow
+  int m_lightIdx = -1;
   glm::vec4 m_color = glm::vec4(0.f);
 };
 

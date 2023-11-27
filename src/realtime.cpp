@@ -34,9 +34,7 @@ void Realtime::finish() {
   glDeleteVertexArrays(1, &m_fullscreenVAO);
   glDeleteBuffers(1, &m_fullscreenVBO);
 
-  // Destroy Area Light
-  glDeleteVertexArrays(1, &m_areaLightVAO);
-  glDeleteBuffers(1, &m_areaLightVBO);
+  // Destroy Area Light Textures
   glDeleteTextures(1, &m_mTexture);
   glDeleteTextures(1, &m_ltuTexture);
 
@@ -60,7 +58,7 @@ void Realtime::initializeGL() {
 
   m_devicePixelRatio = this->devicePixelRatio();
 
-  m_timer = startTimer(1000 / 60);
+  m_timer = startTimer(1000 / 50);
   m_elapsedTimer.start();
 
   glewExperimental = GL_TRUE;
@@ -86,8 +84,6 @@ void Realtime::initializeGL() {
       ":/resources/raymarch.vert", ":/resources/raymarch.frag");
   m_fxaaShader = ShaderLoader::createShaderProgram(
       ":/resources/fullscreen.vert", ":/resources/fxaa.frag");
-  m_areaLightShader = ShaderLoader::createShaderProgram(
-      ":/resources/mvp.vert", ":/resources/arealight.frag");
 
   // Initialize the image plane through which we march rays
   initImagePlane();
@@ -95,13 +91,13 @@ void Realtime::initializeGL() {
   initFullScreenQuad();
   // Initialize any defaults
   initDefaults();
+  // Area Light Textures
+  loadMTexture();
+  loadLTUTexture();
   // Initialize the shader
   initShader();
   // Initialize the custom FBO
   initCustomFBO();
-  // Area Light Textures
-  loadMTexture();
-  loadLTUTexture();
 }
 
 void Realtime::paintGL() {

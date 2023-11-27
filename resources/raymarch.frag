@@ -16,6 +16,7 @@ const int NUM_REFLECTION = 3;
 const float LUT_SIZE  = 64.0; // ltc_texture size
 const float LUT_SCALE = (LUT_SIZE - 1.0)/LUT_SIZE;
 const float LUT_BIAS  = 0.5/LUT_SIZE;
+const float ROUGHNESS = 0.5;
 
 // PRIM TYPES
 const int CUBE = 0;
@@ -67,6 +68,7 @@ struct RayMarchObject
     // Area Light
     bool isEmissive;
     vec3 color;
+    int lightIdx;
 };
 
 struct SceneMin
@@ -118,8 +120,9 @@ struct LightSource
     float lightPenumbra;
 
     // Area Light
-    vec4 points;
+    vec3 points[4];
     float intensity;
+    bool twoSided;
 };
 
 struct RenderInfo
@@ -188,6 +191,99 @@ vec3 Transform(in vec3 p)
 //  p = rotateAxis(p, vec3(0, 0, 1), iTime);
   return p;
 }
+
+// Vector form without project to the plane (dot with the normal)
+// Use for proxy sphere clipping
+vec3 IntegrateEdgeVec(vec3 v1, vec3 v2)
+{
+    // Using built-in acos() function will result flaws
+    // Using fitting result for calculating acos()
+    float x = dot(v1, v2);
+    float y = abs(x);
+
+    float a = 0.8543985 + (0.4965155 + 0.0145206*y)*y;
+    float b = 3.4175940 + (4.1616724 + y)*y;
+    float v = a / b;
+
+    float theta_sintheta = (x > 0.0) ? v : 0.5*inversesqrt(max(1.0 - x*x, 1e-7)) - v;
+
+    return cross(v1, v2)*theta_sintheta;
+}
+
+float IntegrateEdge(vec3 v1, vec3 v2)
+{
+    return IntegrateEdgeVec(v1, v2).z;
+}
+
+// P is fragPos in world space (LTC distribution)
+vec3 LTC_Evaluate(vec3 N, vec3 V, vec3 P, mat3 Minv, vec3 points[4], bool twoSided)
+{
+    // construct orthonormal basis around N
+    vec3 T1, T2;
+    T1 = normalize(V - N * dot(V, N));
+    T2 = cross(N, T1);
+
+    // rotate area light in (T1, T2, N) basis
+    Minv = Minv * transpose(mat3(T1, T2, N));
+
+    // polygon (allocate 4 vertices for clipping)
+    vec3 L[4];
+    // transform polygon from LTC back to origin Do (cosine weighted)
+    L[0] = Minv * (points[0] - P);
+    L[1] = Minv * (points[1] - P);
+    L[2] = Minv * (points[2] - P);
+    L[3] = Minv * (points[3] - P);
+
+    // use tabulated horizon-clipped sphere
+    // check if the shading point is behind the light
+    vec3 dir = points[0] - P; // LTC space
+    vec3 lightNormal = cross(points[1] - points[0], points[3] - points[0]);
+    bool behind = (dot(dir, lightNormal) < 0.0);
+
+    // cos weighted space
+    L[0] = normalize(L[0]);
+    L[1] = normalize(L[1]);
+    L[2] = normalize(L[2]);
+    L[3] = normalize(L[3]);
+
+    // integrate
+    vec3 vsum = vec3(0.0);
+    vsum += IntegrateEdgeVec(L[0], L[1]);
+    vsum += IntegrateEdgeVec(L[1], L[2]);
+    vsum += IntegrateEdgeVec(L[2], L[3]);
+    vsum += IntegrateEdgeVec(L[3], L[0]);
+
+    // form factor of the polygon in direction vsum
+    float len = length(vsum);
+
+    float z = vsum.z/len;
+    if (behind)
+        z = -z;
+
+    vec2 uv = vec2(z*0.5f + 0.5f, len); // range [0, 1]
+    uv = uv*LUT_SCALE + LUT_BIAS;
+
+    // Fetch the form factor for horizon clipping
+    float scale = texture(LTC2, uv).w;
+
+    float sum = len*scale;
+    if (!behind && !twoSided)
+        sum = 0.0;
+
+    // Outgoing radiance (solid angle) for the entire polygon
+    vec3 Lo_i = vec3(sum, sum, sum);
+    return Lo_i;
+}
+// PBR-maps for roughness (and metallic) are usually stored in non-linear
+// color space (sRGB), so we use these functions to convert into linear RGB.
+vec3 PowVec3(vec3 v, float p)
+{
+    return vec3(pow(v.x, p), pow(v.y, p), pow(v.z, p));
+}
+
+const float gamma = 2.2;
+vec3 ToLinear(vec3 v) { return PowVec3(v, gamma); }
+vec3 ToSRGB(vec3 v)   { return PowVec3(v, 1.0/gamma); }
 
 // ============ Signed Distance Fields ==============
 // Define SDF for different shapes here
@@ -511,9 +607,11 @@ RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
   return res;
 }
 
-// =============================================================
-
 // ================== Phong Total Illumination =================
+// Area Light Stuff
+// - mostly black magic
+
+
 // Computes the shadow scale for soft shadow
 // - https://iquilezles.org/articles/rmshadows/
 // @param ro Ray origin
@@ -527,16 +625,17 @@ RayMarchRes softshadow(vec3 ro, vec3 rd, float mint, float maxt, float k )
     float res = 1.0;
     float rayDepth = mint;
     RayMarchRes r;
+    SceneMin closest;
     for( int i=0; i<MAX_STEPS && rayDepth<maxt; i++ )
     {
-        float h = sdScene(ro + rd*rayDepth).minD;
-        if( h< SURFACE_DIST ) {
+        closest = sdScene(ro + rd*rayDepth);
+        if( closest.minD < SURFACE_DIST ) {
             r.d = 0.0;
-            r.intersectObj = 1;
+            r.intersectObj = closest.minObjIdx;
             return r;
         }
-        res = min( res, k * h/(rayDepth));
-        rayDepth += h;
+        res = min( res, k * closest.minD/(rayDepth));
+        rayDepth += closest.minD;
     }
     r.intersectObj = -1;
     r.d = res;
@@ -611,6 +710,40 @@ float attenuationFactor(float d, vec3 func) {
     return min(1.f / (func[0] + (d * func[1]) + (d * d * func[2])), 1.f);
 }
 
+// Get Area Light
+vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, int objIdx)
+{
+    float dotNV = clamp(dot(N, V), 0.0f, 1.0f);
+    // use roughness and sqrt(1-cos_theta) to sample M_texture
+    vec2 uv = vec2(ROUGHNESS, sqrt(1.0f - dotNV));
+    uv = uv*LUT_SCALE + LUT_BIAS;
+    // get 4 parameters for inverse_M
+    vec4 t1 = texture(LTC1, uv);
+
+    // Get 2 parameters for Fresnel calculation
+    vec4 t2 = texture(LTC2, uv);
+
+    mat3 Minv = mat3(
+        vec3(t1.x, 0, t1.y),
+        vec3(  0,  1,    0),
+        vec3(t1.z, 0, t1.w)
+    );
+
+    LightSource areaLight = lights[lightIdx];
+    RayMarchObject obj = objects[objIdx];
+    vec3 mDiffuse = obj.cDiffuse;
+    vec3 mSpecular = ToLinear(obj.cSpecular);
+    // Evaluate LTC shading
+    vec3 diffuse = LTC_Evaluate(N, V, P, mat3(1), areaLight.points, areaLight.twoSided);
+    vec3 specular = LTC_Evaluate(N, V, P, Minv, areaLight.points, areaLight.twoSided);
+    // GGX BRDF shadowing and Fresnel
+    // t2.x: shadowedF90 (F90 normally it should be 1.0)
+    // t2.y: Smith function for Geometric Attenuation Term, it is dot(V or L, H).
+    specular *= mSpecular*t2.x + (areaLight.intensity - mSpecular) * t2.y;
+    vec3 col = areaLight.lightColor * 1.0 * (specular + mDiffuse * diffuse);
+    return ToSRGB(col);
+}
+
 // Gets Phong Light
 // @param N normal
 // @param intersectObj Id of the intersected object
@@ -659,16 +792,22 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 rd)
                 aFall =  1.f -
                         angularFalloffFactor(acos(cosalpha), inner, lights[i].lightAngle);
              }
-        } else {
-            continue;
         }
 
         // Shadow
         RayMarchRes res = softshadow(p + N * SURFACE_DIST * 3., L, 0, far, 8);
-        if (res.intersectObj == 1) {
+        if (res.intersectObj != -1) {
             // Shadow Ray intersected an object
-            continue;
+            // If this light is an area light, we need to check if the intersected object
+            // is indeed area light or not
+            if (objects[res.intersectObj].lightIdx != i) continue;
         }
+
+        vec3 V = normalize(-rd);
+        if (lights[i].type == AREA) {
+            return getAreaLight(N, V, p, i, intersectObj);
+        }
+
         // Diffuse
         float NdotL = dot(N, L);
         if (NdotL <= 0.005f) {
@@ -680,8 +819,7 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 rd)
 
         // Specular
         vec3 R = reflect(-L, N);
-        vec3 dirToCamera = normalize(-rd);
-        float RdotV = clamp(dot(R, dirToCamera), 0.f, 1.f);
+        float RdotV = clamp(dot(R, V), 0.f, 1.f);
         currColor += getSpecular(RdotV, obj.cSpecular, obj.shininess) * lights[i].lightColor;
         // Add the light source's contribution
         currColor *= fAtt * aFall;
@@ -708,14 +846,12 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
         // If no hit but sky box is used, sample
         if (enableSkyBox) {
             ri.fragColor = vec3(texture(skybox, rd).rgb);
-            ri.isEnv = true;
-            return ri;
         } else {
             // Simple black screen
             ri.fragColor = vec3(0.f);
-            ri.isEnv = true;
-            return ri;
         }
+        ri.isEnv = true;
+        return ri;
     }
 
     // HIT

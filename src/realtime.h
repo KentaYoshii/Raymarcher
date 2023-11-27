@@ -20,6 +20,7 @@
 #define SKYBOX_TEX_UNIT_OFF 10
 #define LTC1_TEX_UNIT_OFF 11
 #define LTC2_TEX_UNIT_OFF 12
+#define AREA_LIGHT_INTENSITY 0.4
 
 class Realtime : public QOpenGLWidget {
 public:
@@ -74,8 +75,6 @@ private:
   GLuint m_rayMarchShader;
   // - fxaa shader
   GLuint m_fxaaShader;
-  // - area light shader
-  GLuint m_areaLightShader;
 
   // Textures
   // - default material texture
@@ -108,12 +107,16 @@ private:
   // Area Light
   // source: https://learnopengl.com/Guest-Articles/2022/Area-Lights
   bool m_isAreaLightUsed = false;
-  GLuint m_areaLightVAO;
-  GLuint m_areaLightVBO;
   GLuint m_mTexture;
   GLuint m_ltuTexture;
   void loadMTexture();
   void loadLTUTexture();
+  const std::vector<glm::vec3> corners = {
+      glm::vec3(-8.0f, 2.4f, -1.0f), // tl
+      glm::vec3(-8.0f, 2.4f, 1.0f),  // tr
+      glm::vec3(-8.0f, 0.4f, 1.0f),  // bl
+      glm::vec3(-8.0f, 0.4f, -1.0f), // br
+  };
 
   // Toggelable Options
   // - gamma correction
