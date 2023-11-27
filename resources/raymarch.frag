@@ -432,7 +432,6 @@ float sdMatch(vec3 p, int type)
         return sdDeathStar(p, 0.5, 0.35, 0.5);
     } else if (type == RECTANGLE) {
         // in 2d
-        p.y = p.y - sin(iTime)/2;
         return sdBox(p, vec3(0.5, 0.5, 0));
     }
 }
@@ -741,6 +740,12 @@ float attenuationFactor(float d, vec3 func) {
 }
 
 // Get Area Light
+// @param N Normal
+// @param V View vector
+// @param P Intersection point
+// @param lightIdx Light index of the area light
+// @param objIdx Intersected object's index
+// @returns vec3 of area light's contribution
 vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, int objIdx)
 {
     float dotNV = clamp(dot(N, V), 0.0f, 1.0f);
@@ -762,13 +767,14 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, int objIdx)
     vec3 mDiffuse = obj.cDiffuse;
     vec3 mSpecular = obj.cSpecular;
     // Evaluate LTC shading
-    vec3 transformed[4] = areaLight.points;
-    transformed[0].y = areaLight.points[0].y + sin(iTime)/2;
-    transformed[1].y = areaLight.points[1].y + sin(iTime)/2;
-    transformed[2].y = areaLight.points[2].y + sin(iTime)/2;
-    transformed[3].y = areaLight.points[3].y + sin(iTime)/2;
-    vec3 diffuse = LTC_Evaluate(N, V, P, mat3(1), transformed, areaLight.twoSided) * 0.5;
-    vec3 specular = LTC_Evaluate(N, V, P, Minv, transformed, areaLight.twoSided) * 0.5;
+    // Uncomment to animate
+//    vec3 transformed[4] = areaLight.points;
+//    transformed[0].y = areaLight.points[0].y + sin(iTime)/2;
+//    transformed[1].y = areaLight.points[1].y + sin(iTime)/2;
+//    transformed[2].y = areaLight.points[2].y + sin(iTime)/2;
+//    transformed[3].y = areaLight.points[3].y + sin(iTime)/2;
+    vec3 diffuse = LTC_Evaluate(N, V, P, mat3(1), areaLight.points, areaLight.twoSided) * 0.5;
+    vec3 specular = LTC_Evaluate(N, V, P, Minv, areaLight.points, areaLight.twoSided) * 0.5;
     // GGX BRDF shadowing and Fresnel
     // t2.x: shadowedF90 (F90 normally it should be 1.0)
     // t2.y: Smith function for Geometric Attenuation Term, it is dot(V or L, H).

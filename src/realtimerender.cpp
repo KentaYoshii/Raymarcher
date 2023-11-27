@@ -16,8 +16,8 @@ void Realtime::rayMarch() {
   // Set ray march shader
   glUseProgram(m_rayMarchShader);
   // Set FBO
-  if (m_enableFXAA) {
-    // If FXAA enabled, render offline first
+  if (m_enableFXAA || m_enableHDR) {
+    // If FXAA or HDR enabled, render offline first
     setFBO(m_customFBO);
   } else {
     // Else go straight to application window
@@ -37,10 +37,32 @@ void Realtime::rayMarch() {
   glBindVertexArray(0);
   glUseProgram(0);
 
+  // Apply HDR, if enabled
+  if (m_enableHDR) {
+    applyHDR();
+  }
+
   // Apply FXAA, if enabled
   if (m_enableFXAA) {
     applyFXAA();
   }
+}
+
+/**
+ * @brief Applies HDR
+ */
+void Realtime::applyHDR() {
+  setFBO(m_defaultFBO);
+  glUseProgram(m_hdrShader);
+  // Set Uniforms
+  GLuint expLoc = glGetUniformLocation(m_hdrShader, "exposure");
+  glUniform1f(expLoc, 1.f);
+  GLuint hdrLoc = glGetUniformLocation(m_hdrShader, "hdr");
+  glUniform1i(hdrLoc, m_enableHDR);
+  // Draw to Full Screen Quad using offline rendered texture
+  drawToQuadWithTex(m_hdrTexture);
+  glBindFramebuffer(GL_FRAMEBUFFER, m_defaultFBO);
+  glUseProgram(0);
 }
 
 /**
@@ -52,7 +74,12 @@ void Realtime::applyFXAA() {
   // Set Uniforms
   configureFXAAUniforms(m_fxaaShader);
   // Draw to Full Screen Quad using offline rendered texture
-  drawToQuadWithTex(m_customFBOColorTexture);
+  if (m_enableHDR) {
+    // If HDR was used, use that texture
+    drawToQuadWithTex(m_hdrTexture);
+  } else {
+    drawToQuadWithTex(m_customFBOColorTexture);
+  }
   glBindFramebuffer(GL_FRAMEBUFFER, m_defaultFBO);
   glUseProgram(0);
 }
@@ -79,6 +106,17 @@ void Realtime::drawToQuadWithTex(GLuint tex) {
  */
 void Realtime::setFBO(GLuint fbo) {
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+  if (fbo == m_customFBO) {
+    if (m_enableHDR) {
+      // use HDR color buf to prevent clamping
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                             GL_TEXTURE_2D, m_hdrTexture, 0);
+    } else {
+      // use default color buffer
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                             GL_TEXTURE_2D, m_customFBOColorTexture, 0);
+    }
+  }
   glViewport(0, 0, scene.m_width, scene.m_height);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
@@ -229,6 +267,7 @@ void Realtime::initDefaults() {
     glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA, 1, 1, 0,
                  GL_RGBA, GL_UNSIGNED_BYTE, std::vector<GLfloat>{0, 0}.data());
   }
+  glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 /**
@@ -265,6 +304,12 @@ void Realtime::initShader() {
   GLuint screenLoc = glGetUniformLocation(m_fxaaShader, "screenTexture");
   glUniform1i(screenLoc, 0);
   glUseProgram(0);
+
+  // HDR Shader
+  glUseProgram(m_hdrShader);
+  GLuint hdrBufferLoc = glGetUniformLocation(m_hdrShader, "hdrBuffer");
+  glUniform1i(hdrBufferLoc, 0);
+  glUseProgram(0);
 }
 
 /**
@@ -279,15 +324,28 @@ void Realtime::initCustomFBO() {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glBindTexture(GL_TEXTURE_2D, 0);
+  // HDR ColorBuffer
+  glGenTextures(1, &m_hdrTexture);
+  glBindTexture(GL_TEXTURE_2D, m_hdrTexture);
+  // - note the RGBA16F internal format
+  // - this will prevent from frag shader clamping color val to [0, 1] range
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, scene.m_width, scene.m_height, 0,
+               GL_RGBA, GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glBindTexture(GL_TEXTURE_2D, 0);
+
   // RenderBuffer
   glGenRenderbuffers(1, &m_customFBORenderBuffer);
   glBindRenderbuffer(GL_RENDERBUFFER, m_customFBORenderBuffer);
   glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, scene.m_width,
                         scene.m_height);
   glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
   // FBO
   glGenFramebuffers(1, &m_customFBO);
   glBindFramebuffer(GL_FRAMEBUFFER, m_customFBO);
+  // - set normal color buffer as default
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                          m_customFBOColorTexture, 0);
   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,

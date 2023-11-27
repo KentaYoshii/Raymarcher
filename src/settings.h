@@ -20,16 +20,19 @@ struct Settings {
   int screenWidth = 1024;
   int screenHeight = 768;
 
-  // Options
+  // Camera Options
   float nearPlane;
   float farPlane;
 
-  bool enableGammaCorrection;
+  // Render Options
   bool enableSoftShadow;
   bool enableReflection;
   bool enableRefraction;
   bool enableAmbientOcculusion;
+  // Post Processing Options
   bool enableFXAA;
+  bool enableGammaCorrection;
+  bool enableHDR;
   int idxSkyBox;
 };
 

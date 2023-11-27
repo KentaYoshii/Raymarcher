@@ -21,13 +21,13 @@ private:
   void connectUIElements();
   void connectNear();
   void connectFar();
-  void connectGammaCorrect();
   void connectSoftShadow();
   void connectReflection();
   void connectRefraction();
   void connectAmbientOcculusion();
   void connectFXAA();
   void connectSkyBox();
+  void connectDispOption();
   void connectUploadFile();
   void connectSaveImage();
 
@@ -39,24 +39,24 @@ private:
   QDoubleSpinBox *nearBox;
   QDoubleSpinBox *farBox;
 
-  QCheckBox *gammaCorrection;
   QCheckBox *softShadow;
   QCheckBox *reflection;
   QCheckBox *refraction;
   QCheckBox *ambientOcculusion;
   QCheckBox *fxaa;
   QComboBox *skyboxOption;
+  QComboBox *lightOption;
 
 private slots:
   void onUploadFile();
   void onSaveImage();
   void onValChangeNearBox(double newValue);
   void onValChangeFarBox(double newValue);
-  void onGammaCorrect();
   void onSoftShadow();
   void onReflection();
   void onRefraction();
   void onAmbientOcculusion();
   void onFXAA();
   void onSkyBox(int idx);
+  void onDispOption(int idx);
 };

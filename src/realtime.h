@@ -74,6 +74,8 @@ private:
   GLuint m_rayMarchShader;
   // - fxaa shader
   GLuint m_fxaaShader;
+  // - hdr shader
+  GLuint m_hdrShader;
 
   // Textures
   // - default material texture
@@ -82,6 +84,8 @@ private:
   std::unordered_map<std::string, GLuint> m_TextureMap;
   // - fxaa texture
   GLuint m_fxaaTexture;
+  // - hdr texture
+  GLuint m_hdrTexture;
   // - cube map texture
   GLuint m_cubeMapTexture;
   // - null cube map texture
@@ -130,6 +134,8 @@ private:
   bool m_enableAmbientOcclusion;
   // - FXAA
   bool m_enableFXAA;
+  // - HDR
+  bool m_enableHDR;
   // - sky box
   int m_idxSkyBox;
 
@@ -139,6 +145,8 @@ private:
   void rayMarch();
   // Applies FXAA post processing
   void applyFXAA();
+  // Applies HDR post processing
+  void applyHDR();
   // Draws to the fullsreen quad with given tex
   void drawToQuadWithTex(GLuint tex);
 

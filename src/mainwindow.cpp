@@ -31,16 +31,18 @@ void MainWindow::initialize() {
   near_label->setText("Near Plane");
   QLabel *far_label = new QLabel(); // Far plane label
   far_label->setText("Far Plane");
-  QLabel *renderoption_label = new QLabel(); // Camera label
+  QLabel *renderoption_label = new QLabel();
   renderoption_label->setText("Render Options");
   renderoption_label->setFont(font);
+  QLabel *postproc_option_label = new QLabel();
+  postproc_option_label->setText("Post-processing Options:");
+  postproc_option_label->setFont(font);
+  QLabel *screen_color_label = new QLabel();
+  screen_color_label->setText("Select Disp Option");
+  screen_color_label->setFont(font);
   QLabel *skybox_label = new QLabel();
   skybox_label->setText("Select SkyBox");
   skybox_label->setFont(font);
-
-  gammaCorrection = new QCheckBox();
-  gammaCorrection->setText(QStringLiteral("Gamma Correction"));
-  gammaCorrection->setChecked(false);
 
   softShadow = new QCheckBox();
   softShadow->setText(QStringLiteral("Soft Shadow"));
@@ -68,6 +70,13 @@ void MainWindow::initialize() {
   skyboxOption->addItem("Night Sky");
   skyboxOption->addItem("Island");
   skyboxOption->setCurrentIndex(0);
+
+  lightOption = new QComboBox();
+  lightOption->addItem("None");
+  lightOption->addItem("Gamma Correct");
+  lightOption->addItem("HDR");
+  lightOption->addItem("Bloom");
+  lightOption->setCurrentIndex(0);
 
   // Create file uploader for scene file
   uploadFile = new QPushButton();
@@ -108,14 +117,16 @@ void MainWindow::initialize() {
   vLayout->addWidget(nearLayout);
   vLayout->addWidget(farLayout);
   vLayout->addWidget(renderoption_label);
-  vLayout->addWidget(gammaCorrection);
   vLayout->addWidget(softShadow);
   vLayout->addWidget(reflection);
   vLayout->addWidget(refraction);
   vLayout->addWidget(ambientOcculusion);
-  vLayout->addWidget(fxaa);
   vLayout->addWidget(skybox_label);
   vLayout->addWidget(skyboxOption);
+  vLayout->addWidget(postproc_option_label);
+  vLayout->addWidget(fxaa);
+  vLayout->addWidget(screen_color_label);
+  vLayout->addWidget(lightOption);
 
   connectUIElements();
 
@@ -123,6 +134,7 @@ void MainWindow::initialize() {
   onValChangeNearBox(0.1f);
   onValChangeFarBox(100.f);
   onSkyBox(0);
+  onDispOption(0);
 }
 
 void MainWindow::finish() {
@@ -135,13 +147,13 @@ void MainWindow::connectUIElements() {
   connectSaveImage();
   connectNear();
   connectFar();
-  connectGammaCorrect();
   connectSoftShadow();
   connectReflection();
   connectRefraction();
   connectAmbientOcculusion();
   connectFXAA();
   connectSkyBox();
+  connectDispOption();
 }
 
 void MainWindow::connectUploadFile() {
@@ -164,11 +176,6 @@ void MainWindow::connectFar() {
           static_cast<void (QDoubleSpinBox::*)(double)>(
               &QDoubleSpinBox::valueChanged),
           this, &MainWindow::onValChangeFarBox);
-}
-
-void MainWindow::connectGammaCorrect() {
-  connect(gammaCorrection, &QCheckBox::clicked, this,
-          &MainWindow::onGammaCorrect);
 }
 
 void MainWindow::connectSoftShadow() {
@@ -195,6 +202,11 @@ void MainWindow::connectFXAA() {
 void MainWindow::connectSkyBox() {
   connect(skyboxOption, &QComboBox::currentIndexChanged, this,
           &MainWindow::onSkyBox);
+}
+
+void MainWindow::connectDispOption() {
+  connect(lightOption, &QComboBox::currentIndexChanged, this,
+          &MainWindow::onDispOption);
 }
 
 void MainWindow::onUploadFile() {
@@ -245,11 +257,6 @@ void MainWindow::onValChangeFarBox(double newValue) {
   realtime->settingsChanged();
 }
 
-void MainWindow::onGammaCorrect() {
-  settings.enableGammaCorrection = !settings.enableGammaCorrection;
-  realtime->settingsChanged();
-}
-
 void MainWindow::onSoftShadow() {
   settings.enableSoftShadow = !settings.enableSoftShadow;
   realtime->settingsChanged();
@@ -277,5 +284,21 @@ void MainWindow::onFXAA() {
 
 void MainWindow::onSkyBox(int idx) {
   settings.idxSkyBox = idx;
+  realtime->settingsChanged();
+}
+
+void MainWindow::onDispOption(int idx) {
+  settings.enableGammaCorrection = false;
+  settings.enableHDR = false;
+  switch (idx) {
+  case 0:
+    break;
+  case 1:
+    settings.enableGammaCorrection = true;
+    break;
+  case 2:
+    settings.enableHDR = true;
+    break;
+  }
   realtime->settingsChanged();
 }

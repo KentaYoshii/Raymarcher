@@ -50,6 +50,7 @@ void Realtime::finish() {
   // Destroy Shaders
   glDeleteProgram(m_rayMarchShader);
   glDeleteProgram(m_fxaaShader);
+  glDeleteProgram(m_hdrShader);
 
   this->doneCurrent();
 }
@@ -84,6 +85,8 @@ void Realtime::initializeGL() {
       ":/resources/raymarch.vert", ":/resources/raymarch.frag");
   m_fxaaShader = ShaderLoader::createShaderProgram(
       ":/resources/fullscreen.vert", ":/resources/fxaa.frag");
+  m_hdrShader = ShaderLoader::createShaderProgram(":/resources/fullscreen.vert",
+                                                  ":/resources/hdr.frag");
 
   // Initialize the image plane through which we march rays
   initImagePlane();
