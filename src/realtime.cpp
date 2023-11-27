@@ -99,6 +99,9 @@ void Realtime::initializeGL() {
   initShader();
   // Initialize the custom FBO
   initCustomFBO();
+  // Area Light Textures
+  loadMTexture();
+  loadLTUTexture();
 }
 
 void Realtime::paintGL() {

@@ -24,6 +24,7 @@ enum class PrimitiveType {
   PRIMITIVE_TORUS,
   PRIMITIVE_CAPSULE,
   PRIMITIVE_DEATHSTAR,
+  PRIMITIVE_PLANE,
 };
 
 // Enum of the types of transformations that can be applied
@@ -93,6 +94,7 @@ struct SceneLightData {
   float angle;    // Only applicable to spot lights, in RADIANS
 
   float width, height; // No longer supported (area lights)
+  glm::mat4 ctm;
 };
 
 // Struct which contains data for the camera of a scene

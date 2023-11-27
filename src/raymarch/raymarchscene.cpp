@@ -115,6 +115,16 @@ void RayMarchScene::initScene(Settings &from, bool &isAreaLightUsed) {
   // - Lights
   m_lights = rd.lights;
   isAreaLightUsed = rd.isAreaLightUsed;
+  if (!rd.isAreaLightUsed) {
+    return;
+  }
+  // We need to render area lights too
+  for (const SceneLightData &lightData : rd.lights) {
+    if (lightData.type != LightType::LIGHT_AREA)
+      continue;
+    m_shapes.emplace_back(m_shapes.size(), PrimitiveType::PRIMITIVE_CUBE,
+                          lightData.ctm, lightData.color);
+  }
 }
 
 /**

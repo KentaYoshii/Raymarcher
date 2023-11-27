@@ -26,6 +26,7 @@ SceneParser::getSceneLightDataFromSceneLight(const SceneLight &light,
       light.angle,
       light.width,
       light.height,
+      ctm,
   };
 }
 

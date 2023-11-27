@@ -1,4 +1,5 @@
 #include "realtime.h"
+#include "utils/ltc_matrix.h"
 #include <filesystem>
 #include <iostream>
 
@@ -28,12 +29,14 @@ void Realtime::rayMarch() {
   configureShapesUniforms(m_rayMarchShader);
   configureLightsUniforms(m_rayMarchShader);
   configureSettingsUniforms(m_rayMarchShader);
+
   // Draw
   glBindVertexArray(m_imagePlaneVAO);
   glDrawArrays(GL_TRIANGLES, 0, 6);
   // Un-set
   glBindVertexArray(0);
   glUseProgram(0);
+
   // Apply FXAA, if enabled
   if (m_enableFXAA) {
     applyFXAA();
@@ -243,16 +246,30 @@ void Realtime::initShader() {
   }
   // Set the skybox tex unit to the next available
   GLuint skyBoxLoc = glGetUniformLocation(m_rayMarchShader, "skybox");
-  // Bind to default cube map (= null cube map)
-  glActiveTexture(GL_TEXTURE0 + MAX_NUM_TEXTURES);
-  glBindTexture(GL_TEXTURE_CUBE_MAP, m_nullCubeMapTexture);
-  glUniform1i(skyBoxLoc, MAX_NUM_TEXTURES);
+  glUniform1i(skyBoxLoc, SKYBOX_TEX_UNIT_OFF);
+  // Set the M and LTU texture units for area lights
+  GLuint ltc1Loc = glGetUniformLocation(m_rayMarchShader, "LTC1");
+  glUniform1i(ltc1Loc, LTC1_TEX_UNIT_OFF);
+  GLuint ltc2Loc = glGetUniformLocation(m_rayMarchShader, "LTC2");
+  glUniform1i(ltc2Loc, LTC2_TEX_UNIT_OFF);
+  // Bind the textures
+  glActiveTexture(GL_TEXTURE0 + LTC1_TEX_UNIT_OFF);
+  glBindTexture(GL_TEXTURE_2D, m_mTexture);
+  glActiveTexture(GL_TEXTURE0 + LTC2_TEX_UNIT_OFF);
+  glBindTexture(GL_TEXTURE_2D, m_ltuTexture);
   glUseProgram(0);
 
   // FXAA Shader
   glUseProgram(m_fxaaShader);
-  GLuint screenLoc = glGetUniformLocation(m_rayMarchShader, "screenTexture");
+  GLuint screenLoc = glGetUniformLocation(m_fxaaShader, "screenTexture");
   glUniform1i(screenLoc, 0);
+  glUseProgram(0);
+
+  // Area Light Shader
+  glUseProgram(m_areaLightShader);
+  GLuint useModelLoc = glGetUniformLocation(m_areaLightShader, "useModel");
+  // - CTM already applied
+  glUniform1i(useModelLoc, false);
   glUseProgram(0);
 }
 
@@ -376,7 +393,7 @@ void Realtime::configureScreenUniforms(GLuint shader) {
   GLuint iTimeLoc = glGetUniformLocation(shader, "iTime");
   glUniform1f(iTimeLoc, m_delta);
   // Sky Box
-  glActiveTexture(GL_TEXTURE0 + MAX_NUM_TEXTURES);
+  glActiveTexture(GL_TEXTURE0 + SKYBOX_TEX_UNIT_OFF);
   if (m_idxSkyBox) {
     glBindTexture(GL_TEXTURE_CUBE_MAP, m_cubeMapTexture);
   } else {
@@ -407,7 +424,7 @@ void Realtime::configureLightsUniforms(GLuint shader) {
 
   int cnt = 0;
   for (const SceneLightData &light : scene.getLights()) {
-    if (cnt == 10) {
+    if (cnt == MAX_NUM_LIGHTS) {
       return;
     }
     // Type
@@ -480,7 +497,7 @@ void Realtime::configureShapesUniforms(GLuint shader) {
   int texCnt = 0;
   std::map<std::string, int> texMap;
   for (const RayMarchObj &obj : scene.getShapes()) {
-    if (cnt == 50) {
+    if (cnt == MAX_NUM_SHAPES) {
       return;
     }
     // Type
@@ -553,6 +570,16 @@ void Realtime::configureShapesUniforms(GLuint shader) {
         shader, ("objects[" + std::to_string(cnt) + "].repeatV").c_str());
     glUniform1f(rVLoc, obj.m_material.textureMap.repeatV);
 
+    // isEmissive
+    GLint isEmissiveLoc = glGetUniformLocation(
+        shader, ("objects[" + std::to_string(cnt) + "].isEmissive").c_str());
+    glUniform1i(isEmissiveLoc, obj.m_isEmissive);
+
+    // color
+    GLint colorLoc = glGetUniformLocation(
+        shader, ("objects[" + std::to_string(cnt) + "].color").c_str());
+    glUniform3fv(colorLoc, 1, &obj.m_color[0]);
+
     // texture unit to use for this object, if any
     GLuint texLocLoc = glGetUniformLocation(
         shader, ("objects[" + std::to_string(cnt) + "].texLoc").c_str());
@@ -624,9 +651,33 @@ void Realtime::destroyCustomFBO() {
 /**
  * @brief Load M Texture
  */
-void Realtime::loadMTexture() {}
+void Realtime::loadMTexture() {
+  glGenTextures(1, &m_mTexture);
+  glBindTexture(GL_TEXTURE_2D, m_mTexture);
+
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 64, 64, 0, GL_RGBA, GL_FLOAT, LTC1);
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+  glBindTexture(GL_TEXTURE_2D, 0);
+}
 
 /**
  * @brief Load LTU Texture
  */
-void Realtime::loadLTUTexture() {}
+void Realtime::loadLTUTexture() {
+  glGenTextures(1, &m_ltuTexture);
+  glBindTexture(GL_TEXTURE_2D, m_ltuTexture);
+
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 64, 64, 0, GL_RGBA, GL_FLOAT, LTC2);
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+  glBindTexture(GL_TEXTURE_2D, 0);
+}

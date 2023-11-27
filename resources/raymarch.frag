@@ -12,6 +12,10 @@ const float TEXTURE_EPS = 0.005;
 const float PI = 3.14159265;
 // - reflection depth
 const int NUM_REFLECTION = 3;
+// - Area Lights
+const float LUT_SIZE  = 64.0; // ltc_texture size
+const float LUT_SCALE = (LUT_SIZE - 1.0)/LUT_SIZE;
+const float LUT_BIAS  = 0.5/LUT_SIZE;
 
 // PRIM TYPES
 const int CUBE = 0;
@@ -22,6 +26,7 @@ const int OCTAHEDRON = 4;
 const int TORUS = 5;
 const int CAPSULE = 6;
 const int DEATHSTAR = 7;
+const int PLANE = 8;
 
 // LIGHT TYPES
 const int POINT = 0;
@@ -58,6 +63,10 @@ struct RayMarchObject
     // texture tiling
     float repeatU;
     float repeatV;
+
+    // Area Light
+    bool isEmissive;
+    vec3 color;
 };
 
 struct SceneMin
@@ -145,12 +154,14 @@ uniform LightSource lights[10];
 uniform int numLights;
 
 // Objects
-uniform RayMarchObject objects[50];
+uniform RayMarchObject objects[30];
 uniform int numObjects;
 
 // Textures
 uniform sampler2D objTextures[10];
 uniform samplerCube skybox;
+uniform sampler2D LTC1; // for inverse M
+uniform sampler2D LTC2; // GGX norm, fresnel, 0(unused), sphere
 
 // Timer
 uniform float iTime;
@@ -272,6 +283,12 @@ float sdDeathStar( in vec3 p2, in float ra, float rb, in float d )
     }
 }
 
+float sdPlane( vec3 p, vec3 n, float h )
+{
+  // n must be normalized
+  return dot(p,n) + h;
+}
+
 // Given a point in object space and type of the SDF
 // Invoke the appropriate SDF function and return the distance
 // @param p Point in object space
@@ -294,6 +311,8 @@ float sdMatch(vec3 p, int type)
         return sdCapsule(p, 0.5, 0.1);
     } else if (type == DEATHSTAR) {
         return sdDeathStar(p, 0.5, 0.35, 0.5);
+    } else if (type == PLANE) {
+        return sdPlane(p, vec3(1, 0, 0), 0.5);
     }
 }
 
@@ -640,6 +659,8 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 rd)
                 aFall =  1.f -
                         angularFalloffFactor(acos(cosalpha), inner, lights[i].lightAngle);
              }
+        } else {
+            continue;
         }
 
         // Shadow
@@ -703,7 +724,15 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
     // - normalized hit normal
     vec3 pn = getNormal(p);
     // - get color
-    vec3 col = getPhong(pn, res.intersectObj, p, rd);
+    vec3 col;
+    if (objects[res.intersectObj].isEmissive) {
+        // Area Light
+        col = objects[res.intersectObj].color;
+        ri.isEnv = true;
+    } else {
+        col = getPhong(pn, res.intersectObj, p, rd);
+        ri.isEnv = false;
+    }
 
     i.p = ro + rd * res.d;
     i.n = pn;
@@ -711,7 +740,6 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
     i.intersectObj = res.intersectObj;
 
     ri.fragColor = col;
-    ri.isEnv = false;
 
     return ri;
 }

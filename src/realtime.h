@@ -14,7 +14,12 @@
 #include <QTimer>
 #include <unordered_map>
 
+#define MAX_NUM_LIGHTS 10
 #define MAX_NUM_TEXTURES 10
+#define MAX_NUM_SHAPES 30
+#define SKYBOX_TEX_UNIT_OFF 10
+#define LTC1_TEX_UNIT_OFF 11
+#define LTC2_TEX_UNIT_OFF 12
 
 class Realtime : public QOpenGLWidget {
 public:
