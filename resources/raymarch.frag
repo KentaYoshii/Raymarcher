@@ -190,8 +190,7 @@ vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
 vec3 Transform(in vec3 p)
 {
 //  p = rotateAxis(p, vec3(1, 0, 0), iTime);
-  p = rotateAxis(p, vec3(0, 1, 0), iTime);
-//  p = rotateAxis(p, vec3(0, 0, 1), iTime);
+  p.xz += sin(iTime);
   return p;
 }
 
@@ -413,7 +412,7 @@ float sdPlane( vec3 p, vec3 n, float h )
 // Invoke the appropriate SDF function and return the distance
 // @param p Point in object space
 // @param type Type of the object
-float sdMatch(vec3 p, int type)
+float sdMatch(vec3 p, int type, int id)
 {
     if (type == CUBE) {
         return sdBox(p, vec3(0.5));
@@ -424,7 +423,7 @@ float sdMatch(vec3 p, int type)
     } else if (type == SPHERE) {
         return sdSphere(p, 0.5);
     } else if (type == OCTAHEDRON) {
-        return sdOctahedron(Transform(p), 0.5);
+        return sdOctahedron(p, 0.5);
     } else if (type == TORUS) {
         return sdTorus(p, vec2(0.5, 0.5/4));
     } else if (type == CAPSULE) {
@@ -561,11 +560,11 @@ SceneMin sdScene(vec3 p){
         RayMarchObject obj = objects[i];
         // Conv to Object space
         // - (Note) for global transformation
-        //po = vec3(obj.invModelMatrix * vec4(Transform(p), 1.f));
+        // po = vec3(obj.invModelMatrix * vec4(Transform(p), 1.f));
         po = vec3(obj.invModelMatrix * vec4(p, 1.f));
 
         // Get the distance to the object
-        currD = sdMatch(po, obj.type) * obj.scaleFactor;
+        currD = sdMatch(po, obj.type, i) * obj.scaleFactor;
         if (currD < minD) {
             // Update if we found a closer object
             minD = currD;

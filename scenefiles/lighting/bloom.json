@@ -1,0 +1,105 @@
+{
+  "name": "root",
+  "globalData": {
+    "ambientCoeff": 0.5,
+    "diffuseCoeff": 0.5,
+    "specularCoeff": 0.5,
+    "transparentCoeff": 0
+  },
+  "cameraData": {
+    "position": [-6.0, 4.0, 4.0],
+    "up": [0.0, 1.0, 0.0],
+    "focus": [0, 0, 0],
+    "heightAngle": 30.0
+  },
+  "groups": [
+    {
+      "translate": [0, 0, 3.1],
+      "scale": [1, 1, 1],
+      "lights": [
+        {
+          "type": "area",
+          "color": [0, 10, 10],
+          "width": 2,
+          "height": 2,
+          "intensity": 1,
+          "attenuationCoeff": [0.8, 0.05, 0.0]
+        }
+      ]
+    },
+    {
+      "translate": [0, 0, -3.1],
+      "scale": [1, 1, 1],
+      "lights": [
+        {
+          "type": "area",
+          "color": [10, 0, 10],
+          "width": 2,
+          "height": 2,
+          "intensity": 1,
+          "attenuationCoeff": [0.8, 0.05, 0.0]
+        }
+      ]
+    },
+    {
+      "translate": [-3.1, 0, 0],
+      "rotate": [0, 1, 0, 90],
+      "scale": [1, 1, 1],
+      "lights": [
+        {
+          "type": "area",
+          "color": [10, 10, 0],
+          "width": 2,
+          "height": 2,
+          "intensity": 1,
+          "attenuationCoeff": [0.8, 0.05, 0.0]
+        }
+      ]
+    },
+    {
+      "translate": [3.1, 0, 0],
+      "rotate": [0, 1, 0, 90],
+      "scale": [1, 1, 1],
+      "lights": [
+        {
+          "type": "area",
+          "color": [10, 10, 10],
+          "width": 2,
+          "height": 2,
+          "intensity": 1,
+          "attenuationCoeff": [0.8, 0.05, 0.0]
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "primitives": [
+            {
+              "type": "torus",
+              "diffuse": [0.8, 0.6, 0.6],
+              "specular": [1.0, 1.0, 1.0],
+              "shininess": 15.0,
+              "reflective": [1, 1, 1],
+              "transparent": [1, 1, 1],
+              "ior": 1.5
+            }
+          ]
+        },
+        {
+          "primitives": [
+            {
+              "type": "torus",
+              "diffuse": [0.8, 0.6, 0.6],
+              "specular": [1.0, 1.0, 1.0],
+              "shininess": 15.0,
+              "reflective": [1, 1, 1],
+              "transparent": [1, 1, 1],
+              "ior": 1.5
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
