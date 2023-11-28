@@ -86,6 +86,9 @@ void Realtime::rayMarch() {
   }
 }
 
+/**
+ * @brief Apply Gaussian Blur for Bloom lighting effect
+ */
 bool Realtime::applyBloom() {
   glUseProgram(m_blurShader);
   bool horizontal = true;
@@ -135,6 +138,7 @@ void Realtime::applyLightEffects() {
  */
 void Realtime::applyFXAA() {
   glUseProgram(m_fxaaShader);
+  // FXAA is last processing we apply
   setFBO(m_defaultFBO);
   // Set Uniforms
   configureFXAAUniforms(m_fxaaShader);
@@ -751,9 +755,38 @@ void Realtime::destroyShapesTextures() {
  */
 void Realtime::destroyCustomFBO() {
   glDeleteTextures(1, &m_hdrTexture);
+  glDeleteTextures(1, &m_bloomBrightnessTexture);
   glDeleteTextures(1, &m_customFBOColorTexture);
+  glDeleteTextures(2, m_pingpongBuffer);
   glDeleteRenderbuffers(1, &m_customFBORenderBuffer);
   glDeleteFramebuffers(1, &m_customFBO);
+  glDeleteFramebuffers(2, m_pingpongFBO);
+}
+
+/**
+ * @brief Update the settings
+ */
+void Realtime::updateUISettings() {
+  // Update the options
+  m_exposure = settings.exposure;
+  m_enableGammaCorrection = settings.enableGammaCorrection;
+  m_enableHDR = settings.enableHDR;
+  m_enableBloom = settings.enableBloom;
+  m_enableSoftShadow = settings.enableSoftShadow;
+  m_enableReflection = settings.enableReflection;
+  m_enableRefraction = settings.enableRefraction;
+  m_enableAmbientOcclusion = settings.enableAmbientOcculusion;
+  m_enableFXAA = settings.enableFXAA;
+  if (m_idxSkyBox != settings.idxSkyBox) {
+    // If new sky box is selected
+    if (m_idxSkyBox) {
+      // If a cube map was already loaded
+      glDeleteTextures(1, &m_cubeMapTexture);
+    }
+    // Create the new cube map for selected skybox
+    initCubeMap(static_cast<CUBEMAP>(settings.idxSkyBox));
+  }
+  m_idxSkyBox = settings.idxSkyBox;
 }
 
 // =============== AREA Lights ==============

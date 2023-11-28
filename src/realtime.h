@@ -187,6 +187,9 @@ private:
   // Sets the output FBO
   void setFBO(GLuint fbo);
 
+  // Update settings
+  void updateUISettings();
+
   // Sets the uniforms for our screen-related stuff
   void configureScreenUniforms(GLuint shader);
   // Sets the uniforms for camera-related stuff

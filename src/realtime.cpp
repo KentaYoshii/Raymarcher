@@ -19,6 +19,9 @@ Realtime::Realtime(QWidget *parent) : QOpenGLWidget(parent) {
   m_keyMap[Qt::Key_Space] = false;
 }
 
+/**
+ * @brief Terminating function. Do any cleanup needed
+ */
 void Realtime::finish() {
   killTimer(m_timer);
   this->makeCurrent();
@@ -42,6 +45,7 @@ void Realtime::finish() {
   glDeleteTextures(1, &m_defaultShapeTexture);
   glDeleteTextures(1, &m_cubeMapTexture);
   glDeleteTextures(1, &m_nullCubeMapTexture);
+  glDeleteTextures(1, &m_nullBloomBlurTexture);
 
   // Destroy FBO
   destroyCustomFBO();
@@ -56,6 +60,9 @@ void Realtime::finish() {
   this->doneCurrent();
 }
 
+/**
+ * @brief Initializer function
+ */
 void Realtime::initializeGL() {
 
   m_devicePixelRatio = this->devicePixelRatio();
@@ -108,6 +115,9 @@ void Realtime::initializeGL() {
   initShader();
 }
 
+/**
+ * @brief Draws the scene
+ */
 void Realtime::paintGL() {
   if (!scene.isInitialized()) {
     return;
@@ -116,6 +126,9 @@ void Realtime::paintGL() {
   rayMarch();
 }
 
+/**
+ * @brief Invoked when scene is resized
+ */
 void Realtime::resizeGL(int w, int h) {
   glViewport(0, 0, size().width() * m_devicePixelRatio,
              size().height() * m_devicePixelRatio);
@@ -131,6 +144,9 @@ void Realtime::resizeGL(int w, int h) {
   initCustomFBO();
 }
 
+/**
+ * @brief Invoked when a new scene file is uploaded
+ */
 void Realtime::sceneChanged() {
   if (scene.isInitialized()) {
     // Destroy previous shapes textures
@@ -144,6 +160,9 @@ void Realtime::sceneChanged() {
   update();
 }
 
+/**
+ * @brief Invoked whenever any of the ui settings have been modified
+ */
 void Realtime::settingsChanged() {
   if (!scene.isInitialized()) {
     return;
@@ -151,25 +170,7 @@ void Realtime::settingsChanged() {
   // Update the camera
   scene.updateScene(settings);
   // Update the options
-  m_exposure = settings.exposure;
-  m_enableGammaCorrection = settings.enableGammaCorrection;
-  m_enableHDR = settings.enableHDR;
-  m_enableBloom = settings.enableBloom;
-  m_enableSoftShadow = settings.enableSoftShadow;
-  m_enableReflection = settings.enableReflection;
-  m_enableRefraction = settings.enableRefraction;
-  m_enableAmbientOcclusion = settings.enableAmbientOcculusion;
-  m_enableFXAA = settings.enableFXAA;
-  if (m_idxSkyBox != settings.idxSkyBox) {
-    // If new sky box is selected
-    if (m_idxSkyBox) {
-      // If a cube map was already loaded
-      glDeleteTextures(1, &m_cubeMapTexture);
-    }
-    // Create the new cube map for selected skybox
-    initCubeMap(static_cast<CUBEMAP>(settings.idxSkyBox));
-  }
-  m_idxSkyBox = settings.idxSkyBox;
+  updateUISettings();
   update();
 }
 
