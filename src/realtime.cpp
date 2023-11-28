@@ -49,7 +49,9 @@ void Realtime::finish() {
   // Destroy Shaders
   glDeleteProgram(m_rayMarchShader);
   glDeleteProgram(m_fxaaShader);
-  glDeleteProgram(m_hdrShader);
+  glDeleteProgram(m_lightOptionShader);
+  glDeleteProgram(m_debugShader);
+  glDeleteProgram(m_blurShader);
 
   this->doneCurrent();
 }
@@ -84,8 +86,12 @@ void Realtime::initializeGL() {
       ":/resources/raymarch.vert", ":/resources/raymarch.frag");
   m_fxaaShader = ShaderLoader::createShaderProgram(
       ":/resources/fullscreen.vert", ":/resources/fxaa.frag");
-  m_hdrShader = ShaderLoader::createShaderProgram(":/resources/fullscreen.vert",
-                                                  ":/resources/hdr.frag");
+  m_lightOptionShader = ShaderLoader::createShaderProgram(
+      ":/resources/fullscreen.vert", ":/resources/hdr.frag");
+  m_debugShader = ShaderLoader::createShaderProgram(
+      ":/resources/fullscreen.vert", ":/resources/color.frag");
+  m_blurShader = ShaderLoader::createShaderProgram(
+      ":/resources/fullscreen.vert", ":/resources/blur.frag");
 
   // Initialize the image plane through which we march rays
   initImagePlane();
@@ -147,6 +153,7 @@ void Realtime::settingsChanged() {
   // Update the options
   m_enableGammaCorrection = settings.enableGammaCorrection;
   m_enableHDR = settings.enableHDR;
+  m_enableBloom = settings.enableBloom;
   m_enableSoftShadow = settings.enableSoftShadow;
   m_enableReflection = settings.enableReflection;
   m_enableRefraction = settings.enableRefraction;

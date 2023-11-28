@@ -290,6 +290,7 @@ void MainWindow::onSkyBox(int idx) {
 void MainWindow::onDispOption(int idx) {
   settings.enableGammaCorrection = false;
   settings.enableHDR = false;
+  settings.enableBloom = false;
   switch (idx) {
   case 0:
     break;
@@ -298,6 +299,9 @@ void MainWindow::onDispOption(int idx) {
     break;
   case 2:
     settings.enableHDR = true;
+    break;
+  case 3:
+    settings.enableBloom = true;
     break;
   }
   realtime->settingsChanged();

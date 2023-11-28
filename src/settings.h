@@ -33,6 +33,7 @@ struct Settings {
   bool enableFXAA;
   bool enableGammaCorrection;
   bool enableHDR;
+  bool enableBloom;
   int idxSkyBox;
 };
 

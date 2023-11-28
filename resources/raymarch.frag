@@ -1,4 +1,10 @@
 #version 330 core
+// =============== Out =============
+layout (location = 0) out vec4 fragColor;
+layout (location = 1) out vec4 BrightColor;
+// =============== In ==============
+in vec4 nearClip;
+in vec4 farClip;
 // ============ CONST ==============
 // - max raymarching steps
 const int MAX_STEPS = 256;
@@ -37,6 +43,8 @@ const int DIRECTIONAL = 1;
 const int SPOT = 2;
 const int AREA = 3;
 
+// Bloom
+const vec3 BRIGHT_FILTER = vec3(0.2126, 0.7152, 0.0722);
 // ============ Structs ============
 struct RayMarchObject
 {
@@ -134,13 +142,6 @@ struct RenderInfo
     vec3 fragColor;
     bool isEnv;
 };
-
-// =============== In ==============
-in vec4 nearClip;
-in vec4 farClip;
-
-// =============== Out =============
-out vec4 fragColor;
 
 // =========== Uniforms ============
 // Screen/Camera
@@ -945,6 +946,15 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
     return ri;
 }
 
+void setBrightness(vec3 color) {
+    float brightness = dot(color.rgb, BRIGHT_FILTER);
+    if (brightness > 1.0) {
+        BrightColor = vec4(color.rgb, 1.0);
+    }
+    else {
+        BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
+    }
+}
 
 void main() {
     // Perspective divide and get Ray origin and Ray direction
@@ -964,6 +974,8 @@ void main() {
     // Main render
     RenderInfo ri = render(origin, dir, info, 1.f);
     if (ri.isEnv) {
+       // brightness of env??
+       setBrightness(ri.fragColor);
        fragColor = vec4(ri.fragColor, 1.f);
        return;
     }
@@ -1030,5 +1042,6 @@ void main() {
     }
 
     vec3 col = phong + refl + refr;
+    setBrightness(col);
     fragColor = vec4(col, 1.f);
 }

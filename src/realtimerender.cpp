@@ -16,8 +16,8 @@ void Realtime::rayMarch() {
   // Set ray march shader
   glUseProgram(m_rayMarchShader);
   // Set FBO
-  if (m_enableFXAA || m_enableHDR || m_enableGammaCorrection) {
-    // If FXAA, HDR, or gamma correction enabled, render offline first
+  if (m_enableFXAA || m_enableHDR || m_enableGammaCorrection || m_enableBloom) {
+    // If FXAA, HDR, Bloom, or gamma correction enabled, render offline first
     setFBO(m_customFBO);
   } else {
     // Else go straight to application window
@@ -38,8 +38,8 @@ void Realtime::rayMarch() {
   glUseProgram(0);
 
   // Apply HDR or gamma correction, if enabled
-  if (m_enableHDR || m_enableGammaCorrection) {
-    applyHDR();
+  if (m_enableHDR || m_enableGammaCorrection || m_enableBloom) {
+    applyLightEffects();
   }
 
   // Apply FXAA, if enabled
@@ -48,11 +48,34 @@ void Realtime::rayMarch() {
   }
 }
 
+bool Realtime::applyBloom() {
+  bool horizontal = true, first_iteration = true;
+  glUseProgram(m_blurShader);
+  for (GLuint i = 0; i < BLOOM_BLUR_COUNT; i++) {
+    glBindFramebuffer(GL_FRAMEBUFFER, m_pingpongFBO[horizontal]);
+    GLuint hLoc = glGetUniformLocation(m_blurShader, "horizontal");
+    glUniform1i(hLoc, horizontal);
+    GLuint texToBind = first_iteration ? m_bloomBrightnessTexture
+                                       : m_pingpongBuffer[!horizontal];
+
+    drawToQuadWithTex(texToBind);
+    horizontal = !horizontal;
+    if (first_iteration) {
+      first_iteration = false;
+    }
+  }
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  return horizontal;
+}
+
 /**
- * @brief Applies HDR or gamma correction
+ * @brief Applies HDR, Bloom, or Gamma Correction
  */
-void Realtime::applyHDR() {
-  glUseProgram(m_hdrShader);
+void Realtime::applyLightEffects() {
+  if (m_enableBloom) {
+    bool side = applyBloom();
+  }
+  glUseProgram(m_lightOptionShader);
   if (m_enableFXAA) {
     // If applying FXAA later output to default color texture
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
@@ -63,9 +86,9 @@ void Realtime::applyHDR() {
     setFBO(m_defaultFBO);
   }
   // Set Uniforms
-  GLuint expLoc = glGetUniformLocation(m_hdrShader, "exposure");
+  GLuint expLoc = glGetUniformLocation(m_lightOptionShader, "exposure");
   glUniform1f(expLoc, 1.f);
-  GLuint hdrLoc = glGetUniformLocation(m_hdrShader, "hdr");
+  GLuint hdrLoc = glGetUniformLocation(m_lightOptionShader, "hdr");
   glUniform1i(hdrLoc, m_enableHDR);
   // Draw to Full Screen Quad using offline rendered texture
   drawToQuadWithTex(m_hdrTexture);
@@ -298,16 +321,22 @@ void Realtime::initShader() {
   glBindTexture(GL_TEXTURE_2D, m_ltuTexture);
   glUseProgram(0);
 
-  // FXAA Shader
+  // FXAA Shader (fxaa)
   glUseProgram(m_fxaaShader);
   GLuint screenLoc = glGetUniformLocation(m_fxaaShader, "screenTexture");
   glUniform1i(screenLoc, 0);
   glUseProgram(0);
 
-  // HDR Shader
-  glUseProgram(m_hdrShader);
-  GLuint hdrBufferLoc = glGetUniformLocation(m_hdrShader, "hdrBuffer");
+  // Display Option Shader (gamma correct / HDR / Bloom)
+  glUseProgram(m_lightOptionShader);
+  GLuint hdrBufferLoc = glGetUniformLocation(m_lightOptionShader, "hdrBuffer");
   glUniform1i(hdrBufferLoc, 0);
+  glUseProgram(0);
+
+  // Debugging Shader
+  glUseProgram(m_debugShader);
+  GLuint debugTexLoc = glGetUniformLocation(m_debugShader, "debugTexture");
+  glUniform1i(debugTexLoc, 0);
   glUseProgram(0);
 }
 
@@ -323,6 +352,7 @@ void Realtime::initCustomFBO() {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glBindTexture(GL_TEXTURE_2D, 0);
+
   // HDR ColorBuffer
   glGenTextures(1, &m_hdrTexture);
   glBindTexture(GL_TEXTURE_2D, m_hdrTexture);
@@ -332,6 +362,17 @@ void Realtime::initCustomFBO() {
                GL_RGBA, GL_FLOAT, nullptr);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glBindTexture(GL_TEXTURE_2D, 0);
+
+  // Bloom BrightColorBuffer
+  glGenTextures(1, &m_bloomBrightnessTexture);
+  glBindTexture(GL_TEXTURE_2D, m_bloomBrightnessTexture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, scene.m_width, scene.m_height, 0,
+               GL_RGBA, GL_FLOAT, nullptr);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glBindTexture(GL_TEXTURE_2D, 0);
 
   // RenderBuffer
@@ -344,11 +385,36 @@ void Realtime::initCustomFBO() {
   // FBO
   glGenFramebuffers(1, &m_customFBO);
   glBindFramebuffer(GL_FRAMEBUFFER, m_customFBO);
-  // - set normal color buffer as default
+  // - set normal color buffer as default 0
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                          m_customFBOColorTexture, 0);
+  // - set brightness as default 1
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D,
+                         m_bloomBrightnessTexture, 0);
+  GLuint attachments[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+  glDrawBuffers(2, attachments);
   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
                             GL_RENDERBUFFER, m_customFBORenderBuffer);
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    std::cout << "Custom Buffer Incomplete" << std::endl;
+  }
+
+  // =================== Bloom ========================
+  // - two fbos for horizontal and vertical dir
+  glGenFramebuffers(2, m_pingpongFBO);
+  glGenTextures(2, m_pingpongBuffer);
+  for (GLuint i = 0; i < 2; i++) {
+    glBindFramebuffer(GL_FRAMEBUFFER, m_pingpongFBO[i]);
+    glBindTexture(GL_TEXTURE_2D, m_pingpongBuffer[i]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, scene.m_width, scene.m_height, 0,
+                 GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                           m_pingpongBuffer[i], 0);
+  }
   glBindFramebuffer(GL_FRAMEBUFFER, m_defaultFBO);
 }
 

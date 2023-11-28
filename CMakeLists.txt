@@ -53,6 +53,8 @@ add_executable(${PROJECT_NAME}
 
     src/utils/ltc_matrix.h
     resources/hdr.frag
+    resources/color.frag
+    resources/blur.frag
 )
 
 # GLM: this creates its library and allows you to `#include "glm/..."`
@@ -83,6 +85,8 @@ qt6_add_resources(${PROJECT_NAME} "Resources"
         resources/fxaa.frag
         resources/mvp.vert
         resources/hdr.frag
+        resources/color.frag
+        resources/blur.frag
 )
 
 # GLEW: this provides support for Windows (including 64-bit)

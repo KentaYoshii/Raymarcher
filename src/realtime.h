@@ -20,6 +20,7 @@
 #define SKYBOX_TEX_UNIT_OFF 10
 #define LTC1_TEX_UNIT_OFF 11
 #define LTC2_TEX_UNIT_OFF 12
+#define BLOOM_BLUR_COUNT 10
 
 class Realtime : public QOpenGLWidget {
 public:
@@ -75,7 +76,11 @@ private:
   // - fxaa shader
   GLuint m_fxaaShader;
   // - hdr shader
-  GLuint m_hdrShader;
+  GLuint m_lightOptionShader;
+  // - debug shader
+  GLuint m_debugShader;
+  // - Bloom (blur shader)
+  GLuint m_blurShader;
 
   // Textures
   // - default material texture
@@ -84,6 +89,9 @@ private:
   std::unordered_map<std::string, GLuint> m_TextureMap;
   // - hdr texture
   GLuint m_hdrTexture;
+  // - Bloom
+  GLuint m_bloomBrightnessTexture;
+  GLuint m_bloomFilterTexture;
   // - cube map texture
   GLuint m_cubeMapTexture;
   // - null cube map texture
@@ -91,11 +99,14 @@ private:
 
   // FBO
   // - application window FBO
-  GLuint m_defaultFBO = 2;
+  GLuint m_defaultFBO = 4;
   // - custom FBO
   GLuint m_customFBO;
   GLuint m_customFBOColorTexture;
   GLuint m_customFBORenderBuffer;
+  // - Bloom
+  GLuint m_pingpongFBO[2];
+  GLuint m_pingpongBuffer[2];
 
   // Image Plane through which we march rays
   GLuint m_imagePlaneVAO;
@@ -132,6 +143,8 @@ private:
   bool m_enableFXAA;
   // - HDR
   bool m_enableHDR;
+  // - Bloom
+  bool m_enableBloom;
   // - gamma correction
   bool m_enableGammaCorrection;
   // - sky box
@@ -144,7 +157,9 @@ private:
   // Applies FXAA post processing
   void applyFXAA();
   // Applies HDR post processing
-  void applyHDR();
+  void applyLightEffects();
+  // Applies Bloom Post processing
+  void applyBloom();
   // Draws to the fullsreen quad with given tex
   void drawToQuadWithTex(GLuint tex);
 
