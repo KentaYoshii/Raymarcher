@@ -36,7 +36,7 @@ struct RayMarchObj {
   // Material
   SceneMaterial m_material;
   // Texture
-  uint m_texture;
+  uint m_texture = -1;
 
   // Area Light
   bool m_isEmissive = false;

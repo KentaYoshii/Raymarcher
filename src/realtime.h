@@ -82,8 +82,6 @@ private:
   GLuint m_defaultShapeTexture;
   // - map from file name to texture object
   std::unordered_map<std::string, GLuint> m_TextureMap;
-  // - fxaa texture
-  GLuint m_fxaaTexture;
   // - hdr texture
   GLuint m_hdrTexture;
   // - cube map texture
@@ -122,8 +120,6 @@ private:
   };
 
   // Toggelable Options
-  // - gamma correction
-  bool m_enableGammaCorrection;
   // - soft shadow
   bool m_enableSoftShadow;
   // - reflection
@@ -136,6 +132,8 @@ private:
   bool m_enableFXAA;
   // - HDR
   bool m_enableHDR;
+  // - gamma correction
+  bool m_enableGammaCorrection;
   // - sky box
   int m_idxSkyBox;
 

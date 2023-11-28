@@ -16,8 +16,8 @@ void Realtime::rayMarch() {
   // Set ray march shader
   glUseProgram(m_rayMarchShader);
   // Set FBO
-  if (m_enableFXAA || m_enableHDR) {
-    // If FXAA or HDR enabled, render offline first
+  if (m_enableFXAA || m_enableHDR || m_enableGammaCorrection) {
+    // If FXAA, HDR, or gamma correction enabled, render offline first
     setFBO(m_customFBO);
   } else {
     // Else go straight to application window
@@ -37,8 +37,8 @@ void Realtime::rayMarch() {
   glBindVertexArray(0);
   glUseProgram(0);
 
-  // Apply HDR, if enabled
-  if (m_enableHDR) {
+  // Apply HDR or gamma correction, if enabled
+  if (m_enableHDR || m_enableGammaCorrection) {
     applyHDR();
   }
 
@@ -49,11 +49,19 @@ void Realtime::rayMarch() {
 }
 
 /**
- * @brief Applies HDR
+ * @brief Applies HDR or gamma correction
  */
 void Realtime::applyHDR() {
-  setFBO(m_defaultFBO);
   glUseProgram(m_hdrShader);
+  if (m_enableFXAA) {
+    // If applying FXAA later output to default color texture
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                           m_customFBOColorTexture, 0);
+    glViewport(0, 0, scene.m_width, scene.m_height);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  } else {
+    setFBO(m_defaultFBO);
+  }
   // Set Uniforms
   GLuint expLoc = glGetUniformLocation(m_hdrShader, "exposure");
   glUniform1f(expLoc, 1.f);
@@ -61,7 +69,7 @@ void Realtime::applyHDR() {
   glUniform1i(hdrLoc, m_enableHDR);
   // Draw to Full Screen Quad using offline rendered texture
   drawToQuadWithTex(m_hdrTexture);
-  glBindFramebuffer(GL_FRAMEBUFFER, m_defaultFBO);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glUseProgram(0);
 }
 
@@ -69,18 +77,13 @@ void Realtime::applyHDR() {
  * @brief Applies FXAA
  */
 void Realtime::applyFXAA() {
-  setFBO(m_defaultFBO);
   glUseProgram(m_fxaaShader);
+  setFBO(m_defaultFBO);
   // Set Uniforms
   configureFXAAUniforms(m_fxaaShader);
   // Draw to Full Screen Quad using offline rendered texture
-  if (m_enableHDR) {
-    // If HDR was used, use that texture
-    drawToQuadWithTex(m_hdrTexture);
-  } else {
-    drawToQuadWithTex(m_customFBOColorTexture);
-  }
-  glBindFramebuffer(GL_FRAMEBUFFER, m_defaultFBO);
+  drawToQuadWithTex(m_customFBOColorTexture);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glUseProgram(0);
 }
 
@@ -107,7 +110,7 @@ void Realtime::drawToQuadWithTex(GLuint tex) {
 void Realtime::setFBO(GLuint fbo) {
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
   if (fbo == m_customFBO) {
-    if (m_enableHDR) {
+    if (m_enableHDR || m_enableGammaCorrection) {
       // use HDR color buf to prevent clamping
       glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                              GL_TEXTURE_2D, m_hdrTexture, 0);
@@ -248,16 +251,10 @@ void Realtime::initDefaults() {
   glActiveTexture(GL_TEXTURE0);
   glGenTextures(1, &m_defaultShapeTexture);
   glBindTexture(GL_TEXTURE_2D, m_defaultShapeTexture);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE,
-               std::vector<GLfloat>{0, 0}.data());
-  glBindTexture(GL_TEXTURE_2D, 0);
-  // FXAA Texture
-  glGenTextures(1, &m_fxaaTexture);
-  glBindTexture(GL_TEXTURE_2D, m_fxaaTexture);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, scene.m_width, scene.m_height, 0,
-               GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+               std::vector<GLfloat>{0, 0}.data());
   glBindTexture(GL_TEXTURE_2D, 0);
   // NULL CUBE MAP TEXTURE
   glActiveTexture(GL_TEXTURE0 + SKYBOX_TEX_UNIT_OFF);
@@ -267,7 +264,9 @@ void Realtime::initDefaults() {
     glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA, 1, 1, 0,
                  GL_RGBA, GL_UNSIGNED_BYTE, std::vector<GLfloat>{0, 0}.data());
   }
-  glBindTexture(GL_TEXTURE_2D, 0);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 }
 
 /**
@@ -330,7 +329,7 @@ void Realtime::initCustomFBO() {
   // - note the RGBA16F internal format
   // - this will prevent from frag shader clamping color val to [0, 1] range
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, scene.m_width, scene.m_height, 0,
-               GL_RGBA, GL_FLOAT, NULL);
+               GL_RGBA, GL_FLOAT, nullptr);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glBindTexture(GL_TEXTURE_2D, 0);
@@ -388,6 +387,7 @@ void Realtime::initCubeMap(CUBEMAP type) {
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 }
 
 /**
@@ -545,9 +545,6 @@ void Realtime::configureLightsUniforms(GLuint shader) {
  * @param shader Shader program we are using
  */
 void Realtime::configureSettingsUniforms(GLuint shader) {
-  // Gamma Correction
-  GLuint gammaLoc = glGetUniformLocation(shader, "enableGammaCorrection");
-  glUniform1i(gammaLoc, m_enableGammaCorrection);
   // Soft Shadow
   GLuint softLoc = glGetUniformLocation(shader, "enableSoftShadow");
   glUniform1i(softLoc, m_enableSoftShadow);
@@ -668,7 +665,7 @@ void Realtime::configureShapesUniforms(GLuint shader) {
 
     cnt++;
 
-    if (obj.m_texture == 0) {
+    if (obj.m_texture == -1) {
       // if texture not used, set to -1
       glUniform1i(texLocLoc, -1);
       continue;
@@ -721,6 +718,7 @@ void Realtime::destroyShapesTextures() {
  * @brief Clean up any rss allocated for our custom FBO
  */
 void Realtime::destroyCustomFBO() {
+  glDeleteTextures(1, &m_hdrTexture);
   glDeleteTextures(1, &m_customFBOColorTexture);
   glDeleteRenderbuffers(1, &m_customFBORenderBuffer);
   glDeleteFramebuffers(1, &m_customFBO);

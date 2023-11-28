@@ -40,7 +40,6 @@ void Realtime::finish() {
 
   // Destroy Defaults
   glDeleteTextures(1, &m_defaultShapeTexture);
-  glDeleteTextures(1, &m_fxaaTexture);
   glDeleteTextures(1, &m_cubeMapTexture);
   glDeleteTextures(1, &m_nullCubeMapTexture);
 
@@ -94,13 +93,13 @@ void Realtime::initializeGL() {
   initFullScreenQuad();
   // Initialize any defaults
   initDefaults();
+  // Initialize the custom FBO
+  initCustomFBO();
   // Area Light Textures
   loadMTexture();
   loadLTUTexture();
   // Initialize the shader
   initShader();
-  // Initialize the custom FBO
-  initCustomFBO();
 }
 
 void Realtime::paintGL() {
@@ -147,6 +146,7 @@ void Realtime::settingsChanged() {
   scene.updateScene(settings);
   // Update the options
   m_enableGammaCorrection = settings.enableGammaCorrection;
+  m_enableHDR = settings.enableHDR;
   m_enableSoftShadow = settings.enableSoftShadow;
   m_enableReflection = settings.enableReflection;
   m_enableRefraction = settings.enableRefraction;

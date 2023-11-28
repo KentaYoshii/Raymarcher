@@ -172,7 +172,6 @@ uniform sampler2D LTC2; // GGX norm, fresnel, 0(unused), sphere
 uniform float iTime;
 
 // Options
-uniform bool enableGammaCorrection;
 uniform bool enableSoftShadow;
 uniform bool enableReflection;
 uniform bool enableRefraction;
@@ -1031,9 +1030,5 @@ void main() {
     }
 
     vec3 col = phong + refl + refr;
-
-    if (enableGammaCorrection) {
-        col = pow(col, vec3(1.0/2.2));
-    }
     fragColor = vec4(col, 1.f);
 }
