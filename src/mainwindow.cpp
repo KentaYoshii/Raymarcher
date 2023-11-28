@@ -100,7 +100,7 @@ void MainWindow::initialize() {
   farBox->setValue(100.f);
 
   epsilonBox = new QDoubleSpinBox();
-  epsilonBox->setMinimum(0.1f);
+  epsilonBox->setMinimum(0.01f);
   epsilonBox->setMaximum(5.f);
   epsilonBox->setSingleStep(0.1f);
   epsilonBox->setValue(1.0f);

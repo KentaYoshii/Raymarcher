@@ -55,28 +55,6 @@
     {
       "groups": [
         {
-          "translate": [-1, -1, 1],
-          "primitives": [
-            {
-              "type": "cube",
-              "diffuse": [0, 0, 0],
-              "specular": [0, 0, 0],
-              "shininess": 15.0
-            }
-          ]
-        },
-        {
-          "translate": [-1, -1, -1],
-          "primitives": [
-            {
-              "type": "cube",
-              "diffuse": [0.2, 0.2, 0.2],
-              "specular": [0.2, 0.2, 0.2],
-              "shininess": 15.0
-            }
-          ]
-        },
-        {
           "translate": [0, 0, -2],
           "primitives": [
             {
@@ -88,116 +66,6 @@
               "textureFile": "texture_store/liqmtl.png",
               "textureU": 1.0,
               "textureV": 5.0
-            }
-          ]
-        },
-        {
-          "translate": [-1, -1, -1],
-          "primitives": [
-            {
-              "type": "cube",
-              "diffuse": [0.2, 0.2, 0.2],
-              "specular": [0.2, 0.2, 0.2],
-              "shininess": 15.0
-            }
-          ]
-        },
-        {
-          "translate": [1, -1, -1],
-          "primitives": [
-            {
-              "type": "cube",
-              "diffuse": [0.2, 0.2, 0.2],
-              "specular": [0.2, 0.2, 0.2],
-              "shininess": 15.0
-            }
-          ]
-        },
-        {
-          "translate": [1, -1, 1],
-          "primitives": [
-            {
-              "type": "cube",
-              "diffuse": [0, 0, 0],
-              "specular": [0, 0, 0],
-              "shininess": 15.0
-            }
-          ]
-        },
-        {
-          "translate": [1, -1, 0],
-          "primitives": [
-            {
-              "type": "cube",
-              "diffuse": [0.2, 0.2, 0.2],
-              "specular": [0.2, 0.2, 0.2],
-              "shininess": 15.0
-            }
-          ]
-        },
-        {
-          "translate": [0, -1, 1],
-          "primitives": [
-            {
-              "type": "cube",
-              "diffuse": [0, 0, 0],
-              "specular": [0, 0, 0],
-              "shininess": 15.0
-            }
-          ]
-        },
-        {
-          "translate": [0, -1, -1],
-          "primitives": [
-            {
-              "type": "cube",
-              "diffuse": [0.2, 0.2, 0.2],
-              "specular": [0.2, 0.2, 0.2],
-              "shininess": 15.0
-            }
-          ]
-        },
-        {
-          "translate": [-1, -1, 0],
-          "primitives": [
-            {
-              "type": "cube",
-              "diffuse": [0.2, 0.2, 0.2],
-              "specular": [0.2, 0.2, 0.2],
-              "shininess": 15.0
-            }
-          ]
-        },
-        {
-          "translate": [0, -1, 0],
-          "primitives": [
-            {
-              "type": "cube",
-              "diffuse": [0.2, 0.2, 0.2],
-              "specular": [0.2, 0.2, 0.2],
-              "shininess": 15.0
-            }
-          ]
-        },
-        {
-          "translate": [-1, 1, 1],
-          "primitives": [
-            {
-              "type": "cube",
-              "diffuse": [0, 0, 0],
-              "specular": [0, 0, 0],
-              "shininess": 15.0
-            }
-          ]
-        },
-        {
-          "translate": [-1, 1, -1],
-          "primitives": [
-            {
-              "type": "cube",
-              "diffuse": [0.2, 0.2, 0.2],
-              "specular": [0.2, 0.2, 0.2],
-              "shininess": 15.0
             }
           ]
         },
@@ -232,73 +100,8 @@
           ]
         },
         {
-          "translate": [-1, 1, -1],
-          "primitives": [
-            {
-              "type": "cube",
-              "diffuse": [0.2, 0.2, 0.2],
-              "specular": [0.2, 0.2, 0.2],
-              "shininess": 15.0
-            }
-          ]
-        },
-        {
-          "translate": [1, 1, -1],
-          "primitives": [
-            {
-              "type": "cube",
-              "diffuse": [0.2, 0.2, 0.2],
-              "specular": [0.2, 0.2, 0.2],
-              "shininess": 15.0
-            }
-          ]
-        },
-        {
-          "translate": [1, 1, 1],
-          "primitives": [
-            {
-              "type": "cube",
-              "diffuse": [0, 0, 0],
-              "specular": [0, 0, 0],
-              "shininess": 15.0
-            }
-          ]
-        },
-        {
-          "translate": [1, 1, 0],
-          "primitives": [
-            {
-              "type": "cube",
-              "diffuse": [0.2, 0.2, 0.2],
-              "specular": [0.2, 0.2, 0.2],
-              "shininess": 15.0
-            }
-          ]
-        },
-        {
-          "translate": [0, 1, 1],
-          "primitives": [
-            {
-              "type": "cube",
-              "diffuse": [0, 0, 0],
-              "specular": [0, 0, 0],
-              "shininess": 15.0
-            }
-          ]
-        },
-        {
-          "translate": [0, 1, -1],
-          "primitives": [
-            {
-              "type": "cube",
-              "diffuse": [0.2, 0.2, 0.2],
-              "specular": [0.2, 0.2, 0.2],
-              "shininess": 15.0
-            }
-          ]
-        },
-        {
-          "translate": [-1, 1, 0],
+          "translate": [0, -1, 0],
+          "scale": [3, 1, 3],
           "primitives": [
             {
               "type": "cube",
@@ -310,6 +113,33 @@
         },
         {
           "translate": [0, 1, 0],
+          "scale": [3, 1, 3],
+          "primitives": [
+            {
+              "type": "cube",
+              "diffuse": [0.2, 0.2, 0.2],
+              "specular": [0.2, 0.2, 0.2],
+              "shininess": 15.0
+            }
+          ]
+        },
+        {
+          "translate": [-2, 0, 0],
+          "rotate": [0, 0, 1, 90],
+          "scale": [3, 1, 3],
+          "primitives": [
+            {
+              "type": "cube",
+              "diffuse": [0.2, 0.2, 0.2],
+              "specular": [0.2, 0.2, 0.2],
+              "shininess": 15.0
+            }
+          ]
+        },
+        {
+          "translate": [2, 0, 0],
+          "rotate": [0, 0, 1, 90],
+          "scale": [3, 1, 3],
           "primitives": [
             {
               "type": "cube",

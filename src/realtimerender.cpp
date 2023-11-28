@@ -3,6 +3,44 @@
 #include <filesystem>
 #include <iostream>
 
+// ======================== UTILITY FUNCTIONS ========================
+
+void Realtime::setIntUniform(GLuint shader, const char *var, int val) {
+  GLuint loc = glGetUniformLocation(shader, var);
+  glUniform1i(loc, val);
+}
+
+void Realtime::setFloatUniform(GLuint shader, const char *var, float val) {
+  GLuint loc = glGetUniformLocation(shader, var);
+  glUniform1f(loc, val);
+}
+
+void Realtime::setMat4Uniform(GLuint shader, const char *var,
+                              const glm::mat4 &mat) {
+  GLint loc = glGetUniformLocation(shader, var);
+  glUniformMatrix4fv(loc, 1, GL_FALSE, &mat[0][0]);
+}
+
+void Realtime::setVec2Uniform(GLuint shader, const char *var,
+                              const glm::vec2 &v) {
+  GLint loc = glGetUniformLocation(shader, var);
+  glUniform2fv(loc, 1, &v[0]);
+}
+
+void Realtime::setVec3Uniform(GLuint shader, const char *var,
+                              const glm::vec3 &v) {
+  GLint loc = glGetUniformLocation(shader, var);
+  glUniform3fv(loc, 1, &v[0]);
+}
+
+void Realtime::setVec4Uniform(GLuint shader, const char *var,
+                              const glm::vec4 &v) {
+  GLint loc = glGetUniformLocation(shader, var);
+  glUniform4fv(loc, 1, &v[0]);
+}
+
+// ===================================================================
+
 /**
  * @brief Performs Raymarching using our raymarch shader
  * - Set the shader
@@ -53,8 +91,7 @@ bool Realtime::applyBloom() {
   bool horizontal = true;
   for (int i = 0; i < BLOOM_BLUR_COUNT; i++) {
     glBindFramebuffer(GL_FRAMEBUFFER, m_pingpongFBO[horizontal]);
-    GLuint hLoc = glGetUniformLocation(m_blurShader, "horizontal");
-    glUniform1i(hLoc, horizontal);
+    setIntUniform(m_blurShader, "horizontal", horizontal);
     // If this is the first iteration, use the brightness texture
     // Else just used the previously blurred texture
     GLuint texToBind =
@@ -314,13 +351,10 @@ void Realtime::initShader() {
     glUniform1i(texsLoc + i, i);
   }
   // Set the skybox tex unit to the next available
-  GLuint skyBoxLoc = glGetUniformLocation(m_rayMarchShader, "skybox");
-  glUniform1i(skyBoxLoc, SKYBOX_TEX_UNIT_OFF);
+  setIntUniform(m_rayMarchShader, "skybox", SKYBOX_TEX_UNIT_OFF);
   // Set the M and LTU texture units for area lights
-  GLuint ltc1Loc = glGetUniformLocation(m_rayMarchShader, "LTC1");
-  glUniform1i(ltc1Loc, LTC1_TEX_UNIT_OFF);
-  GLuint ltc2Loc = glGetUniformLocation(m_rayMarchShader, "LTC2");
-  glUniform1i(ltc2Loc, LTC2_TEX_UNIT_OFF);
+  setIntUniform(m_rayMarchShader, "LTC1", LTC1_TEX_UNIT_OFF);
+  setIntUniform(m_rayMarchShader, "LTC2", LTC2_TEX_UNIT_OFF);
   // Bind the textures
   glActiveTexture(GL_TEXTURE0 + LTC1_TEX_UNIT_OFF);
   glBindTexture(GL_TEXTURE_2D, m_mTexture);
@@ -330,28 +364,23 @@ void Realtime::initShader() {
 
   // FXAA Shader (fxaa)
   glUseProgram(m_fxaaShader);
-  GLuint screenLoc = glGetUniformLocation(m_fxaaShader, "screenTexture");
-  glUniform1i(screenLoc, 0);
+  setIntUniform(m_fxaaShader, "screenTexture", 0);
   glUseProgram(0);
 
   // Display Option Shader (gamma correct / HDR / Bloom)
   glUseProgram(m_lightOptionShader);
-  GLuint hdrBufferLoc = glGetUniformLocation(m_lightOptionShader, "hdrBuffer");
-  glUniform1i(hdrBufferLoc, 0);
-  GLuint bloomBlurLoc = glGetUniformLocation(m_lightOptionShader, "bloomBlur");
-  glUniform1i(bloomBlurLoc, 1);
+  setIntUniform(m_lightOptionShader, "hdrBuffer", 0);
+  setIntUniform(m_lightOptionShader, "bloomBlur", 1);
   glUseProgram(0);
 
   // Debugging Shader
   glUseProgram(m_debugShader);
-  GLuint debugTexLoc = glGetUniformLocation(m_debugShader, "debugTexture");
-  glUniform1i(debugTexLoc, 0);
+  setIntUniform(m_debugShader, "debugTexture", 0);
   glUseProgram(0);
 
   // Bloom Blur Shader
   glUseProgram(m_blurShader);
-  GLuint imageTexLoc = glGetUniformLocation(m_blurShader, "image");
-  glUniform1i(imageTexLoc, 0);
+  setIntUniform(m_blurShader, "image", 0);
   glUseProgram(0);
 }
 
@@ -483,31 +512,17 @@ void Realtime::configureCameraUniforms(GLuint shader) {
   glm::mat4 invProjViewMatrix = glm::inverse(projMatrix * viewMatrix);
   float near = scene.getCamera().getNearPlane();
   float far = scene.getCamera().getFarPlane();
-
   // Near & Far
-  GLint nearLoc = glGetUniformLocation(shader, "near");
-  glUniform1f(nearLoc, near);
-  GLint farLoc = glGetUniformLocation(shader, "far");
-  glUniform1f(farLoc, far);
-
+  setFloatUniform(shader, "near", near);
+  setFloatUniform(shader, "far", far);
   // View Matrix
-  // - world -> view
-  GLint viewLoc = glGetUniformLocation(shader, "viewMatrix");
-  glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &viewMatrix[0][0]);
-
+  setMat4Uniform(shader, "viewMatrix", viewMatrix);
   // Projection Matrix
-  // - view -> clip space
-  GLint projLoc = glGetUniformLocation(shader, "projMatrix");
-  glUniformMatrix4fv(projLoc, 1, GL_FALSE, &projMatrix[0][0]);
-
+  setMat4Uniform(shader, "projMatrix", projMatrix);
   // Camera Position
-  // - for lighting calc
-  GLint eyePosLoc = glGetUniformLocation(shader, "eyePosition");
-  glUniform4fv(eyePosLoc, 1, &camPosition[0]);
-
+  setVec4Uniform(shader, "eyePosition", camPosition);
   // Inv Proj View
-  GLint invProjViewLoc = glGetUniformLocation(shader, "invProjViewMatrix");
-  glUniformMatrix4fv(invProjViewLoc, 1, GL_FALSE, &invProjViewMatrix[0][0]);
+  setMat4Uniform(shader, "invProjViewMatrix", invProjViewMatrix);
 }
 
 /**
@@ -515,16 +530,14 @@ void Realtime::configureCameraUniforms(GLuint shader) {
  * @param shader Shader program we are using
  */
 void Realtime::configureScreenUniforms(GLuint shader) {
-  // Screen Dimensions
   glm::vec2 screenD{
       scene.m_width,
       scene.m_height,
   };
-  GLuint screenDLoc = glGetUniformLocation(shader, "screenDimensions");
-  glUniform2fv(screenDLoc, 1, &screenD[0]);
+  // Screen Dimensions
+  setVec2Uniform(shader, "screenDimensions", screenD);
   // ITime
-  GLuint iTimeLoc = glGetUniformLocation(shader, "iTime");
-  glUniform1f(iTimeLoc, m_delta);
+  setFloatUniform(shader, "iTime", m_delta);
   // Sky Box
   glActiveTexture(GL_TEXTURE0 + SKYBOX_TEX_UNIT_OFF);
   if (m_idxSkyBox) {
@@ -539,81 +552,53 @@ void Realtime::configureScreenUniforms(GLuint shader) {
  * @param shader Shader program we are using
  */
 void Realtime::configureLightsUniforms(GLuint shader) {
-  // ka (ambience)
-  GLint kaLoc = glGetUniformLocation(shader, "ka");
-  glUniform1f(kaLoc, scene.getGlobalData().ka);
-
-  // kd (diffuse)
-  GLint kdLoc = glGetUniformLocation(shader, "kd");
-  glUniform1f(kdLoc, scene.getGlobalData().kd);
-
-  // ks (specular)
-  GLint ksLoc = glGetUniformLocation(shader, "ks");
-  glUniform1f(ksLoc, scene.getGlobalData().ks);
-
-  // kt (transparent)
-  GLint ktLoc = glGetUniformLocation(shader, "kt");
-  glUniform1f(ktLoc, scene.getGlobalData().kt);
-
   int cnt = 0;
+  // ka (ambience)
+  setFloatUniform(shader, "ka", scene.getGlobalData().ka);
+  // kd (diffuse)
+  setFloatUniform(shader, "kd", scene.getGlobalData().kd);
+  // ks (specular)
+  setFloatUniform(shader, "ks", scene.getGlobalData().ks);
+  // kt (transparent)
+  setFloatUniform(shader, "kt", scene.getGlobalData().kt);
   for (const SceneLightData &light : scene.getLights()) {
     if (cnt == MAX_NUM_LIGHTS) {
       return;
     }
+    std::string base = "lights[" + std::to_string(cnt) + "].";
     // Type
-    GLuint typeLoc = glGetUniformLocation(
-        shader, ("lights[" + std::to_string(cnt) + "].type").c_str());
-    glUniform1i(typeLoc,
-                static_cast<std::underlying_type_t<LightType>>(light.type));
+    setIntUniform(shader, (base + "type").c_str(),
+                  static_cast<std::underlying_type_t<LightType>>(light.type));
     // Pos
-    GLuint posLoc = glGetUniformLocation(
-        shader, ("lights[" + std::to_string(cnt) + "].lightPos").c_str());
-    glUniform3fv(posLoc, 1, &light.pos[0]);
+    setVec3Uniform(shader, (base + "lightPos").c_str(), light.pos);
     // Dir
-    GLuint dirLoc = glGetUniformLocation(
-        shader, ("lights[" + std::to_string(cnt) + "].lightDir").c_str());
-    glUniform3fv(dirLoc, 1, &light.dir[0]);
+    setVec3Uniform(shader, (base + "lightDir").c_str(), light.dir);
     // Color
-    GLuint colorLoc = glGetUniformLocation(
-        shader, ("lights[" + std::to_string(cnt) + "].lightColor").c_str());
-    glUniform3fv(colorLoc, 1, &light.color[0]);
+    setVec3Uniform(shader, (base + "lightColor").c_str(), light.color);
     // Attenuation
-    GLuint funcLoc = glGetUniformLocation(
-        shader, ("lights[" + std::to_string(cnt) + "].lightFunc").c_str());
-    glUniform3fv(funcLoc, 1, &light.function[0]);
+    setVec3Uniform(shader, (base + "lightFunc").c_str(), light.function);
     // Angle
-    GLuint angleLoc = glGetUniformLocation(
-        shader, ("lights[" + std::to_string(cnt) + "].lightAngle").c_str());
-    glUniform1f(angleLoc, light.angle);
+    setFloatUniform(shader, (base + "lightAngle").c_str(), light.angle);
     // Penumbra
-    GLuint penumbraLoc = glGetUniformLocation(
-        shader, ("lights[" + std::to_string(cnt) + "].lightPenumbra").c_str());
-    glUniform1f(penumbraLoc, light.penumbra);
+    setFloatUniform(shader, (base + "lightPenumbra").c_str(), light.penumbra);
+    // Area Light Uniforms
     if (light.type == LightType::LIGHT_AREA) {
       // Area Light Intensity
-      GLuint intensityLoc = glGetUniformLocation(
-          shader, ("lights[" + std::to_string(cnt) + "].intensity").c_str());
-      glUniform1f(intensityLoc, light.intensity);
+      setFloatUniform(shader, (base + "intensity").c_str(), light.intensity);
       // Area Light Two-Sided ness
-      GLuint twoSideLoc = glGetUniformLocation(
-          shader, ("lights[" + std::to_string(cnt) + "].twoSided").c_str());
-      glUniform1i(twoSideLoc, true);
-      // Area Light Position
-      // - assume unit square
+      setIntUniform(shader, (base + "twoSided").c_str(), true);
+      // Rectangle Area Light Position
       for (int i = 0; i < 4; i++) {
         auto currCorner = glm::mat4(light.ctm) * glm::vec4(corners[i], 1.f);
-        GLuint posLoc =
-            glGetUniformLocation(shader, ("lights[" + std::to_string(cnt) +
-                                          "].points[" + std::to_string(i) + "]")
-                                             .c_str());
-        glUniform3fv(posLoc, 1, &currCorner[0]);
+        setVec3Uniform(shader,
+                       (base + "points[" + std::to_string(i) + "]").c_str(),
+                       currCorner);
       }
     }
     cnt += 1;
   }
-  // Record the number of lights
-  GLint numLightsLoc = glGetUniformLocation(shader, "numLights");
-  glUniform1i(numLightsLoc, cnt);
+  // Number of lights
+  setIntUniform(shader, "numLights", cnt);
 
   glActiveTexture(GL_TEXTURE0 + LTC1_TEX_UNIT_OFF);
   glBindTexture(GL_TEXTURE_2D, m_mTexture);
@@ -627,20 +612,15 @@ void Realtime::configureLightsUniforms(GLuint shader) {
  */
 void Realtime::configureSettingsUniforms(GLuint shader) {
   // Soft Shadow
-  GLuint softLoc = glGetUniformLocation(shader, "enableSoftShadow");
-  glUniform1i(softLoc, m_enableSoftShadow);
+  setIntUniform(shader, "enableSoftShadow", m_enableSoftShadow);
   // Reflection
-  GLuint refLoc = glGetUniformLocation(shader, "enableReflection");
-  glUniform1i(refLoc, m_enableReflection);
+  setIntUniform(shader, "enableReflection", m_enableReflection);
   // Refraction
-  GLuint refrLoc = glGetUniformLocation(shader, "enableRefraction");
-  glUniform1i(refrLoc, m_enableRefraction);
+  setIntUniform(shader, "enableRefraction", m_enableRefraction);
   // Ambient Occulusion
-  GLuint ambLoc = glGetUniformLocation(shader, "enableAmbientOcculusion");
-  glUniform1i(ambLoc, m_enableAmbientOcclusion);
+  setIntUniform(shader, "enableAmbientOcculusion", m_enableAmbientOcclusion);
   // Sky Box
-  GLuint skyBoxLoc = glGetUniformLocation(shader, "enableSkyBox");
-  glUniform1i(skyBoxLoc, m_idxSkyBox);
+  setIntUniform(shader, "enableSkyBox", m_idxSkyBox);
 }
 
 /**
@@ -655,100 +635,58 @@ void Realtime::configureShapesUniforms(GLuint shader) {
     if (cnt == MAX_NUM_SHAPES) {
       return;
     }
+    std::string base = "objects[" + std::to_string(cnt) + "].";
     // Type
-    GLuint typeLoc = glGetUniformLocation(
-        shader, ("objects[" + std::to_string(cnt) + "].type").c_str());
-    glUniform1i(typeLoc,
-                static_cast<std::underlying_type_t<PrimitiveType>>(obj.m_type));
+    setIntUniform(
+        shader, (base + "type").c_str(),
+        static_cast<std::underlying_type_t<PrimitiveType>>(obj.m_type));
     // Inverse model matrix
-    GLuint invModelLoc = glGetUniformLocation(
-        shader,
-        ("objects[" + std::to_string(cnt) + "].invModelMatrix").c_str());
-    glUniformMatrix4fv(invModelLoc, 1, GL_FALSE, &obj.m_ctmInv[0][0]);
+    setMat4Uniform(shader, (base + "invModelMatrix").c_str(), obj.m_ctmInv);
     // Scale Factor
     // - need this to undo the side-effect of non-rigid tranform
     float scaleF =
         fmin(obj.m_scale[0][0], fmin(obj.m_scale[1][1], obj.m_scale[2][2]));
-    GLuint scaleLoc = glGetUniformLocation(
-        shader, ("objects[" + std::to_string(cnt) + "].scaleFactor").c_str());
-    glUniform1f(scaleLoc, scaleF);
-
-    // Material Property
-
+    setFloatUniform(shader, (base + "scaleFactor").c_str(), scaleF);
     // shininess
-    GLint shininessLoc = glGetUniformLocation(
-        shader, ("objects[" + std::to_string(cnt) + "].shininess").c_str());
-    glUniform1f(shininessLoc, obj.m_material.shininess);
-
+    setFloatUniform(shader, (base + "shininess").c_str(),
+                    obj.m_material.shininess);
     // cAmbient
-    GLint cAmbientLoc = glGetUniformLocation(
-        shader, ("objects[" + std::to_string(cnt) + "].cAmbient").c_str());
-    glUniform3fv(cAmbientLoc, 1, &obj.m_material.cAmbient[0]);
-
+    setVec3Uniform(shader, (base + "cAmbient").c_str(),
+                   obj.m_material.cAmbient);
     // cDiffuse
-    GLint cDiffuseLoc = glGetUniformLocation(
-        shader, ("objects[" + std::to_string(cnt) + "].cDiffuse").c_str());
-    glUniform3fv(cDiffuseLoc, 1, &obj.m_material.cDiffuse[0]);
-
+    setVec3Uniform(shader, (base + "cDiffuse").c_str(),
+                   obj.m_material.cDiffuse);
     // cSpecular
-    GLint cSpecularLoc = glGetUniformLocation(
-        shader, ("objects[" + std::to_string(cnt) + "].cSpecular").c_str());
-    glUniform3fv(cSpecularLoc, 1, &obj.m_material.cSpecular[0]);
-
+    setVec3Uniform(shader, (base + "cSpecular").c_str(),
+                   obj.m_material.cSpecular);
     // cReflective
-    GLint cReflectiveLoc = glGetUniformLocation(
-        shader, ("objects[" + std::to_string(cnt) + "].cReflective").c_str());
-    glUniform3fv(cReflectiveLoc, 1, &obj.m_material.cReflective[0]);
-
+    setVec3Uniform(shader, (base + "cReflective").c_str(),
+                   obj.m_material.cReflective);
     // cTransparent
-    GLint cTransparentLoc = glGetUniformLocation(
-        shader, ("objects[" + std::to_string(cnt) + "].cTransparent").c_str());
-    glUniform3fv(cTransparentLoc, 1, &obj.m_material.cTransparent[0]);
-
+    setVec3Uniform(shader, (base + "cTransparent").c_str(),
+                   obj.m_material.cTransparent);
     // blend
-    GLint blendLoc = glGetUniformLocation(
-        shader, ("objects[" + std::to_string(cnt) + "].blend").c_str());
-    glUniform1f(blendLoc, obj.m_material.blend);
-
+    setFloatUniform(shader, (base + "blend").c_str(), obj.m_material.blend);
     // ior
-    GLint iorLoc = glGetUniformLocation(
-        shader, ("objects[" + std::to_string(cnt) + "].ior").c_str());
-    glUniform1f(iorLoc, obj.m_material.ior);
-
+    setFloatUniform(shader, (base + "ior").c_str(), obj.m_material.ior);
     // repeatU
-    GLint rULoc = glGetUniformLocation(
-        shader, ("objects[" + std::to_string(cnt) + "].repeatU").c_str());
-    glUniform1f(rULoc, obj.m_material.textureMap.repeatU);
-
+    setFloatUniform(shader, (base + "repeatU").c_str(),
+                    obj.m_material.textureMap.repeatU);
     // repeatV
-    GLint rVLoc = glGetUniformLocation(
-        shader, ("objects[" + std::to_string(cnt) + "].repeatV").c_str());
-    glUniform1f(rVLoc, obj.m_material.textureMap.repeatV);
-
+    setFloatUniform(shader, (base + "repeatV").c_str(),
+                    obj.m_material.textureMap.repeatV);
     // isEmissive
-    GLint isEmissiveLoc = glGetUniformLocation(
-        shader, ("objects[" + std::to_string(cnt) + "].isEmissive").c_str());
-    glUniform1i(isEmissiveLoc, obj.m_isEmissive);
-
+    setIntUniform(shader, (base + "isEmissive").c_str(), obj.m_isEmissive);
     // color
-    GLint colorLoc = glGetUniformLocation(
-        shader, ("objects[" + std::to_string(cnt) + "].color").c_str());
-    glUniform3fv(colorLoc, 1, &obj.m_color[0]);
-
+    setVec3Uniform(shader, (base + "color").c_str(), obj.m_color);
     // lightidx
-    GLint lightIdxLoc = glGetUniformLocation(
-        shader, ("objects[" + std::to_string(cnt) + "].lightIdx").c_str());
-    glUniform1i(lightIdxLoc, obj.m_lightIdx);
-
-    // texture unit to use for this object, if any
-    GLuint texLocLoc = glGetUniformLocation(
-        shader, ("objects[" + std::to_string(cnt) + "].texLoc").c_str());
+    setIntUniform(shader, (base + "lightIdx").c_str(), obj.m_lightIdx);
 
     cnt++;
 
     if (obj.m_texture == -1) {
       // if texture not used, set to -1
-      glUniform1i(texLocLoc, -1);
+      setIntUniform(shader, (base + "texLoc").c_str(), -1);
       continue;
     }
 
@@ -763,12 +701,9 @@ void Realtime::configureShapesUniforms(GLuint shader) {
       texCnt++;
       glActiveTexture(0);
     }
-    glUniform1i(texLocLoc, texMap[texName]);
+    setIntUniform(shader, (base + "texLoc").c_str(), texMap[texName]);
   }
-
-  // num objs
-  GLuint numLoc = glGetUniformLocation(shader, "numObjects");
-  glUniform1i(numLoc, cnt);
+  setIntUniform(shader, "numObjects", cnt);
 }
 
 /**
@@ -778,23 +713,20 @@ void Realtime::configureFXAAUniforms(GLuint shader) {
   float inverseWidth = 1.0 / scene.m_width;
   float inverseHeight = 1.0 / scene.m_height;
   glm::vec2 inverseScreen{inverseWidth, inverseHeight};
-
   // Inverse Screen Dimensions
-  GLuint inverseScreenSizeLoc =
-      glGetUniformLocation(shader, "inverseScreenSize");
-  glUniform2fv(inverseScreenSizeLoc, 1, &inverseScreen[0]);
+  setVec2Uniform(shader, "inverseScreenSize", inverseScreen);
 }
 
 /**
  * @brief Initializes light effect uniforms
  */
 void Realtime::configureLightEffectsUniforms(GLuint shader, bool side) {
-  GLuint expLoc = glGetUniformLocation(m_lightOptionShader, "exposure");
-  glUniform1f(expLoc, m_exposure);
-  GLuint hdrLoc = glGetUniformLocation(m_lightOptionShader, "hdr");
-  glUniform1i(hdrLoc, m_enableHDR);
-  GLuint bloomLoc = glGetUniformLocation(m_lightOptionShader, "bloom");
-  glUniform1i(bloomLoc, m_enableBloom);
+  // Exposure
+  setFloatUniform(shader, "exposure", m_exposure);
+  // HDR enable
+  setIntUniform(shader, "hdr", m_enableHDR);
+  // Bloom enable
+  setIntUniform(shader, "bloom", m_enableBloom);
   glActiveTexture(GL_TEXTURE1);
   if (m_enableBloom) {
     glBindTexture(GL_TEXTURE_2D, m_pingpongBuffer[side]);

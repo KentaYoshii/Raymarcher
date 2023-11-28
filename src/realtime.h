@@ -206,4 +206,12 @@ private:
   void destroyShapesTextures();
   // Destroy custom FBO
   void destroyCustomFBO();
+
+  // Utility
+  void setIntUniform(GLuint shader, const char *, int val);
+  void setFloatUniform(GLuint shader, const char *, float val);
+  void setMat4Uniform(GLuint shader, const char *, const glm::mat4 &);
+  void setVec2Uniform(GLuint shader, const char *, const glm::vec2 &);
+  void setVec3Uniform(GLuint shader, const char *, const glm::vec3 &);
+  void setVec4Uniform(GLuint shader, const char *, const glm::vec4 &);
 };

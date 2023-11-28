@@ -141,6 +141,7 @@ struct RenderInfo
     // We need this to differentiate the color values between true hit and environment
     vec3 fragColor;
     bool isEnv;
+    bool isAL;
 };
 
 // =========== Uniforms ============
@@ -916,6 +917,7 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
             // Simple black screen
             ri.fragColor = vec3(0.f);
         }
+        ri.isAL = false;
         ri.isEnv = true;
         return ri;
     }
@@ -929,10 +931,10 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
     if (objects[res.intersectObj].isEmissive) {
         // Area Light
         col = objects[res.intersectObj].color;
-        ri.isEnv = true;
+        ri.isAL = true;
     } else {
         col = getPhong(pn, res.intersectObj, p, rd);
-        ri.isEnv = false;
+        ri.isAL = false;
     }
     i.p = ro + rd * res.d;
     i.n = pn;
@@ -940,6 +942,7 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
     i.intersectObj = res.intersectObj;
 
     ri.fragColor = col;
+    ri.isEnv = false;
 
     return ri;
 }
@@ -972,7 +975,10 @@ void main() {
     // Main render
     RenderInfo ri = render(origin, dir, info, 1.f);
     if (ri.isEnv) {
-       // brightness of env??
+       BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
+       fragColor = vec4(ri.fragColor, 1.f);
+       return;
+    } else if (ri.isAL) {
        setBrightness(ri.fragColor);
        fragColor = vec4(ri.fragColor, 1.f);
        return;
