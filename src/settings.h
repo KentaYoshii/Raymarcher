@@ -34,6 +34,8 @@ struct Settings {
   bool enableGammaCorrection;
   bool enableHDR;
   bool enableBloom;
+  double exposure;
+  // Sky Box
   int idxSkyBox;
 };
 

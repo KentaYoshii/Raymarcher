@@ -773,14 +773,12 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, int objIdx)
 //    transformed[1].y = areaLight.points[1].y + sin(iTime)/2;
 //    transformed[2].y = areaLight.points[2].y + sin(iTime)/2;
 //    transformed[3].y = areaLight.points[3].y + sin(iTime)/2;
-    vec3 diffuse = LTC_Evaluate(N, V, P, mat3(1), areaLight.points, areaLight.twoSided) * 0.5;
-    vec3 specular = LTC_Evaluate(N, V, P, Minv, areaLight.points, areaLight.twoSided) * 0.5;
+    vec3 diffuse = LTC_Evaluate(N, V, P, mat3(1), areaLight.points, areaLight.twoSided);
+    vec3 specular = LTC_Evaluate(N, V, P, Minv, areaLight.points, areaLight.twoSided);
     // GGX BRDF shadowing and Fresnel
-    // t2.x: shadowedF90 (F90 normally it should be 1.0)
-    // t2.y: Smith function for Geometric Attenuation Term, it is dot(V or L, H).
     specular *= mSpecular*t2.x + (areaLight.intensity - mSpecular) * t2.y;
     vec3 col = areaLight.lightColor * 1.0 * (specular + mDiffuse * diffuse);
-    return ToSRGB(col);
+    return col;
 }
 
 // Gets Phong Light

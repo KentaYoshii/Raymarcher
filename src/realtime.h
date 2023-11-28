@@ -91,7 +91,7 @@ private:
   GLuint m_hdrTexture;
   // - Bloom
   GLuint m_bloomBrightnessTexture;
-  GLuint m_bloomFilterTexture;
+  GLuint m_nullBloomBlurTexture;
   // - cube map texture
   GLuint m_cubeMapTexture;
   // - null cube map texture
@@ -131,6 +131,8 @@ private:
   };
 
   // Toggelable Options
+
+  // Render Effects
   // - soft shadow
   bool m_enableSoftShadow;
   // - reflection
@@ -139,16 +141,20 @@ private:
   bool m_enableRefraction;
   // - ambient occulusion
   bool m_enableAmbientOcclusion;
+  // - sky box
+  int m_idxSkyBox;
+  // Post Processing Effects
   // - FXAA
   bool m_enableFXAA;
+  // Lighting Effects
+  // - exposure
+  float m_exposure;
   // - HDR
   bool m_enableHDR;
   // - Bloom
   bool m_enableBloom;
   // - gamma correction
   bool m_enableGammaCorrection;
-  // - sky box
-  int m_idxSkyBox;
 
   // PRIVATE METHODS
 
@@ -159,7 +165,7 @@ private:
   // Applies HDR post processing
   void applyLightEffects();
   // Applies Bloom Post processing
-  void applyBloom();
+  bool applyBloom();
   // Draws to the fullsreen quad with given tex
   void drawToQuadWithTex(GLuint tex);
 
@@ -193,6 +199,8 @@ private:
   void configureSettingsUniforms(GLuint shader);
   // Sets the uniforms for FXAA
   void configureFXAAUniforms(GLuint shader);
+  // Sets the uniforms for applying light efects
+  void configureLightEffectsUniforms(GLuint shader, bool side);
 
   // Destroies shapes textures
   void destroyShapesTextures();

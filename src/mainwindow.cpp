@@ -43,6 +43,8 @@ void MainWindow::initialize() {
   QLabel *skybox_label = new QLabel();
   skybox_label->setText("Select SkyBox");
   skybox_label->setFont(font);
+  QLabel *eps_label = new QLabel();
+  eps_label->setText("Exposure");
 
   softShadow = new QCheckBox();
   softShadow->setText(QStringLiteral("Soft Shadow"));
@@ -97,10 +99,17 @@ void MainWindow::initialize() {
   farBox->setSingleStep(0.5f);
   farBox->setValue(100.f);
 
+  epsilonBox = new QDoubleSpinBox();
+  epsilonBox->setMinimum(0.1f);
+  epsilonBox->setMaximum(5.f);
+  epsilonBox->setSingleStep(0.1f);
+  epsilonBox->setValue(1.0f);
+
   QGroupBox *nearLayout = new QGroupBox(); // horizonal near slider alignment
   QHBoxLayout *lnear = new QHBoxLayout();
   QGroupBox *farLayout = new QGroupBox(); // horizonal far slider alignment
   QHBoxLayout *lfar = new QHBoxLayout();
+  QHBoxLayout *epsLayout = new QHBoxLayout();
 
   // Adds the slider and number box to the parameter layouts
   lnear->addWidget(near_label);
@@ -110,6 +119,9 @@ void MainWindow::initialize() {
   lfar->addWidget(far_label);
   lfar->addWidget(farBox);
   farLayout->setLayout(lfar);
+
+  epsLayout->addWidget(eps_label);
+  epsLayout->addWidget(epsilonBox);
 
   vLayout->addWidget(uploadFile);
   vLayout->addWidget(saveImage);
@@ -127,6 +139,7 @@ void MainWindow::initialize() {
   vLayout->addWidget(fxaa);
   vLayout->addWidget(screen_color_label);
   vLayout->addWidget(lightOption);
+  vLayout->addLayout(epsLayout);
 
   connectUIElements();
 
@@ -135,6 +148,7 @@ void MainWindow::initialize() {
   onValChangeFarBox(100.f);
   onSkyBox(0);
   onDispOption(0);
+  onEpsilon(1.f);
 }
 
 void MainWindow::finish() {
@@ -154,6 +168,7 @@ void MainWindow::connectUIElements() {
   connectFXAA();
   connectSkyBox();
   connectDispOption();
+  connectEpsilon();
 }
 
 void MainWindow::connectUploadFile() {
@@ -207,6 +222,13 @@ void MainWindow::connectSkyBox() {
 void MainWindow::connectDispOption() {
   connect(lightOption, &QComboBox::currentIndexChanged, this,
           &MainWindow::onDispOption);
+}
+
+void MainWindow::connectEpsilon() {
+  connect(epsilonBox,
+          static_cast<void (QDoubleSpinBox::*)(double)>(
+              &QDoubleSpinBox::valueChanged),
+          this, &MainWindow::onEpsilon);
 }
 
 void MainWindow::onUploadFile() {
@@ -304,5 +326,10 @@ void MainWindow::onDispOption(int idx) {
     settings.enableBloom = true;
     break;
   }
+  realtime->settingsChanged();
+}
+
+void MainWindow::onEpsilon(double newValue) {
+  settings.exposure = newValue;
   realtime->settingsChanged();
 }

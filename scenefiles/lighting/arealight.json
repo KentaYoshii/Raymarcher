@@ -50,7 +50,7 @@
       "lights": [
         {
           "type": "area",
-          "color": [1, 1, 0],
+          "color": [5, 5, 0],
           "width": 2,
           "height": 2,
           "intensity": 1,
@@ -64,7 +64,7 @@
         "lights": [
           {
             "type": "area",
-            "color": [0, 1, 1],
+            "color": [0, 5, 5],
             "width": 2,
             "height": 2,
             "intensity": 1,

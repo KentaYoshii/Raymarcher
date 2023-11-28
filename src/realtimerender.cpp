@@ -49,22 +49,21 @@ void Realtime::rayMarch() {
 }
 
 bool Realtime::applyBloom() {
-  bool horizontal = true, first_iteration = true;
   glUseProgram(m_blurShader);
-  for (GLuint i = 0; i < BLOOM_BLUR_COUNT; i++) {
+  bool horizontal = true;
+  for (int i = 0; i < BLOOM_BLUR_COUNT; i++) {
     glBindFramebuffer(GL_FRAMEBUFFER, m_pingpongFBO[horizontal]);
     GLuint hLoc = glGetUniformLocation(m_blurShader, "horizontal");
     glUniform1i(hLoc, horizontal);
-    GLuint texToBind = first_iteration ? m_bloomBrightnessTexture
-                                       : m_pingpongBuffer[!horizontal];
-
+    // If this is the first iteration, use the brightness texture
+    // Else just used the previously blurred texture
+    GLuint texToBind =
+        i == 0 ? m_bloomBrightnessTexture : m_pingpongBuffer[!horizontal];
     drawToQuadWithTex(texToBind);
     horizontal = !horizontal;
-    if (first_iteration) {
-      first_iteration = false;
-    }
   }
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glUseProgram(0);
   return horizontal;
 }
 
@@ -72,8 +71,9 @@ bool Realtime::applyBloom() {
  * @brief Applies HDR, Bloom, or Gamma Correction
  */
 void Realtime::applyLightEffects() {
+  bool side = false;
   if (m_enableBloom) {
-    bool side = applyBloom();
+    side = applyBloom();
   }
   glUseProgram(m_lightOptionShader);
   if (m_enableFXAA) {
@@ -86,11 +86,8 @@ void Realtime::applyLightEffects() {
     setFBO(m_defaultFBO);
   }
   // Set Uniforms
-  GLuint expLoc = glGetUniformLocation(m_lightOptionShader, "exposure");
-  glUniform1f(expLoc, 1.f);
-  GLuint hdrLoc = glGetUniformLocation(m_lightOptionShader, "hdr");
-  glUniform1i(hdrLoc, m_enableHDR);
-  // Draw to Full Screen Quad using offline rendered texture
+  configureLightEffectsUniforms(m_lightOptionShader, side);
+  // Draw to Full Screen Quad using offline rendered hdr texture
   drawToQuadWithTex(m_hdrTexture);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glUseProgram(0);
@@ -133,7 +130,7 @@ void Realtime::drawToQuadWithTex(GLuint tex) {
 void Realtime::setFBO(GLuint fbo) {
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
   if (fbo == m_customFBO) {
-    if (m_enableHDR || m_enableGammaCorrection) {
+    if (m_enableHDR || m_enableGammaCorrection || m_enableBloom) {
       // use HDR color buf to prevent clamping
       glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                              GL_TEXTURE_2D, m_hdrTexture, 0);
@@ -290,6 +287,16 @@ void Realtime::initDefaults() {
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+  // NULL Bloom Texture
+  glGenTextures(1, &m_nullBloomBlurTexture);
+  glBindTexture(GL_TEXTURE_2D, m_nullBloomBlurTexture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, scene.m_width, scene.m_height, 0,
+               GL_RGBA, GL_FLOAT, std::vector<GLfloat>{0, 0}.data());
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 /**
@@ -331,12 +338,20 @@ void Realtime::initShader() {
   glUseProgram(m_lightOptionShader);
   GLuint hdrBufferLoc = glGetUniformLocation(m_lightOptionShader, "hdrBuffer");
   glUniform1i(hdrBufferLoc, 0);
+  GLuint bloomBlurLoc = glGetUniformLocation(m_lightOptionShader, "bloomBlur");
+  glUniform1i(bloomBlurLoc, 1);
   glUseProgram(0);
 
   // Debugging Shader
   glUseProgram(m_debugShader);
   GLuint debugTexLoc = glGetUniformLocation(m_debugShader, "debugTexture");
   glUniform1i(debugTexLoc, 0);
+  glUseProgram(0);
+
+  // Bloom Blur Shader
+  glUseProgram(m_blurShader);
+  GLuint imageTexLoc = glGetUniformLocation(m_blurShader, "image");
+  glUniform1i(imageTexLoc, 0);
   glUseProgram(0);
 }
 
@@ -768,6 +783,25 @@ void Realtime::configureFXAAUniforms(GLuint shader) {
   GLuint inverseScreenSizeLoc =
       glGetUniformLocation(shader, "inverseScreenSize");
   glUniform2fv(inverseScreenSizeLoc, 1, &inverseScreen[0]);
+}
+
+/**
+ * @brief Initializes light effect uniforms
+ */
+void Realtime::configureLightEffectsUniforms(GLuint shader, bool side) {
+  GLuint expLoc = glGetUniformLocation(m_lightOptionShader, "exposure");
+  glUniform1f(expLoc, m_exposure);
+  GLuint hdrLoc = glGetUniformLocation(m_lightOptionShader, "hdr");
+  glUniform1i(hdrLoc, m_enableHDR);
+  GLuint bloomLoc = glGetUniformLocation(m_lightOptionShader, "bloom");
+  glUniform1i(bloomLoc, m_enableBloom);
+  glActiveTexture(GL_TEXTURE1);
+  if (m_enableBloom) {
+    glBindTexture(GL_TEXTURE_2D, m_pingpongBuffer[side]);
+  } else {
+    glBindTexture(GL_TEXTURE_2D, m_nullBloomBlurTexture);
+  }
+  glActiveTexture(0);
 }
 
 /**

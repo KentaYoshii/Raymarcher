@@ -151,6 +151,7 @@ void Realtime::settingsChanged() {
   // Update the camera
   scene.updateScene(settings);
   // Update the options
+  m_exposure = settings.exposure;
   m_enableGammaCorrection = settings.enableGammaCorrection;
   m_enableHDR = settings.enableHDR;
   m_enableBloom = settings.enableBloom;

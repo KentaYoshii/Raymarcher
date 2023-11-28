@@ -30,6 +30,7 @@ private:
   void connectDispOption();
   void connectUploadFile();
   void connectSaveImage();
+  void connectEpsilon();
 
   Realtime *realtime;
   AspectRatioWidget *aspectRatioWidget;
@@ -38,6 +39,7 @@ private:
   QPushButton *saveImage;
   QDoubleSpinBox *nearBox;
   QDoubleSpinBox *farBox;
+  QDoubleSpinBox *epsilonBox;
 
   QCheckBox *softShadow;
   QCheckBox *reflection;
@@ -59,4 +61,5 @@ private slots:
   void onFXAA();
   void onSkyBox(int idx);
   void onDispOption(int idx);
+  void onEpsilon(double newValue);
 };
