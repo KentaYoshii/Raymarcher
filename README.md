@@ -10,6 +10,7 @@
     * [Fast Approximate Anti-Aliasing](#fast-approximate-anti-aliasing)
     * [Sky Box](#sky-box)
     * [Area Lights](#area-lights)
+    * [High Dynamic Range](#high-dynamic-range-hdr)
 * [Project Proposal](#project-proposal)
     * [Idea](#idea)
     * [Technical Features](#technical-features)
@@ -102,6 +103,16 @@ Beach       |  Island |  Night Sky
 <p align="center">
     <img src="./output/misc/area_light.gif">
 </p>
+
+## High Dynamic Range (HDR)
+- In fragment shader, the output color value is clamped to [0, 1] range by default. So what happens if we have a very bright light source (like the sun)? Even when the fragments near the light have different values that are all larger than 1, then all get assigned the clamped value of 1 in the end.
+- Using HDR, we render the scene without clamping the color values by using a color attachment with RGBA16F.
+- In the second pass, we perform a Reinhard tone mapping.
+- Additionally, we test with different exposure values to adjust how much detail we wished to keep
+
+No HDR       |  HDR with exposure = 0.5 |  HDR with exposure = 0.25
+:-------------------------:|:-------------------------:|:-------------------------
+![](./output/misc/no_hdr.png)  |  ![](./output/misc/hdr_exp_0.5.png) |  ![](./output/misc/hdr_exp_0.25.png)
 
 ## Project Proposal
 ### __Idea__
