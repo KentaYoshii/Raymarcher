@@ -229,7 +229,7 @@ void Camera::applyRotation(glm::mat3 &rotationMat) {
  * @param angle Amout which we want to rotate
  */
 void Camera::rotateX(float deltaX) {
-  float angle = 0.3 * 360.f * deltaX / m_width;
+  float angle = 360.f * deltaX / m_width;
   float theta = glm::radians(angle);
   glm::mat3 rotationMat(cos(theta), 0, -1 * sin(theta), // r1
                         0, 1.f, 0,                      // r2
@@ -243,7 +243,7 @@ void Camera::rotateX(float deltaX) {
  * vector of the camera
  */
 void Camera::rotateY(float deltaY) {
-  float angle = 0.3 * 360.f * deltaY / m_height;
+  float angle = 360.f * deltaY / m_height;
   float theta = glm::radians(angle);
   glm::vec3 axis = glm::cross(m_look, m_up);
   // Rodrigue's Formula

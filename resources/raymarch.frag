@@ -36,6 +36,7 @@ const int TORUS = 5;
 const int CAPSULE = 6;
 const int DEATHSTAR = 7;
 const int RECTANGLE = 8;
+const int MANDLEBROT = 9;
 
 // LIGHT TYPES
 const int POINT = 0;
@@ -89,6 +90,8 @@ struct SceneMin
     int minObjIdx;
     // Largest step we can make
     float minD;
+    // Fractal Trap
+    vec4 trap;
 };
 
 struct RayMarchRes
@@ -99,6 +102,8 @@ struct RayMarchRes
     int intersectObj;
     // Distance travelled along raydirection
     float d;
+    // Fractal Trap
+    vec4 trap;
 };
 
 struct IntersectionInfo
@@ -179,6 +184,10 @@ uniform bool enableReflection;
 uniform bool enableRefraction;
 uniform bool enableAmbientOcculusion;
 uniform bool enableSkyBox;
+
+float dr;
+const vec3 light1 = vec3(  0.577, 0.577, -0.577 );
+const vec3 light2 = vec3( -0.707, 0.000,  0.707 );
 
 // ================== Utility =======================
 // Transforms p along axis by angle
@@ -308,9 +317,75 @@ vec3 samplePointOnRectangleAreaLight(vec3 lightPos1, vec3 lightPos2, vec3 lightP
     return randomPoint;
 }
 
+float calculatePower(float iTime, float minPower, float maxPower, float duration)
+{
+    float t = sin(2.0 * 3.1416 * iTime / duration);
+    return mix(minPower, maxPower, 0.5 * (t + 1.0));
+}
+
 // ============ Signed Distance Fields ==============
 // Define SDF for different shapes here
 // - Based on https://iquilezles.org/articles/distfunctions/
+
+// Mandelbrot Set Signed Distance Field
+// Great ref: https://www.youtube.com/watch?v=6IWXkV82oyY&t=1502s
+// @param p Point in object space
+const int Iterations = 100;
+const int Power = 6;
+const float Bailout = 8;
+float sdMandlebulb(vec3 pos, in float power)
+{
+    vec3 w = pos;
+    float r = 0.0;
+    float dist = 0.0;
+
+    dr = 1.0;
+
+    power = 8.f;
+    vec3 c = vec3(-0.8 * cos(iTime), 0.156 * sin(iTime), 0.156 * cos(iTime));
+
+    for (int i = 0; i < 256 ; i++) {
+        r = length(w);
+
+        if (r > 1.25)
+        {
+            dist = 0.5 * log(r) * r / dr;
+            break;
+        }
+
+        // extract polar coordinates
+        float theta = acos(w.z / r);
+        float phi =  atan(w.y, w.x);
+
+        // scale and rotate point
+        float rp2 = w.x * w.x + w.y * w.y + w.z * w.z;
+        float rp4 = rp2 * rp2;
+
+        float radPower = pow(r, power);
+        float phiPower = phi * power;
+        float thetaPower = theta * power;
+
+
+        // convert back to cartesian coordinates
+        float sinTheta = sin(thetaPower);
+        float sinPhi   = sin(phiPower);
+        float cosTheta = cos(thetaPower);
+        float cosPhi   = cos(phiPower);
+
+        w.x = radPower * sinTheta * cosPhi;
+        w.y = radPower * sinTheta * sinPhi;
+        w.z = radPower * cosTheta;
+
+        // add c
+        w += pos + c;
+
+        // compute dr
+        float r2 = r * r;
+        float r4 = r2 * r2;
+        dr *= pow(r, power - 1.0) * power + 1.0;
+    }
+    return dist;
+}
 
 // Sphere Signed Distance Field
 // @param p Point in object space
@@ -412,7 +487,7 @@ float sdPlane( vec3 p, vec3 n, float h )
 // Invoke the appropriate SDF function and return the distance
 // @param p Point in object space
 // @param type Type of the object
-float sdMatch(vec3 p, int type, int id)
+float sdMatch(vec3 p, int type, int id, out vec4 trapCol)
 {
     if (type == CUBE) {
         return sdBox(p, vec3(0.5));
@@ -433,6 +508,12 @@ float sdMatch(vec3 p, int type, int id)
     } else if (type == RECTANGLE) {
         // in 2d
         return sdBox(p, vec3(0.5, 0.5, 0));
+    } else if (type == MANDLEBROT) {
+//        p = rotateAxis(p, vec3(1, 0, 0), iTime);
+//        p = rotateAxis(p, vec3(0, 1, 0), iTime * 0.5);
+//        p  = rotateAxis(p, vec3(0,0,1), iTime * 0.2);
+        float power = calculatePower(iTime, 3.f, 8.f, 50.f);
+        return sdMandlebulb(p, power);
     }
 }
 
@@ -555,6 +636,7 @@ SceneMin sdScene(vec3 p){
     int minObj = -1;
     float currD;
     vec3 po;
+    vec4 trapCol;
     for (int i = 0; i < numObjects; i++) {
         // Get current obj
         RayMarchObject obj = objects[i];
@@ -564,7 +646,7 @@ SceneMin sdScene(vec3 p){
         po = vec3(obj.invModelMatrix * vec4(p, 1.f));
 
         // Get the distance to the object
-        currD = sdMatch(po, obj.type, i) * obj.scaleFactor;
+        currD = sdMatch(po, obj.type, i, trapCol) * obj.scaleFactor;
         if (currD < minD) {
             // Update if we found a closer object
             minD = currD;
@@ -575,6 +657,7 @@ SceneMin sdScene(vec3 p){
     SceneMin res;
     res.minD = minD;
     res.minObjIdx = minObj;
+    res.trap = trapCol;
     return res;
 }
 
@@ -624,6 +707,7 @@ RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
       // Bruh don't ask me why we need this.
       // Without this, normal calcuation somehow gets messed up
       res.d = rayDepth - 0.001;
+      res.trap = closest.trap;
   } else {
       // NO HIT
       res.intersectObj = -1;
@@ -927,12 +1011,48 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
     vec3 pn = getNormal(p);
     // - get color
     vec3 col;
+    vec3 tra;
     if (objects[res.intersectObj].isEmissive) {
         // Area Light
         col = objects[res.intersectObj].color;
         ri.isAL = true;
     } else {
-        col = getPhong(pn, res.intersectObj, p, rd);
+        if (objects[res.intersectObj].type == MANDLEBROT) {
+            vec3 hal = normalize( light1 - rd);
+            vec3 ref = reflect( rd, pn );
+            // for using resoluts of orbit traps for color
+            float trc = 0.1 * log(dr);
+            // position based color for 'colorful' coloration :-)
+            tra = vec3(trc, trc, 0) * abs(p);
+            col = vec3(0.5 + sin(iTime) / 2, 0.5 + cos(iTime) / 2, 0.2 + (sin(iTime) / 2 + cos(iTime)) / 2) / 2;
+            col = mix( col, vec3(1.0, 0.5, 0.2), sqrt(tra.y) );
+            col = mix( col, vec3(1.0, 1.0, 1.0), tra.x );
+            col *= getPhong(pn, res.intersectObj, p, rd);
+            // compute diffuse components from both lights
+//            float dif1 = clamp( dot( light1, pn ), 0.0, 1.0 );
+//            float dif2 = clamp( 0.5 + 0.5*dot( light2, pn ), 0.0, 1.0 );
+//            float occ =  0.05 * calcAO(p, pn);
+//            float sha;
+//            RayMarchRes shaR = softshadow(p, light1, SHADOWRAY_OFFSET, 100, 8);
+//            if (shaR.intersectObj != -1) {
+//                sha = 0.f;
+//            } else {
+//                sha = shaR.d;
+//            }
+//            float fre = 0.04 + 0.96 * pow( clamp(1.0 - dot(-rd, pn), 0.0, 1.0), 5.0 );
+//            float spe = pow( clamp(dot(pn, hal),0.0, 1.0), 12.0 ) * dif1 * fre * 8.0;
+//            vec3 lin  = 1.5 * vec3(0.15, 0.20, 0.23) * (0.7 + 0.3 * pn.y) * (0.2 + 0.8 * occ);
+//                                 lin += 3.5 * vec3(1.00, 0.90, 0.60) * dif1 * sha;
+//                                 lin += 4.1 * vec3(0.14, 0.14, 0.14) * dif2 * occ;
+//                         lin += 2.0 * vec3(1.00, 1.00, 1.00) * spe * sha * occ;
+//                         lin += 2.0 * vec3(0.20, 0.30, 0.40) * (0.02 + 0.98 * occ);
+//                         lin += 2.0 * vec3(0.8, 0.9, 1.0) * smoothstep( 0.0, 1.0, ref.y ) * occ;
+//                         col *= lin;
+//                                 col += spe * 1.0 * occ * sha;
+        } else {
+            col = getPhong(pn, res.intersectObj, p, rd);
+        }
+
         ri.isAL = false;
     }
     i.p = ro + rd * res.d;
