@@ -155,6 +155,10 @@ private:
   bool m_enableBloom;
   // - gamma correction
   bool m_enableGammaCorrection;
+  // - power of fractals
+  float m_power = 8.f;
+  // - julia seed (real and imaginary components)
+  glm::vec2 m_juliaSeed = glm::vec2(0.f);
 
   // PRIVATE METHODS
 

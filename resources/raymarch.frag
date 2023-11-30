@@ -8,6 +8,8 @@ in vec4 farClip;
 // ============ CONST ==============
 // - max raymarching steps
 const int MAX_STEPS = 256;
+const int MAX_STEPS_FRACTALS = 20;
+const int FRACTALS_BAILOUT = 2;
 // - threshold for intersection
 const float SURFACE_DIST = 0.001;
 // - small offset for the origin of shadow rays
@@ -36,7 +38,7 @@ const int TORUS = 5;
 const int CAPSULE = 6;
 const int DEATHSTAR = 7;
 const int RECTANGLE = 8;
-const int MANDLEBROT = 9;
+const int MANDELBULB = 9;
 
 // LIGHT TYPES
 const int POINT = 0;
@@ -184,10 +186,8 @@ uniform bool enableReflection;
 uniform bool enableRefraction;
 uniform bool enableAmbientOcculusion;
 uniform bool enableSkyBox;
-
-float dr;
-const vec3 light1 = vec3(  0.577, 0.577, -0.577 );
-const vec3 light2 = vec3( -0.707, 0.000,  0.707 );
+uniform float power;
+uniform vec2 juliaSeed;
 
 // ================== Utility =======================
 // Transforms p along axis by angle
@@ -327,64 +327,40 @@ float calculatePower(float iTime, float minPower, float maxPower, float duration
 // Define SDF for different shapes here
 // - Based on https://iquilezles.org/articles/distfunctions/
 
-// Mandelbrot Set Signed Distance Field
+// Mandelbulb Set Signed Distance Field
 // Great ref: https://www.youtube.com/watch?v=6IWXkV82oyY&t=1502s
 // @param p Point in object space
-const int Iterations = 100;
-const int Power = 6;
-const float Bailout = 8;
-float sdMandlebulb(vec3 pos, in float power)
+// @param power (typically 8)
+float sdMandelBulb(vec3 pos, out vec4 resColor)
 {
     vec3 w = pos;
-    float r = 0.0;
-    float dist = 0.0;
-
-    dr = 1.0;
-
-    power = 8.f;
-    vec3 c = vec3(-0.8 * cos(iTime), 0.156 * sin(iTime), 0.156 * cos(iTime));
-
-    for (int i = 0; i < 256 ; i++) {
-        r = length(w);
-
-        if (r > 1.25)
-        {
-            dist = 0.5 * log(r) * r / dr;
-            break;
-        }
-
-        // extract polar coordinates
-        float theta = acos(w.z / r);
-        float phi =  atan(w.y, w.x);
-
-        // scale and rotate point
-        float rp2 = w.x * w.x + w.y * w.y + w.z * w.z;
-        float rp4 = rp2 * rp2;
-
-        float radPower = pow(r, power);
-        float phiPower = phi * power;
-        float thetaPower = theta * power;
-
-
-        // convert back to cartesian coordinates
-        float sinTheta = sin(thetaPower);
-        float sinPhi   = sin(phiPower);
-        float cosTheta = cos(thetaPower);
-        float cosPhi   = cos(phiPower);
-
-        w.x = radPower * sinTheta * cosPhi;
-        w.y = radPower * sinTheta * sinPhi;
-        w.z = radPower * cosTheta;
-
-        // add c
-        w += pos + c;
-
-        // compute dr
-        float r2 = r * r;
-        float r4 = r2 * r2;
-        dr *= pow(r, power - 1.0) * power + 1.0;
+    float m = dot(w,w);
+    vec4 trap = vec4(abs(w),m);
+    float dz = 1.0;
+    vec3 c = pos;
+    // If julia seed is used
+    if (length(juliaSeed) != 0) {
+        c = vec3(juliaSeed, 0);
     }
-    return dist;
+    for (int i=0; i < MAX_STEPS_FRACTALS; i++) {
+        // derivative
+        dz = power * pow(m, (power-1.f)/2.f) * dz + 1.0;
+        // z = z^8+c
+        float r = length(w);
+        float b = power*acos(w.y/r);
+        float a = power*atan(w.x, w.z);
+        w = c + pow(r,power) *
+                vec3(sin(b)*sin(a), cos(b), sin(b)*cos(a));
+
+        trap = min(trap, vec4(abs(w),m));
+
+        m = dot(w,w);
+        if( m > FRACTALS_BAILOUT )
+            break;
+    }
+    resColor = vec4(m,trap.yzw);
+    // distance estimation (through the Hubbard-Douady potential)
+    return 0.25*log(m)*sqrt(m)/dz;
 }
 
 // Sphere Signed Distance Field
@@ -432,8 +408,7 @@ float sdCylinder(vec3 p, float h, float r)
 
 // Octahedron Signed Distance Field
 // @param p Point in object space
-// @param h Half height of the cone
-// @param r Radius of the base
+// @param s radius s
 float sdOctahedron(vec3 p, float s)
 {
     p = abs(p);
@@ -448,18 +423,28 @@ float sdOctahedron(vec3 p, float s)
     return length(vec3(q.x,q.y-s+k,q.z-k));
 }
 
+// Torus Signed Distance Field
+// @param p Point in object space
+// @param t play around but 1:4 ratio works well
 float sdTorus(vec3 p, vec2 t)
 {
     vec2 q = vec2(length(p.xz)-t.x,p.y);
     return length(q)-t.y;
 }
 
+// Capsule Signed Distance Field
+// @param p Point in object space
+// @param h half height
+// @param r corenr radius of capsule
 float sdCapsule(vec3 p, float h, float r)
 {
   p.y -= clamp(p.y, 0.0, h);
   return length(p) - r;
 }
 
+// Deathstar Signed Distance Field
+// @param p2 Point in object space
+// @param ra,rb,d play around
 float sdDeathStar( in vec3 p2, in float ra, float rb, in float d )
 {
     vec2 p = vec2( p2.x, length(p2.yz) );
@@ -475,12 +460,6 @@ float sdDeathStar( in vec3 p2, in float ra, float rb, in float d )
         return max( (length(p          )-ra),
                    -(length(p-vec2(d,0))-rb));
     }
-}
-
-float sdPlane( vec3 p, vec3 n, float h )
-{
-  // n must be normalized
-  return dot(p,n) + h;
 }
 
 // Given a point in object space and type of the SDF
@@ -508,12 +487,11 @@ float sdMatch(vec3 p, int type, int id, out vec4 trapCol)
     } else if (type == RECTANGLE) {
         // in 2d
         return sdBox(p, vec3(0.5, 0.5, 0));
-    } else if (type == MANDLEBROT) {
-//        p = rotateAxis(p, vec3(1, 0, 0), iTime);
-//        p = rotateAxis(p, vec3(0, 1, 0), iTime * 0.5);
-//        p  = rotateAxis(p, vec3(0,0,1), iTime * 0.2);
-        float power = calculatePower(iTime, 3.f, 8.f, 50.f);
-        return sdMandlebulb(p, power);
+    } else if (type == MANDELBULB) {
+        // For animating Mandelbulb
+        // float power = calculatePower(iTime, 2.f, 20.f, 20.f);
+        // vec3 c = vec3(-0.5 * cos(iTime), 0.4 * sin(iTime), 0.4 * cos(iTime));
+        return sdMandelBulb(p, trapCol);
     }
 }
 
@@ -851,12 +829,6 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, int objIdx)
     vec3 mDiffuse = obj.cDiffuse;
     vec3 mSpecular = obj.cSpecular;
     // Evaluate LTC shading
-    // Uncomment to animate
-//    vec3 transformed[4] = areaLight.points;
-//    transformed[0].y = areaLight.points[0].y + sin(iTime)/2;
-//    transformed[1].y = areaLight.points[1].y + sin(iTime)/2;
-//    transformed[2].y = areaLight.points[2].y + sin(iTime)/2;
-//    transformed[3].y = areaLight.points[3].y + sin(iTime)/2;
     vec3 diffuse = LTC_Evaluate(N, V, P, mat3(1), areaLight.points, areaLight.twoSided);
     vec3 specular = LTC_Evaluate(N, V, P, Minv, areaLight.points, areaLight.twoSided);
     // GGX BRDF shadowing and Fresnel
@@ -981,12 +953,25 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 rd)
     return total;
 }
 
+// Extract very bright fragments to feed into the color attachment 1
+// which will later be used by Bloom
+// @param colro fragment color in question
+void setBrightness(vec3 color) {
+    float brightness = dot(color.rgb, BRIGHT_FILTER);
+    if (brightness > 1.0) {
+        BrightColor = vec4(color.rgb, 1.0);
+    }
+    else {
+        BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
+    }
+}
+
 // =============================================================
 // Given ray origin and ray direction, performs a raymarching
 // @param ro Ray origin
 // @param rd Ray direction
 // @param i IntersectionInfo we are populating
-// @param side Determines if we are inside or outside of an object
+// @param side Determines if we are inside or outside of an object (for refraction)
 RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
 {
     RenderInfo ri;
@@ -1004,6 +989,7 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
         ri.isEnv = true;
         return ri;
     }
+
     // HIT
     // - hit point
     vec3 p = ro + rd * res.d;
@@ -1011,69 +997,36 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
     vec3 pn = getNormal(p);
     // - get color
     vec3 col;
-    vec3 tra;
     if (objects[res.intersectObj].isEmissive) {
         // Area Light
         col = objects[res.intersectObj].color;
         ri.isAL = true;
     } else {
-        if (objects[res.intersectObj].type == MANDLEBROT) {
-            vec3 hal = normalize( light1 - rd);
-            vec3 ref = reflect( rd, pn );
-            // for using resoluts of orbit traps for color
-            float trc = 0.1 * log(dr);
-            // position based color for 'colorful' coloration :-)
-            tra = vec3(trc, trc, 0) * abs(p);
-            col = vec3(0.5 + sin(iTime) / 2, 0.5 + cos(iTime) / 2, 0.2 + (sin(iTime) / 2 + cos(iTime)) / 2) / 2;
-            col = mix( col, vec3(1.0, 0.5, 0.2), sqrt(tra.y) );
-            col = mix( col, vec3(1.0, 1.0, 1.0), tra.x );
-            col *= getPhong(pn, res.intersectObj, p, rd);
-            // compute diffuse components from both lights
-//            float dif1 = clamp( dot( light1, pn ), 0.0, 1.0 );
-//            float dif2 = clamp( 0.5 + 0.5*dot( light2, pn ), 0.0, 1.0 );
-//            float occ =  0.05 * calcAO(p, pn);
-//            float sha;
-//            RayMarchRes shaR = softshadow(p, light1, SHADOWRAY_OFFSET, 100, 8);
-//            if (shaR.intersectObj != -1) {
-//                sha = 0.f;
-//            } else {
-//                sha = shaR.d;
-//            }
-//            float fre = 0.04 + 0.96 * pow( clamp(1.0 - dot(-rd, pn), 0.0, 1.0), 5.0 );
-//            float spe = pow( clamp(dot(pn, hal),0.0, 1.0), 12.0 ) * dif1 * fre * 8.0;
-//            vec3 lin  = 1.5 * vec3(0.15, 0.20, 0.23) * (0.7 + 0.3 * pn.y) * (0.2 + 0.8 * occ);
-//                                 lin += 3.5 * vec3(1.00, 0.90, 0.60) * dif1 * sha;
-//                                 lin += 4.1 * vec3(0.14, 0.14, 0.14) * dif2 * occ;
-//                         lin += 2.0 * vec3(1.00, 1.00, 1.00) * spe * sha * occ;
-//                         lin += 2.0 * vec3(0.20, 0.30, 0.40) * (0.02 + 0.98 * occ);
-//                         lin += 2.0 * vec3(0.8, 0.9, 1.0) * smoothstep( 0.0, 1.0, ref.y ) * occ;
-//                         col *= lin;
-//                                 col += spe * 1.0 * occ * sha;
+        if (objects[res.intersectObj].type == MANDELBULB) {
+            // Orbit Trap to color
+            col = vec3(0.2);
+            col = mix( col, vec3(0.10,0.20,0.30), clamp(res.trap.y,0.0,1.0) );
+            col = mix( col, vec3(0.02,0.10,0.30), clamp(res.trap.z*res.trap.z,0.0,1.0) );
+            col = mix( col, vec3(0.30,0.10,0.02), clamp(pow(res.trap.w,6.0),0.0,1.0) );
+            col *= 0.5;
+            col *= getPhong(pn, res.intersectObj, p, rd) * 8;
         } else {
             col = getPhong(pn, res.intersectObj, p, rd);
         }
-
         ri.isAL = false;
     }
+
+    // set output variable
     i.p = ro + rd * res.d;
     i.n = pn;
     i.rd = rd;
     i.intersectObj = res.intersectObj;
 
+    // set return
     ri.fragColor = col;
     ri.isEnv = false;
 
     return ri;
-}
-
-void setBrightness(vec3 color) {
-    float brightness = dot(color.rgb, BRIGHT_FILTER);
-    if (brightness > 1.0) {
-        BrightColor = vec4(color.rgb, 1.0);
-    }
-    else {
-        BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
-    }
 }
 
 void main() {

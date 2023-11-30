@@ -708,6 +708,8 @@ void Realtime::configureShapesUniforms(GLuint shader) {
     setIntUniform(shader, (base + "texLoc").c_str(), texMap[texName]);
   }
   setIntUniform(shader, "numObjects", cnt);
+  setFloatUniform(shader, "power", m_power);
+  setVec2Uniform(shader, "juliaSeed", m_juliaSeed);
 }
 
 /**
@@ -776,7 +778,9 @@ void Realtime::updateUISettings() {
   m_enableReflection = settings.enableReflection;
   m_enableRefraction = settings.enableRefraction;
   m_enableAmbientOcclusion = settings.enableAmbientOcculusion;
+  m_power = settings.power;
   m_enableFXAA = settings.enableFXAA;
+  m_juliaSeed = settings.juliaSeed;
   if (m_idxSkyBox != settings.idxSkyBox) {
     // If new sky box is selected
     if (m_idxSkyBox) {

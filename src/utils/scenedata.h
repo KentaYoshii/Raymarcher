@@ -25,7 +25,7 @@ enum class PrimitiveType {
   PRIMITIVE_CAPSULE,
   PRIMITIVE_DEATHSTAR,
   PRIMITIVE_RECTANGLE,
-  MANDELBROT,
+  MANDELBULB,
 };
 
 // Enum of the types of transformations that can be applied

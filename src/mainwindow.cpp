@@ -7,7 +7,9 @@
 #include <QLabel>
 #include <QSettings>
 #include <QVBoxLayout>
+#include <filesystem>
 #include <iostream>
+#include <random>
 
 void MainWindow::initialize() {
   realtime = new Realtime;
@@ -45,6 +47,11 @@ void MainWindow::initialize() {
   skybox_label->setFont(font);
   QLabel *eps_label = new QLabel();
   eps_label->setText("Exposure");
+  QLabel *fractal_label = new QLabel();
+  fractal_label->setText("Select Fractals");
+  fractal_label->setFont(font);
+  QLabel *power_label = new QLabel();
+  power_label->setText("Power");
 
   softShadow = new QCheckBox();
   softShadow->setText(QStringLiteral("Soft Shadow"));
@@ -80,12 +87,19 @@ void MainWindow::initialize() {
   lightOption->addItem("Bloom");
   lightOption->setCurrentIndex(0);
 
+  fractalOption = new QComboBox();
+  fractalOption->addItem("None");
+  fractalOption->addItem("Mandelbulb");
+
   // Create file uploader for scene file
   uploadFile = new QPushButton();
   uploadFile->setText(QStringLiteral("Upload Scene File"));
 
   saveImage = new QPushButton();
   saveImage->setText(QStringLiteral("Save image"));
+
+  juliaSeed = new QPushButton();
+  juliaSeed->setText(QStringLiteral("Generate Julia Seed"));
 
   nearBox = new QDoubleSpinBox();
   nearBox->setMinimum(0.01f);
@@ -105,11 +119,18 @@ void MainWindow::initialize() {
   epsilonBox->setSingleStep(0.1f);
   epsilonBox->setValue(1.0f);
 
+  powerBox = new QDoubleSpinBox();
+  powerBox->setMinimum(1.f);
+  powerBox->setMaximum(30.f);
+  powerBox->setSingleStep(0.1f);
+  powerBox->setValue(8.0f);
+
   QGroupBox *nearLayout = new QGroupBox(); // horizonal near slider alignment
   QHBoxLayout *lnear = new QHBoxLayout();
   QGroupBox *farLayout = new QGroupBox(); // horizonal far slider alignment
   QHBoxLayout *lfar = new QHBoxLayout();
   QHBoxLayout *epsLayout = new QHBoxLayout();
+  QHBoxLayout *powerLayout = new QHBoxLayout();
 
   // Adds the slider and number box to the parameter layouts
   lnear->addWidget(near_label);
@@ -122,6 +143,9 @@ void MainWindow::initialize() {
 
   epsLayout->addWidget(eps_label);
   epsLayout->addWidget(epsilonBox);
+
+  powerLayout->addWidget(power_label);
+  powerLayout->addWidget(powerBox);
 
   vLayout->addWidget(uploadFile);
   vLayout->addWidget(saveImage);
@@ -140,6 +164,10 @@ void MainWindow::initialize() {
   vLayout->addWidget(screen_color_label);
   vLayout->addWidget(lightOption);
   vLayout->addLayout(epsLayout);
+  vLayout->addWidget(fractal_label);
+  vLayout->addWidget(fractalOption);
+  vLayout->addLayout(powerLayout);
+  vLayout->addWidget(juliaSeed);
 
   connectUIElements();
 
@@ -169,6 +197,9 @@ void MainWindow::connectUIElements() {
   connectSkyBox();
   connectDispOption();
   connectEpsilon();
+  connectFractal();
+  connectPower();
+  connectJuliaSeed();
 }
 
 void MainWindow::connectUploadFile() {
@@ -177,6 +208,10 @@ void MainWindow::connectUploadFile() {
 
 void MainWindow::connectSaveImage() {
   connect(saveImage, &QPushButton::clicked, this, &MainWindow::onSaveImage);
+}
+
+void MainWindow::connectJuliaSeed() {
+  connect(juliaSeed, &QPushButton::clicked, this, &MainWindow::onJuliaSeed);
 }
 
 void MainWindow::connectNear() {
@@ -231,6 +266,18 @@ void MainWindow::connectEpsilon() {
           this, &MainWindow::onEpsilon);
 }
 
+void MainWindow::connectPower() {
+  connect(powerBox,
+          static_cast<void (QDoubleSpinBox::*)(double)>(
+              &QDoubleSpinBox::valueChanged),
+          this, &MainWindow::onPower);
+}
+
+void MainWindow::connectFractal() {
+  connect(fractalOption, &QComboBox::currentIndexChanged, this,
+          &MainWindow::onFractal);
+}
+
 void MainWindow::onUploadFile() {
   // Get abs path of scene file
   QString configFilePath = QFileDialog::getOpenFileName(
@@ -248,6 +295,17 @@ void MainWindow::onUploadFile() {
             << std::endl;
 
   realtime->sceneChanged();
+}
+
+void MainWindow::onJuliaSeed() {
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_real_distribution<double> dist(-0.5, 0.5);
+
+  double realPart = dist(gen);
+  double imagPart = dist(gen);
+  settings.juliaSeed = glm::vec2(realPart, imagPart);
+  realtime->settingsChanged();
 }
 
 void MainWindow::onSaveImage() {
@@ -309,6 +367,22 @@ void MainWindow::onSkyBox(int idx) {
   realtime->settingsChanged();
 }
 
+void MainWindow::onFractal(int idx) {
+  std::filesystem::path curr = std::filesystem::current_path();
+  settings.currentFractal = idx;
+  switch (idx) {
+  case 0:
+    settings.sceneFilePath = curr.string() + "/scenefiles/simple/blank.json";
+    break;
+  case 1:
+    settings.sceneFilePath =
+        curr.string() + "/scenefiles/simple/unit_mandelbulb.json";
+    break;
+  }
+  settings.juliaSeed = glm::vec2(0);
+  realtime->sceneChanged();
+}
+
 void MainWindow::onDispOption(int idx) {
   settings.enableGammaCorrection = false;
   settings.enableHDR = false;
@@ -331,5 +405,10 @@ void MainWindow::onDispOption(int idx) {
 
 void MainWindow::onEpsilon(double newValue) {
   settings.exposure = newValue;
+  realtime->settingsChanged();
+}
+
+void MainWindow::onPower(double newValue) {
+  settings.power = newValue;
   realtime->settingsChanged();
 }

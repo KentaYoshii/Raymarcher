@@ -10,6 +10,7 @@
 #define SETTINGS_H
 
 #include <QObject>
+#include <glm/glm.hpp>
 
 /**
  * @struct Settings
@@ -37,6 +38,10 @@ struct Settings {
   double exposure;
   // Sky Box
   int idxSkyBox;
+  // Fractals
+  int currentFractal;
+  float power = 8.f;
+  glm::vec2 juliaSeed = glm::vec2(0.f);
 };
 
 // The global Settings object, will be initialized by MainWindow

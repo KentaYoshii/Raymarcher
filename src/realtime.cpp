@@ -157,6 +157,8 @@ void Realtime::sceneChanged() {
   scene.initScene(settings, m_isAreaLightUsed);
   // Initialize the textures
   initShapesTextures();
+  // Clear the seed
+  m_juliaSeed = glm::vec2(0.f);
   update();
 }
 
