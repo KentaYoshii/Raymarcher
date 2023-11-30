@@ -1,6 +1,6 @@
 # Project Raymarcher
-
-- [Basic Information](#basic-information)
+![](./output/fractals/top.png)
+- [Getting Started](#getting-started)
   - [Raymarching Algorithm](#raymarching-algorithm)
 - [Raymarcher Implementation](#raymarcher-implementation)
   - [Simple SDFs](#simple-sdfs)
@@ -12,13 +12,17 @@
   - [Area Lights](#area-lights)
   - [High Dynamic Range](#high-dynamic-range-hdr)
   - [Bloom](#bloom)
+- [Fractal Generation](#fractal-generation)
+  - [Mandelbrot Set](#mandelbrot-set)
+  - [Mandelbulb](#mandelbulb)
+  - [Julia Set](#julia-set)
 - [Project Proposal](#project-proposal)
   - [Idea](#idea)
   - [Technical Features](#technical-features)
   - [Implementation Steps](#implementation-steps)
 - [References](#references)
 
-# Basic Information
+# Getting Started
 
 ## Raymarching Algorithm
 
@@ -31,13 +35,16 @@
 
 - SDF returns a negative value if we are inside the object. Conversely, it returns a positive value if we are outside
 - The algorithm iteratively steps along the ray using the SDF until it finds a point close enough to the surface (i.e., where the SDF value is close to zero). At this point, it considers the ray to have intersected with the surface.
+<p align="center">
+    <img src="./output/misc/march.png">
+</p>
 - Once an intersection point is found, shading calculations are performed to determine the final color of the pixel.
-
+- Since each object in the scene is represented as an SDF, raymarching is easily parallelizable!
 # Raymarcher Implementation
 
 ## Simple SDFs
 
-Using QtCreator and OpenGL pipeline, we have created a shader that can render simple objects.
+- Using QtCreator and OpenGL pipeline, we have created a shader that can render simple objects.
 
 |           Sphere SDF            |           Cone SDF            |
 | :-----------------------------: | :---------------------------: |
@@ -58,6 +65,7 @@ Using QtCreator and OpenGL pipeline, we have created a shader that can render si
 ## Soft Shadow
 
 - Optionally, you can redner a scene with **soft shadow**. The way it works is instead of shading the shadowed fragments uniformly, we vary the values based on how close the ray is to hitting an object. In other words, if the shadow ray was very close to hitting an object it will have a darker value.
+- The way we do this is for each fragment that we want to shade, we march a ray towards the light source $x$ times. If a ray intersects, then the darkness value is scaled based on the distance it marched from the original intersection point
 
 |            Hard Shadow             |            Soft Shadow             |
 | :--------------------------------: | :--------------------------------: |
@@ -124,7 +132,7 @@ Using QtCreator and OpenGL pipeline, we have created a shader that can render si
 - Additionally, we test with different exposure values to adjust how much detail we wished to keep
 
 |            No HDR             |      HDR with exposure = 0.5       | HDR with exposure = 0.25            |
-| :---------------------------: | :--------------------------------: | :---------------------------------- |
+| :---------------------------: | :--------------------------------: | :----------------------------------: |
 | ![](./output/misc/no_hdr.png) | ![](./output/misc/hdr_exp_0.5.png) | ![](./output/misc/hdr_exp_0.25.png) |
 
 ## Bloom
@@ -136,6 +144,34 @@ Using QtCreator and OpenGL pipeline, we have created a shader that can render si
 |  Without Bloom  |    With Bloom    |
 | :--------------------------: | :---------------------------: |
 | ![](./output/misc/no_bloom.gif) | ![](./output/misc/bloom.gif) |
+
+# Fractal Generation
+- Once we have the basic raymarcher, we can render many interesting objects. Below, we explored different kinds of fractals.
+
+## Mandelbrot set
+- TODO
+## Mandelbulb
+- Mandelbulb is a three-dimensional analogue of the above Mandelbrot set. 
+- The formula for generating points in the Mandelbulb fractal involves iterating a mathematical function (described below) on points in 3D space, and determining whether the resulting values stay within certain bounds or diverge. This process is typically repeated for each ray. For our project, the iteretion count is set to $20$.
+- Starting at position $z_{0}$, we obtain the next position $z_{1}$ by solving the below formula for certain value of c.
+$$z_{n+1} = z_{n}^{p} + c$$
+- For a typical Mandelbulb, $n=8$ and $c=z_{0}$ (like the one at the very top of this file!).
+- Below is a gif obtained by incrementing the $p$ from $1$ to $30$. 
+
+<p align="center">
+  <img src="./output/fractals/mandelbulb.gif">
+</p>
+
+## Julia Set 
+- Julia set is almost the same as Mandelbulb set. The only differece is that Julia sets are generally two-dimensional.
+$$z_{n+1}=z_{n}^{2}+c$$
+- The $c$ term above is called __Julia seed__ and we experiment with different julia seeds. 
+- You can generate random seed from the UI when a fractal is loaded.
+
+| 1 | 2 | 3 |
+| :---: | :---: | :---: |
+| ![](./output/fractals/julia1.png) | ![](./output/fractals/julia2.png) | ![](./output/fractals/julia3.png) |
+
 ## Project Proposal
 
 ### **Idea**

@@ -966,6 +966,16 @@ void setBrightness(vec3 color) {
     }
 }
 
+vec3 getSky(vec3 rd) {
+    vec3 col  = vec3(0.8,.9,1.1)*(0.6+0.4*rd.y);
+    col += 5.0*vec3(0.8,0.7,0.5)*
+            pow(clamp(
+                    dot(rd,vec3(0.577, 0.577, -0.577)),
+                    0.0,1.0),
+                32.0 );
+    return col;
+}
+
 // =============================================================
 // Given ray origin and ray direction, performs a raymarching
 // @param ro Ray origin
@@ -983,7 +993,9 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
             ri.fragColor = vec3(texture(skybox, rd).rgb);
         } else {
             // Simple black screen
-            ri.fragColor = vec3(0.f);
+            // ri.fragColor = vec3(0.f);
+            // Simple sky color
+            ri.fragColor = getSky(rd);
         }
         ri.isAL = false;
         ri.isEnv = true;
