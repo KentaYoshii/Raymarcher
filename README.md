@@ -1,5 +1,6 @@
-# Project Raymarcher
+# Raymarcher
 ![](./output/fractals/top.png)
+![](./output/fractals/top2.png)
 - [Getting Started](#getting-started)
   - [Raymarching Algorithm](#raymarching-algorithm)
 - [Raymarcher Implementation](#raymarcher-implementation)
@@ -16,11 +17,7 @@
   - [Mandelbrot Set](#mandelbrot-set)
   - [Mandelbulb](#mandelbulb)
   - [Julia Set](#julia-set)
-- [Project Proposal](#project-proposal)
-  - [Idea](#idea)
-  - [Technical Features](#technical-features)
-  - [Implementation Steps](#implementation-steps)
-- [References](#references)
+  - [Menger Sponge](#menger-sponge)
 
 # Getting Started
 
@@ -114,7 +111,9 @@
 
 ## Area Lights
 
-![](./output/misc/area_light.png)
+<p align="center">
+    <img src="./output/misc/area_light.png">
+</p>
 
 - Simple Area Lights implemented based on [this](https://learnopengl.com/Guest-Articles/2022/Area-Lights) amazing guest article.
 - For getting shadow effects, we sample configurable number of rays from the rectangle surface of the light source and average their contributions.
@@ -180,48 +179,11 @@ $$z_{n+1}=z_{n}^{2}+c$$
 | :---: | :---: | :---: |
 | ![](./output/fractals/julia1.png) | ![](./output/fractals/julia2.png) | ![](./output/fractals/julia3.png) |
 
-## Project Proposal
+## Menger Sponge
+- A Menger sponge is a three-dimensional fractal, specifically a sponge-like structure with an infinite surface area and zero volume.
+- With SDF, we can simulate a Menger sponge by performing a set of operations on SDFs. 
+- Start with a cube. We can then define a cross and subtract the cross from a cube to create a box with cross-shaped hole in it. We can then itereate this process.
 
-### **Idea**
-
-Using Raymarching, generating cool scenes with fractals, terrains and other non-implicit objects (clouds, water, etc.) that are produced using procedural generation
-
-### **Technical Features**
-
-- Sign Distance Fields Raymarcher
-  - A technique that can be used to generate fully procedural environments entirely from a single fragment shader.
-- Fractal Generation
-  - Mandlebulb Fractals with user-modifiable parameters (depth, height, etc.)
-- Non-implicit Objects Generation
-  - Terrain
-    - Gradient Noise
-    - Value Noise
-  - Water
-  - Clouds
-  - Other Fractals (trees, plants, etc.)
-- Lighting and Coloring
-  - shadows, reflections, refractions
-  - ssao
-
-### **Implementation Steps**
-
-1. (Done) Build a CPU Raymarcher
-   - (Done) Test with simple primitives such as Cube and Cylinder
-2. Generate Mandlebulb Fractals
-3. Procedually generate Terrain
-4. Procedually generate other non-implicit objects
-5. (Bonus) Make it realtime
-6. (Bonus) Produce other Fractals
-
-## References
-
-- Raymarching - Basics - [1](https://iquilezles.org/articles/terrainmarching/) - [2](https://michaelwalczyk.com/blog-ray-marching.html) - [3](https://iquilezles.org/articles/nvscene2008/rwwtt.pdf) - [4](https://www.youtube.com/watch?v=Cp5WWtMoeKg) - List of SDFs - [5](https://iquilezles.org/articles/distfunctions/)
-- Fractal Generations
-  - [6](http://blog.hvidtfeldts.net/index.php/2011/06/distance-estimated-3d-fractals-part-i/)
-  - [7](https://iquilezles.org/articles/mandelbulb/)
-- Terrain Generations
-  - [8](https://iquilezles.org/articles/morenoise/)
-- Cloud Generation
-  - [9](https://iquilezles.org/articles/dynclouds/)
-- Water Terrain Generation
-  - [10](https://iquilezles.org/articles/simplewater/)
+| Normal Menger Sponge | Menger Sponge with rotation applied to point p |
+| :---: | :---: |
+| ![](./output/fractals/mengersponge0.png) | ![](./output/fractals/mengersponge1.png) 

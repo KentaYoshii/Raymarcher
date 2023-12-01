@@ -1,6 +1,6 @@
 #version 330 core
 // ==== Preprocessor Directives ====
-//#define SKY_BACKGROUND
+// #define SKY_BACKGROUND
 #define DARK_BACKGROUND
 
 // =============== Out =============
@@ -32,6 +32,10 @@ const float LUT_SIZE  = 64.0; // ltc_texture size
 const float LUT_SCALE = (LUT_SIZE - 1.0)/LUT_SIZE;
 const float LUT_BIAS  = 0.5/LUT_SIZE;
 const float ROUGHNESS = 0.5;
+// - Menger Sponge
+const mat3 ma = mat3( 0.60, 0.00,  0.80,
+                      0.00, 1.00,  0.00,
+                     -0.80, 0.00,  0.60 );
 
 // PRIM TYPES
 const int CUBE = 0;
@@ -45,6 +49,7 @@ const int DEATHSTAR = 7;
 const int RECTANGLE = 8;
 const int MANDELBROT = 9;
 const int MANDELBULB = 10;
+const int MENGERSPONGE = 11;
 
 // LIGHT TYPES
 const int POINT = 0;
@@ -205,9 +210,12 @@ vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
 // Applies transformation
 vec3 Transform(in vec3 p)
 {
-//  p = rotateAxis(p, vec3(1, 0, 0), iTime);
-  p.xz += sin(iTime);
-  return p;
+    return p;
+}
+
+mat2 rot(float a) {
+    float s = sin(a), c = cos(a); // sine, cosine
+    return mat2(c, -s, s, c);
 }
 
 // Vector form without project to the plane (dot with the normal)
@@ -494,6 +502,36 @@ float sdDeathStar( in vec3 p2, in float ra, float rb, in float d )
     }
 }
 
+// Menger Sponge Signed Distance Field
+// Great ref: https://www.youtube.com/watch?v=6IWXkV82oyY&t=1502s
+// @param p Point in object space
+// @param power (typically 8)
+float sdMengerSponge(vec3 p, out vec4 res)
+{
+    float d = sdBox(p,vec3(1));
+    res = vec4( d, 1.0, 0.0, 0.0 );
+    // float ani = smoothstep( -0.2, 0.2, -cos(0.5*iTime) );
+    // float off = 1.5*sin( 0.01*iTime );
+    float s = 1.0;
+
+    for(int m=0; m<4; m++) {
+        // p = mix( p, ma*(p+off), ani );
+        vec3 a = mod( p*s, 2.0 )-1.0;
+        s *= 3.0;
+        vec3 r = abs(1.0 - 3.0*abs(a));
+
+        float da = max(r.x,r.y);
+        float db = max(r.y,r.z);
+        float dc = max(r.z,r.x);
+        float c = (min(da,min(db,dc))-1.0)/s;
+        if(c > d) {
+            d = c;
+            res = vec4( d, min(res.y,0.2*da*db*dc), (1.0+float(m))/4.0, 0.0 );
+        }
+     }
+   return d;
+}
+
 // Given a point in object space and type of the SDF
 // Invoke the appropriate SDF function and return the distance
 // @param p Point in object space
@@ -522,10 +560,9 @@ float sdMatch(vec3 p, int type, int id, out vec4 trapCol)
     } else if (type == MANDELBROT) {
         return sdMandelBrot(vec2(p));
     } else if (type == MANDELBULB) {
-        // For animating Mandelbulb
-        // float power = calculatePower(iTime, 2.f, 20.f, 20.f);
-        // vec3 c = vec3(-0.5 * cos(iTime), 0.4 * sin(iTime), 0.4 * cos(iTime));
         return sdMandelBulb(p, trapCol);
+    } else if (type == MENGERSPONGE) {
+        return sdMengerSponge(p, trapCol);
     }
 }
 
@@ -1059,6 +1096,10 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
             col = mix( col, vec3(0.30,0.10,0.02), clamp(pow(res.trap.w,6.0),0.0,1.0) );
             col *= 0.5;
             col *= getPhong(pn, res.intersectObj, p, rd) * 8;
+        } else if (objects[res.intersectObj].type == MENGERSPONGE) {
+            // Orbit Trap to color
+            col = 0.5 + 0.5*cos(vec3(0,1,2)+2.0*res.trap.z);
+            col *= getPhong(pn, res.intersectObj, p, rd);
         } else {
             col = getPhong(pn, res.intersectObj, p, rd);
         }
