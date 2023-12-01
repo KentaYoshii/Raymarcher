@@ -538,6 +538,8 @@ void Realtime::configureScreenUniforms(GLuint shader) {
       scene.m_width,
       scene.m_height,
   };
+  // Screen Space
+  setIntUniform(shader, "isTwoD", m_twoDSpace);
   // Screen Dimensions
   setVec2Uniform(shader, "screenDimensions", screenD);
   // ITime

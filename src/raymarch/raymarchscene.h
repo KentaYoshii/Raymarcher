@@ -18,6 +18,9 @@ public:
   // Initializes the Scene given a scene json file
   void initScene(Settings &from, bool &isAreaLightUsed);
 
+  // Resets scene
+  void resetScene();
+
   // Updates the scene with new camera paramters
   void updateScene(Settings &from);
 

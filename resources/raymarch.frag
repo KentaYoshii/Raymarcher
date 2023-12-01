@@ -1,10 +1,15 @@
 #version 330 core
+// ==== Preprocessor Directives ====
+//#define SKY_BACKGROUND
+#define DARK_BACKGROUND
+
 // =============== Out =============
 layout (location = 0) out vec4 fragColor;
 layout (location = 1) out vec4 BrightColor;
 // =============== In ==============
 in vec4 nearClip;
 in vec4 farClip;
+in vec2 twoDFragCoord;
 // ============ CONST ==============
 // - max raymarching steps
 const int MAX_STEPS = 256;
@@ -38,7 +43,8 @@ const int TORUS = 5;
 const int CAPSULE = 6;
 const int DEATHSTAR = 7;
 const int RECTANGLE = 8;
-const int MANDELBULB = 9;
+const int MANDELBROT = 9;
+const int MANDELBULB = 10;
 
 // LIGHT TYPES
 const int POINT = 0;
@@ -156,6 +162,7 @@ struct RenderInfo
 uniform vec4 eyePosition;
 uniform vec2 screenDimensions;
 uniform float far;
+uniform bool isTwoD;
 
 // Lighting
 // - Phong Constants
@@ -327,6 +334,31 @@ float calculatePower(float iTime, float minPower, float maxPower, float duration
 // Define SDF for different shapes here
 // - Based on https://iquilezles.org/articles/distfunctions/
 
+
+// Mandelbrot Set Signed Distance Field
+// ref: https://www.shadertoy.com/view/Mss3R8
+// @param point in 2D space
+float sdMandelBrot(in vec2 p)
+{
+    float ltime = 0.5-0.5*cos(iTime*0.06);
+    float zoom = pow( 0.9, 50.0*ltime );
+    vec2  cen = vec2( 0.2655,0.301 ) + zoom*0.8*cos(4.0+2.0*ltime);
+    vec2 c = vec2( -0.745, 0.186 ) - 0.045*zoom*(1.0-ltime*0.5);
+
+    float ld2 = 1.0;
+    float lz2 = dot(p,p);
+    for (int i=0; i < MAX_STEPS; i++) {
+        ld2 *= 4.0*lz2;
+        p = vec2( p.x*p.x - p.y*p.y, 2.0*p.x*p.y ) + c;
+        lz2 = dot(p,p);
+        if (lz2 > 200.0) {
+            break;
+        }
+    }
+    float d = sqrt(lz2/ld2)*log(lz2);
+    return sqrt(clamp((150.0/zoom)*d, 0.0, 1.0));
+}
+
 // Mandelbulb Set Signed Distance Field
 // Great ref: https://www.youtube.com/watch?v=6IWXkV82oyY&t=1502s
 // @param p Point in object space
@@ -487,6 +519,8 @@ float sdMatch(vec3 p, int type, int id, out vec4 trapCol)
     } else if (type == RECTANGLE) {
         // in 2d
         return sdBox(p, vec3(0.5, 0.5, 0));
+    } else if (type == MANDELBROT) {
+        return sdMandelBrot(vec2(p));
     } else if (type == MANDELBULB) {
         // For animating Mandelbulb
         // float power = calculatePower(iTime, 2.f, 20.f, 20.f);
@@ -993,9 +1027,12 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
             ri.fragColor = vec3(texture(skybox, rd).rgb);
         } else {
             // Simple black screen
-            // ri.fragColor = vec3(0.f);
-            // Simple sky color
+#ifdef SKY_BACKGROUND
             ri.fragColor = getSky(rd);
+
+#else
+            ri.fragColor = vec3(0.f);
+#endif
         }
         ri.isAL = false;
         ri.isEnv = true;
@@ -1042,6 +1079,15 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
 }
 
 void main() {
+
+    if (isTwoD) {
+        vec2 coord = twoDFragCoord.xy;
+        float scol = sdMandelBrot(coord);
+        vec3 vcol = pow( vec3(scol), vec3(0.9,1.1,1.4) );
+        fragColor = vec4(vec3(vcol), 1.f);
+        return;
+    }
+
     // Perspective divide and get Ray origin and Ray direction
     // - why we need this? refer to the ref in vertex shader
     vec3 origin = nearClip.xyz / nearClip.w;

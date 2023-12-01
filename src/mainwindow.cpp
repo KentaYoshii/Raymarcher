@@ -89,7 +89,9 @@ void MainWindow::initialize() {
 
   fractalOption = new QComboBox();
   fractalOption->addItem("None");
+  fractalOption->addItem("Mandelbrot");
   fractalOption->addItem("Mandelbulb");
+  fractalOption->setCurrentIndex(0);
 
   // Create file uploader for scene file
   uploadFile = new QPushButton();
@@ -289,6 +291,8 @@ void MainWindow::onUploadFile() {
     return;
   }
 
+  fractalOption->setCurrentIndex(0);
+  settings.twoDSpace = false;
   settings.sceneFilePath = configFilePath.toStdString();
 
   std::cout << "Loaded scenefile: \"" << configFilePath.toStdString() << "\"."
@@ -370,11 +374,18 @@ void MainWindow::onSkyBox(int idx) {
 void MainWindow::onFractal(int idx) {
   std::filesystem::path curr = std::filesystem::current_path();
   settings.currentFractal = idx;
+  settings.twoDSpace = false;
   switch (idx) {
   case 0:
     settings.sceneFilePath = curr.string() + "/scenefiles/simple/blank.json";
+    settings.reset = true;
     break;
   case 1:
+    settings.twoDSpace = true;
+    settings.sceneFilePath =
+        curr.string() + "/scenefiles/simple/unit_mandelbrot.json";
+    break;
+  case 2:
     settings.sceneFilePath =
         curr.string() + "/scenefiles/simple/unit_mandelbulb.json";
     break;

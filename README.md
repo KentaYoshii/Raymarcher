@@ -149,7 +149,15 @@
 - Once we have the basic raymarcher, we can render many interesting objects. Below, we explored different kinds of fractals.
 
 ## Mandelbrot set
-- TODO
+- The Mandelbrot set is a set of points in a complex plane that has a particular property. It is defined by iterating a simple mathematical formula on each point in the complex plane and determining whether the result remains bounded or not.
+- The formula is given by
+$$z_{n+1} = z_{n}^{2} + c$$
+- In other words, Mandelbrob set is set of all points that does not diverge to infinity as you increase $n$ to infinity. 
+- Since we cannot run until infinity, we define the max steps to be $256$ and divergence criteria to be $200$ measured from the center. Rendering this in 2D space, we obtain the below image.
+<p align="center">
+  <img src="./output/fractals/mandelbrot.png">
+</p>
+
 ## Mandelbulb
 - Mandelbulb is a three-dimensional analogue of the above Mandelbrot set. 
 - The formula for generating points in the Mandelbulb fractal involves iterating a mathematical function (described below) on points in 3D space, and determining whether the resulting values stay within certain bounds or diverge. This process is typically repeated for each ray. For our project, the iteretion count is set to $20$.

@@ -153,12 +153,19 @@ void Realtime::sceneChanged() {
     destroyShapesTextures();
     m_isAreaLightUsed = false;
   }
+  if (settings.reset) {
+    scene.resetScene();
+    settings.reset = false;
+    return;
+  }
   // Initialize the Raymarch scene
   scene.initScene(settings, m_isAreaLightUsed);
   // Initialize the textures
   initShapesTextures();
   // Clear the seed
   m_juliaSeed = glm::vec2(0.f);
+  // Update the dim
+  m_twoDSpace = settings.twoDSpace;
   update();
 }
 

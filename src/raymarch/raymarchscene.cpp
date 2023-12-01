@@ -86,6 +86,11 @@ std::vector<std::string> RayMarchScene::getCubeMapWithType(CUBEMAP type) {
 }
 
 /**
+ * @brief Resets the scene
+ */
+void RayMarchScene::resetScene() { m_init = false; }
+
+/**
  * @brief Initializes the scene for Raymarching
  * This is called in sceneChanged() function with the new json file.
  * 1. Parse the scene json file

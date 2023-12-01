@@ -132,6 +132,9 @@ private:
 
   // Toggelable Options
 
+  // Others
+  bool m_twoDSpace = false;
+
   // Render Effects
   // - soft shadow
   bool m_enableSoftShadow;
@@ -146,6 +149,7 @@ private:
   // Post Processing Effects
   // - FXAA
   bool m_enableFXAA;
+
   // Lighting Effects
   // - exposure
   float m_exposure;
@@ -155,6 +159,8 @@ private:
   bool m_enableBloom;
   // - gamma correction
   bool m_enableGammaCorrection;
+
+  // Fractals
   // - power of fractals
   float m_power = 8.f;
   // - julia seed (real and imaginary components)

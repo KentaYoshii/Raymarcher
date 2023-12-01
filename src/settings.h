@@ -21,6 +21,9 @@ struct Settings {
   int screenWidth = 1024;
   int screenHeight = 768;
 
+  bool reset;
+  bool twoDSpace;
+
   // Camera Options
   float nearPlane;
   float farPlane;
