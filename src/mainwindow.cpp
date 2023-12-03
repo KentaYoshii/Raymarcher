@@ -92,6 +92,7 @@ void MainWindow::initialize() {
   fractalOption->addItem("Mandelbrot");
   fractalOption->addItem("Mandelbulb");
   fractalOption->addItem("Menger Sponge");
+  fractalOption->addItem("Sierpinski Triangle");
   fractalOption->setCurrentIndex(0);
 
   // Create file uploader for scene file
@@ -393,6 +394,10 @@ void MainWindow::onFractal(int idx) {
   case 3:
     settings.sceneFilePath =
         curr.string() + "/scenefiles/simple/unit_mengersponge.json";
+    break;
+  case 4:
+    settings.sceneFilePath =
+        curr.string() + "/scenefiles/simple/unit_sierpinski.json";
     break;
   }
   settings.juliaSeed = glm::vec2(0);

@@ -25,6 +25,8 @@ const float TEXTURE_EPS = 0.005;
 const int AREA_LIGHT_SAMPLES = 1;
 // - PI
 const float PI = 3.14159265;
+const float TAU = 6.28318;
+const vec3 ANGLE = vec3(0);
 // - reflection depth
 const int NUM_REFLECTION = 3;
 // - Area Lights
@@ -33,9 +35,7 @@ const float LUT_SCALE = (LUT_SIZE - 1.0)/LUT_SIZE;
 const float LUT_BIAS  = 0.5/LUT_SIZE;
 const float ROUGHNESS = 0.5;
 // - Menger Sponge
-const mat3 ma = mat3( 0.60, 0.00,  0.80,
-                      0.00, 1.00,  0.00,
-                     -0.80, 0.00,  0.60 );
+
 
 // PRIM TYPES
 const int CUBE = 0;
@@ -50,6 +50,7 @@ const int RECTANGLE = 8;
 const int MANDELBROT = 9;
 const int MANDELBULB = 10;
 const int MENGERSPONGE = 11;
+const int SIERPINSKI = 12;
 
 // LIGHT TYPES
 const int POINT = 0;
@@ -337,7 +338,6 @@ float calculatePower(float iTime, float minPower, float maxPower, float duration
     float t = sin(2.0 * 3.1416 * iTime / duration);
     return mix(minPower, maxPower, 0.5 * (t + 1.0));
 }
-
 // ============ Signed Distance Fields ==============
 // Define SDF for different shapes here
 // - Based on https://iquilezles.org/articles/distfunctions/
@@ -401,6 +401,28 @@ float sdMandelBulb(vec3 pos, out vec4 resColor)
     resColor = vec4(m,trap.yzw);
     // distance estimation (through the Hubbard-Douady potential)
     return 0.25*log(m)*sqrt(m)/dz;
+}
+
+float sdSierpinski(vec3 pos)
+{
+    const int Iterations = 14;
+    const float Scale = 1.85;
+    const float Offset = 2.0;
+    vec3 a1 = vec3(1,1,1);
+    vec3 a2 = vec3(-1,-1,1);
+    vec3 a3 = vec3(1,-1,-1);
+    vec3 a4 = vec3(-1,1,-1);
+    vec3 c;
+    float dist, d;
+
+    for (int n = 0; n < Iterations; n++) {
+        if(pos.x+pos.y<0.) pos.xy = -pos.yx; // fold 1
+        if(pos.x+pos.z<0.) pos.xz = -pos.zx; // fold 2
+        if(pos.y+pos.z<0.) pos.zy = -pos.yz; // fold 3
+        pos = pos*Scale - Offset*(Scale-1.0);
+    }
+
+    return length(pos) * pow(Scale, -float(Iterations));
 }
 
 // Sphere Signed Distance Field
@@ -508,6 +530,7 @@ float sdDeathStar( in vec3 p2, in float ra, float rb, in float d )
 // @param power (typically 8)
 float sdMengerSponge(vec3 p, out vec4 res)
 {
+
     float d = sdBox(p,vec3(1));
     res = vec4( d, 1.0, 0.0, 0.0 );
     // float ani = smoothstep( -0.2, 0.2, -cos(0.5*iTime) );
@@ -519,7 +542,6 @@ float sdMengerSponge(vec3 p, out vec4 res)
         vec3 a = mod( p*s, 2.0 )-1.0;
         s *= 3.0;
         vec3 r = abs(1.0 - 3.0*abs(a));
-
         float da = max(r.x,r.y);
         float db = max(r.y,r.z);
         float dc = max(r.z,r.x);
@@ -528,8 +550,8 @@ float sdMengerSponge(vec3 p, out vec4 res)
             d = c;
             res = vec4( d, min(res.y,0.2*da*db*dc), (1.0+float(m))/4.0, 0.0 );
         }
-     }
-   return d;
+    }
+    return d;
 }
 
 // Given a point in object space and type of the SDF
@@ -538,6 +560,7 @@ float sdMengerSponge(vec3 p, out vec4 res)
 // @param type Type of the object
 float sdMatch(vec3 p, int type, int id, out vec4 trapCol)
 {
+
     if (type == CUBE) {
         return sdBox(p, vec3(0.5));
     } else if (type == CONE) {
@@ -563,6 +586,8 @@ float sdMatch(vec3 p, int type, int id, out vec4 trapCol)
         return sdMandelBulb(p, trapCol);
     } else if (type == MENGERSPONGE) {
         return sdMengerSponge(p, trapCol);
+    } else if (type == SIERPINSKI) {
+        return sdSierpinski(p);
     }
 }
 

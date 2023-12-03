@@ -187,3 +187,9 @@ $$z_{n+1}=z_{n}^{2}+c$$
 | Normal Menger Sponge | Menger Sponge with rotation applied to point p |
 | :---: | :---: |
 | ![](./output/fractals/mengersponge0.png) | ![](./output/fractals/mengersponge1.png) 
+
+## Sierpinski Triangle
+- Finally, we have Sharpinski Triangle, which we achieved by iteratively folding the space along x, y, and z plane.
+<p align="center">
+  <img src="./output/fractals/sierpinski.png">
+</p>
