@@ -20,6 +20,7 @@
 #define SKYBOX_TEX_UNIT_OFF 10
 #define LTC1_TEX_UNIT_OFF 11
 #define LTC2_TEX_UNIT_OFF 12
+#define NOISE_TEX_UNIT_OFF 13
 #define BLOOM_BLUR_COUNT 10
 
 class Realtime : public QOpenGLWidget {
@@ -96,6 +97,8 @@ private:
   GLuint m_cubeMapTexture;
   // - null cube map texture
   GLuint m_nullCubeMapTexture;
+  // - noise texture
+  GLuint m_noiseTexture;
 
   // FBO
   // - application window FBO

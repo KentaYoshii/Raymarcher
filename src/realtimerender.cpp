@@ -338,6 +338,25 @@ void Realtime::initDefaults() {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glBindTexture(GL_TEXTURE_2D, 0);
+  // Noise Texture
+  glGenTextures(1, &m_noiseTexture);
+  glBindTexture(GL_TEXTURE_2D, m_noiseTexture);
+  std::filesystem::path basepath = std::filesystem::current_path();
+  QImage myImage;
+  std::filesystem::path fileRelativePath(
+      "scenefiles/texture_store/noise_texture_1.png");
+  QString str((basepath / fileRelativePath).string().data());
+  std::cout << (basepath / fileRelativePath).string() << std::endl;
+  if (!myImage.load(str)) {
+    std::cout << "Failed to load in image" << std::endl;
+    return;
+  }
+  myImage = myImage.convertToFormat(QImage::Format_RGBA8888).mirrored();
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, myImage.width(), myImage.height(), 0,
+               GL_RGBA, GL_UNSIGNED_BYTE, myImage.bits());
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 }
 
 /**
@@ -359,6 +378,8 @@ void Realtime::initShader() {
   // Set the M and LTU texture units for area lights
   setIntUniform(m_rayMarchShader, "LTC1", LTC1_TEX_UNIT_OFF);
   setIntUniform(m_rayMarchShader, "LTC2", LTC2_TEX_UNIT_OFF);
+  // Set the noise texture unit for procedual stuff
+  setIntUniform(m_rayMarchShader, "noise", NOISE_TEX_UNIT_OFF);
   // Bind the textures
   glActiveTexture(GL_TEXTURE0 + LTC1_TEX_UNIT_OFF);
   glBindTexture(GL_TEXTURE_2D, m_mTexture);
@@ -551,6 +572,9 @@ void Realtime::configureScreenUniforms(GLuint shader) {
   } else {
     glBindTexture(GL_TEXTURE_CUBE_MAP, m_nullCubeMapTexture);
   }
+  // Noise
+  glActiveTexture(GL_TEXTURE0 + NOISE_TEX_UNIT_OFF);
+  glBindTexture(GL_TEXTURE_2D, m_noiseTexture);
 }
 
 /**

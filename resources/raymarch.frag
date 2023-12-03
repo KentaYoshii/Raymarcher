@@ -187,8 +187,9 @@ uniform int numObjects;
 // Textures
 uniform sampler2D objTextures[10];
 uniform samplerCube skybox;
-uniform sampler2D LTC1; // for inverse M
-uniform sampler2D LTC2; // GGX norm, fresnel, 0(unused), sphere
+uniform sampler2D LTC1;
+uniform sampler2D LTC2;
+uniform sampler2D noise;
 
 // Timer
 uniform float iTime;

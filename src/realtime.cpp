@@ -46,6 +46,7 @@ void Realtime::finish() {
   glDeleteTextures(1, &m_cubeMapTexture);
   glDeleteTextures(1, &m_nullCubeMapTexture);
   glDeleteTextures(1, &m_nullBloomBlurTexture);
+  glDeleteTextures(1, &m_noiseTexture);
 
   // Destroy FBO
   destroyCustomFBO();
