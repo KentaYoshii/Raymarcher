@@ -1,0 +1,65 @@
+{
+  "name": "root",
+  "globalData": {
+    "ambientCoeff": 0.5,
+    "diffuseCoeff": 0.5,
+    "specularCoeff": 0.5,
+    "transparentCoeff": 0.5
+  },
+  "cameraData": {
+    "position": [0, 0, 4],
+    "up": [0.0, 1.0, 0.0],
+    "heightAngle": 30.0,
+    "focus": [0.0, 0.0, 0.0]
+  },
+  "groups": [
+    {
+      "lights": [
+        {
+          "type": "directional",
+          "color": [0.25, 0.2, 0.15],
+          "direction": [-0.707, 0.0, 0.707],
+          "angle": 20.0,
+          "penumbra": 10.0,
+          "attenuationCoeff": [0.8, 0.05, 0.0]
+        }
+      ]
+    },
+    {
+      "lights": [
+        {
+          "type": "directional",
+          "color": [1.5, 1.1, 0.7],
+          "direction": [0, -1, 0]
+        }
+      ]
+    },
+    {
+      "lights": [
+        {
+          "type": "directional",
+          "color": [2, 2, 2],
+          "direction": [0.0, 0.0, -1.0]
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "translate": [0, -5, 0],
+          "primitives": [
+            {
+              "type": "terrain",
+              "ambient": [0.3, 0.3, 0.3],
+              "diffuse": [0.3, 0.3, 0.3],
+              "specular": [1, 1, 1],
+              "shininess": 20.0,
+              "reflective": [0.8, 0.8, 0.8],
+              "ior": 1.5
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

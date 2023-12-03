@@ -52,6 +52,9 @@ const int MANDELBULB = 10;
 const int MENGERSPONGE = 11;
 const int SIERPINSKI = 12;
 
+// PROCEDUAL
+const int TERRAIN = 13;
+
 // LIGHT TYPES
 const int POINT = 0;
 const int DIRECTIONAL = 1;
@@ -202,7 +205,7 @@ uniform bool enableAmbientOcculusion;
 uniform bool enableSkyBox;
 uniform float power;
 uniform vec2 juliaSeed;
-
+uniform int numOctaves;
 // ================== Utility =======================
 // Transforms p along axis by angle
 vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
@@ -339,9 +342,50 @@ float calculatePower(float iTime, float minPower, float maxPower, float duration
     float t = sin(2.0 * 3.1416 * iTime / duration);
     return mix(minPower, maxPower, 0.5 * (t + 1.0));
 }
+
+// ============ NOISE =============
+
+// Derivative based noise
+// ref: https://iquilezles.org/articles/morenoise/
+vec3 noised(vec2 x) {
+  vec2 f = fract(x);
+  vec2 u = f * f* (3.0 - 2.0 * f);
+  vec2 du = 6.0*f*(1.0-f);
+
+  vec2 p = floor(x);
+  float a = textureLod(noise, (p+vec2(0.5,0.5)) /256.,0.).x;
+  float b = textureLod(noise, (p+vec2(1.5,0.5)) /256.,0.).x;
+  float c = textureLod(noise, (p+vec2(0.5,1.5)) /256.,0.).x;
+  float d = textureLod(noise, (p+vec2(1.5,1.5)) /256.,0.).x;
+
+  return vec3(a+(b-a)*u.x+(c-a)*u.y+(a-b-c+d)*u.x*u.y,
+                                  du*(vec2(b-a,c-a)+(a-b-c+d)*u.yx));
+}
 // ============ Signed Distance Fields ==============
 // Define SDF for different shapes here
 // - Based on https://iquilezles.org/articles/distfunctions/
+
+mat2 m=mat2(.8,-.6,.6,.8);
+
+float sdTerrain(vec2 p)
+{
+    vec2 p1 = p * 0.06;
+    float a = 0.0;
+    float b = 2.5;
+    vec2 d = vec2(0.0);
+    float scl = 2.75;
+
+    for (int i = 0; i < numOctaves; i++ ) {
+        vec3 n = noised(p1);
+        d += n.yz;
+        a += b * n.x / (dot(d,d) + 1.0);
+        b *= -0.4;
+        a *= .85;
+        p1 = m * p1 * scl;
+     }
+
+    return a * 9.0;
+}
 
 
 // Mandelbrot Set Signed Distance Field
@@ -404,7 +448,10 @@ float sdMandelBulb(vec3 pos, out vec4 resColor)
     return 0.25*log(m)*sqrt(m)/dz;
 }
 
-float sdSierpinski(vec3 pos)
+// Sierpinski Signed Distance Field
+// @param p Point in object space
+// @param power (typically 8)
+float sdSierpinski(vec3 p)
 {
     const int Iterations = 14;
     const float Scale = 1.85;
@@ -417,13 +464,13 @@ float sdSierpinski(vec3 pos)
     float dist, d;
 
     for (int n = 0; n < Iterations; n++) {
-        if(pos.x+pos.y<0.) pos.xy = -pos.yx; // fold 1
-        if(pos.x+pos.z<0.) pos.xz = -pos.zx; // fold 2
-        if(pos.y+pos.z<0.) pos.zy = -pos.yz; // fold 3
-        pos = pos*Scale - Offset*(Scale-1.0);
+        if(p.x+p.y<0.) p.xy = -p.yx; // fold 1
+        if(p.x+p.z<0.) p.xz = -p.zx; // fold 2
+        if(p.y+p.z<0.) p.zy = -p.yz; // fold 3
+        p = p*Scale - Offset*(Scale-1.0);
     }
 
-    return length(pos) * pow(Scale, -float(Iterations));
+    return length(p) * pow(Scale, -float(Iterations));
 }
 
 // Sphere Signed Distance Field
@@ -589,6 +636,8 @@ float sdMatch(vec3 p, int type, int id, out vec4 trapCol)
         return sdMengerSponge(p, trapCol);
     } else if (type == SIERPINSKI) {
         return sdSierpinski(p);
+    } else if (type == TERRAIN) {
+        return p.y - sdTerrain(p.xz);
     }
 }
 

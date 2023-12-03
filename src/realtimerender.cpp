@@ -651,6 +651,8 @@ void Realtime::configureSettingsUniforms(GLuint shader) {
   setIntUniform(shader, "enableAmbientOcculusion", m_enableAmbientOcclusion);
   // Sky Box
   setIntUniform(shader, "enableSkyBox", m_idxSkyBox);
+  // Number of Octaves
+  setIntUniform(shader, "numOctaves", m_numOctaves);
 }
 
 /**
@@ -807,6 +809,7 @@ void Realtime::updateUISettings() {
   m_power = settings.power;
   m_enableFXAA = settings.enableFXAA;
   m_juliaSeed = settings.juliaSeed;
+  m_numOctaves = settings.numOctaves;
   if (m_idxSkyBox != settings.idxSkyBox) {
     // If new sky box is selected
     if (m_idxSkyBox) {

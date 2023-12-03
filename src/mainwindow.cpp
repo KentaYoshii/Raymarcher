@@ -52,6 +52,11 @@ void MainWindow::initialize() {
   fractal_label->setFont(font);
   QLabel *power_label = new QLabel();
   power_label->setText("Power");
+  QLabel *proc_label = new QLabel();
+  proc_label->setText("Procedural Options");
+  proc_label->setFont(font);
+  QLabel *oct_label = new QLabel();
+  oct_label->setText("Number of Octaves");
 
   softShadow = new QCheckBox();
   softShadow->setText(QStringLiteral("Soft Shadow"));
@@ -129,12 +134,19 @@ void MainWindow::initialize() {
   powerBox->setSingleStep(0.1f);
   powerBox->setValue(8.0f);
 
+  octaveBox = new QDoubleSpinBox();
+  octaveBox->setMinimum(1);
+  octaveBox->setMaximum(8);
+  octaveBox->setSingleStep(1);
+  octaveBox->setValue(5);
+
   QGroupBox *nearLayout = new QGroupBox(); // horizonal near slider alignment
   QHBoxLayout *lnear = new QHBoxLayout();
   QGroupBox *farLayout = new QGroupBox(); // horizonal far slider alignment
   QHBoxLayout *lfar = new QHBoxLayout();
   QHBoxLayout *epsLayout = new QHBoxLayout();
   QHBoxLayout *powerLayout = new QHBoxLayout();
+  QHBoxLayout *octLayout = new QHBoxLayout();
 
   // Adds the slider and number box to the parameter layouts
   lnear->addWidget(near_label);
@@ -150,6 +162,9 @@ void MainWindow::initialize() {
 
   powerLayout->addWidget(power_label);
   powerLayout->addWidget(powerBox);
+
+  octLayout->addWidget(oct_label);
+  octLayout->addWidget(octaveBox);
 
   vLayout->addWidget(uploadFile);
   vLayout->addWidget(saveImage);
@@ -172,6 +187,8 @@ void MainWindow::initialize() {
   vLayout->addWidget(fractalOption);
   vLayout->addLayout(powerLayout);
   vLayout->addWidget(juliaSeed);
+  vLayout->addWidget(proc_label);
+  vLayout->addLayout(octLayout);
 
   connectUIElements();
 
@@ -204,6 +221,7 @@ void MainWindow::connectUIElements() {
   connectFractal();
   connectPower();
   connectJuliaSeed();
+  connectOctave();
 }
 
 void MainWindow::connectUploadFile() {
@@ -275,6 +293,13 @@ void MainWindow::connectPower() {
           static_cast<void (QDoubleSpinBox::*)(double)>(
               &QDoubleSpinBox::valueChanged),
           this, &MainWindow::onPower);
+}
+
+void MainWindow::connectOctave() {
+  connect(octaveBox,
+          static_cast<void (QDoubleSpinBox::*)(double)>(
+              &QDoubleSpinBox::valueChanged),
+          this, &MainWindow::onOctave);
 }
 
 void MainWindow::connectFractal() {
@@ -431,5 +456,10 @@ void MainWindow::onEpsilon(double newValue) {
 
 void MainWindow::onPower(double newValue) {
   settings.power = newValue;
+  realtime->settingsChanged();
+}
+
+void MainWindow::onOctave(double newValue) {
+  settings.numOctaves = newValue;
   realtime->settingsChanged();
 }

@@ -169,6 +169,9 @@ private:
   // - julia seed (real and imaginary components)
   glm::vec2 m_juliaSeed = glm::vec2(0.f);
 
+  // Procedural
+  int m_numOctaves = 5.f;
+
   // PRIVATE METHODS
 
   // Performs raymarching using our raymarch shader

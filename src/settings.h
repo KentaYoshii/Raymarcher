@@ -45,6 +45,8 @@ struct Settings {
   int currentFractal;
   float power = 8.f;
   glm::vec2 juliaSeed = glm::vec2(0.f);
+  // Procedural
+  int numOctaves = 5;
 };
 
 // The global Settings object, will be initialized by MainWindow

@@ -34,6 +34,7 @@ private:
   void connectEpsilon();
   void connectPower();
   void connectJuliaSeed();
+  void connectOctave();
 
   Realtime *realtime;
   AspectRatioWidget *aspectRatioWidget;
@@ -45,6 +46,7 @@ private:
   QDoubleSpinBox *epsilonBox;
   QDoubleSpinBox *powerBox;
   QPushButton *juliaSeed;
+  QDoubleSpinBox *octaveBox;
 
   QCheckBox *softShadow;
   QCheckBox *reflection;
@@ -71,4 +73,5 @@ private slots:
   void onPower(double newValue);
   void onFractal(int idx);
   void onJuliaSeed();
+  void onOctave(double newValue);
 };
