@@ -1,6 +1,6 @@
 #version 330 core
 // ==== Preprocessor Directives ====
-// #define SKY_BACKGROUND
+//#define SKY_BACKGROUND
 #define DARK_BACKGROUND
 
 // =============== Out =============
@@ -17,6 +17,7 @@ const int MAX_STEPS_FRACTALS = 20;
 const int FRACTALS_BAILOUT = 2;
 // - threshold for intersection
 const float SURFACE_DIST = 0.001;
+const float PLANCK = 0.01;
 // - small offset for the origin of shadow rays
 const float SHADOWRAY_OFFSET = 0.007;
 // - small eps for computing uv mapping
@@ -34,8 +35,6 @@ const float LUT_SIZE  = 64.0; // ltc_texture size
 const float LUT_SCALE = (LUT_SIZE - 1.0)/LUT_SIZE;
 const float LUT_BIAS  = 0.5/LUT_SIZE;
 const float ROUGHNESS = 0.5;
-// - Menger Sponge
-
 
 // PRIM TYPES
 const int CUBE = 0;
@@ -206,6 +205,8 @@ uniform bool enableSkyBox;
 uniform float power;
 uniform vec2 juliaSeed;
 uniform int numOctaves;
+uniform float terrainHeight;
+uniform float terrainScale;
 // ================== Utility =======================
 // Transforms p along axis by angle
 vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
@@ -370,8 +371,8 @@ mat2 m=mat2(.8,-.6,.6,.8);
 float sdTerrain(vec2 p)
 {
     vec2 p1 = p * 0.06;
-    float a = 0.0;
-    float b = 2.5;
+    float a = terrainHeight;
+    float b = terrainScale;
     vec2 d = vec2(0.0);
     float scl = 2.75;
 
@@ -384,7 +385,7 @@ float sdTerrain(vec2 p)
         p1 = m * p1 * scl;
      }
 
-    return a * 9.0;
+    return a * 3.0;
 }
 
 
@@ -637,7 +638,7 @@ float sdMatch(vec3 p, int type, int id, out vec4 trapCol)
     } else if (type == SIERPINSKI) {
         return sdSierpinski(p);
     } else if (type == TERRAIN) {
-        return p.y - sdTerrain(p.xz);
+        return (p.y - sdTerrain(p.xz));
     }
 }
 
@@ -807,30 +808,32 @@ vec3 getNormal(in vec3 p) {
 // - used in refraction
 // @returns structs that contains the result of raymarching
 RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
+  const float MIN_JUMP = PLANCK * 10.0;
+  const float MIN_JUMP_FACTOR = 0.003;
   // Start from eye pos
   float rayDepth = 0.0;
   SceneMin closest;
-  closest.minD = 100;
+  closest.minD = 10000;
   // Start the march
   for(int i = 0; i < MAX_STEPS; i++) {
     // Get the point
     vec3 p = ro + rd * rayDepth;
     // Find the closest object in the scene
     closest = sdScene(p);
-    if (abs(closest.minD) < SURFACE_DIST || rayDepth > end) {
+    if (abs(closest.minD) < PLANCK * 0.1 * rayDepth || rayDepth > end) {
         // If hit or exceed the far plane, break
         break;
     }
     // March the ray
-    rayDepth += closest.minD * side;
+    rayDepth += closest.minD * side * (0.4 + rayDepth * MIN_JUMP_FACTOR + MIN_JUMP);
   }
   RayMarchRes res;
-  if (abs(closest.minD) < SURFACE_DIST) {
+  if (abs(closest.minD) < PLANCK * 0.1 * rayDepth) {
       // HIT
       res.intersectObj = closest.minObjIdx;
       // Bruh don't ask me why we need this.
       // Without this, normal calcuation somehow gets messed up
-      res.d = rayDepth - 0.001;
+      res.d = rayDepth - closest.minD;
       res.trap = closest.trap;
   } else {
       // NO HIT
@@ -895,6 +898,14 @@ float calcAO(in vec3 pos, in vec3 nor)
     return clamp( 1.0 - 3.0*occ, 0.0, 1.0 ) * (0.5+0.5*nor.y);
 }
 
+
+vec3 fog(vec3 col, float d){
+    float fo = 1.0-exp(-pow(0.001*d,1.5) );
+    vec3 fco = 0.65*vec3(0.4,0.65,1.0);
+    col = mix( col, fco, fo );
+    return col;
+}
+
 // Gets the diffuse term
 // @param objId Id of the intersected object
 // @param p Intersection Point in world space
@@ -947,6 +958,34 @@ float attenuationFactor(float d, vec3 func) {
     return min(1.f / (func[0] + (d * func[1]) + (d * d * func[2])), 1.f);
 }
 
+float fbm( vec2 p )
+{
+    float f = 0.0;
+    f += 0.5000*texture(noise, p/256.0 ).x; p = m*p*2.02;
+    f += 0.2500*texture(noise, p/256.0 ).x; p = m*p*2.03;
+    f += 0.1250*texture(noise, p/256.0 ).x; p = m*p*2.01;
+    f += 0.0625*texture(noise, p/256.0 ).x;
+    return f/0.9375;
+}
+
+vec3 getTerrainColor(vec3 pos, vec3 nor) {
+    vec3 col = vec3(0.);
+    // rock
+    float r = texture(noise, (7.0)*pos.xz/256.0 ).x;
+    col = (r*0.25+0.75)*0.9*mix( vec3(0.08,0.05,0.03), vec3(0.10,0.09,0.08),
+                                         texture(noise,0.00007*vec2(pos.x,pos.y*48.0)).x );
+    col = mix( col, 0.20*vec3(0.45,.30,0.15)*(0.50+0.50*r),smoothstep(0.70,0.9,nor.y) );
+    col = mix( col, 0.15*vec3(0.30,.30,0.10)*(0.25+0.75*r),smoothstep(0.95,1.0,nor.y) );
+                    col *= 0.1+1.8*sqrt(fbm(pos.xz*0.04)*fbm(pos.xz*0.005));
+    // snow
+    float h = smoothstep(55.0,80.0,pos.y + 25.0*fbm(0.01*pos.xz) );
+    float e = smoothstep(1.0-0.5*h,1.0-0.1*h,nor.y);
+    float o = 0.3 + 0.7*smoothstep(0.0,0.1,nor.x+h*h);
+    float s = h*e*o;
+    col = mix( col, 0.29*vec3(0.62,0.65,0.7), smoothstep( 0.1, 0.9, s ) );
+    return col;
+}
+
 // Get Area Light
 // @param N Normal
 // @param V View vector
@@ -989,7 +1028,7 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, int objIdx)
 // @param p Intersection point
 // @param rd Ray direction
 // @returns phong color for that fragment
-vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 rd)
+vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd)
 {
     vec3 total = vec3(0.f);
     RayMarchObject obj = objects[intersectObj];
@@ -1141,7 +1180,6 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
             // Simple black screen
 #ifdef SKY_BACKGROUND
             ri.fragColor = getSky(rd);
-
 #else
             ri.fragColor = vec3(0.f);
 #endif
@@ -1170,13 +1208,17 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
             col = mix( col, vec3(0.02,0.10,0.30), clamp(res.trap.z*res.trap.z,0.0,1.0) );
             col = mix( col, vec3(0.30,0.10,0.02), clamp(pow(res.trap.w,6.0),0.0,1.0) );
             col *= 0.5;
-            col *= getPhong(pn, res.intersectObj, p, rd) * 8;
+            col *= getPhong(pn, res.intersectObj, p, ro, rd) * 8;
         } else if (objects[res.intersectObj].type == MENGERSPONGE) {
             // Orbit Trap to color
             col = 0.5 + 0.5*cos(vec3(0,1,2)+2.0*res.trap.z);
-            col *= getPhong(pn, res.intersectObj, p, rd);
+            col *= getPhong(pn, res.intersectObj, p, ro, rd);
+        } else if (objects[res.intersectObj].type == TERRAIN) {
+            col = getTerrainColor(p, pn);
+            col *= getPhong(pn, res.intersectObj, p, ro, rd);
+            col *= 2;
         } else {
-            col = getPhong(pn, res.intersectObj, p, rd);
+            col = getPhong(pn, res.intersectObj, p, ro, rd);
         }
         ri.isAL = false;
     }

@@ -170,6 +170,8 @@ private:
   glm::vec2 m_juliaSeed = glm::vec2(0.f);
 
   // Procedural
+  float m_terrainH = 5.;
+  float m_terrainS = 9.5;
   int m_numOctaves = 5.f;
 
   // PRIVATE METHODS

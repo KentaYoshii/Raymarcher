@@ -26,12 +26,15 @@ void MainWindow::initialize() {
   QFont font;
   font.setPointSize(12);
   font.setBold(true);
-  QLabel *camera_label = new QLabel(); // Camera label
+  // Camera label
+  QLabel *camera_label = new QLabel();
   camera_label->setText("Camera");
   camera_label->setFont(font);
-  QLabel *near_label = new QLabel(); // Near plane label
+  // Near plane label
+  QLabel *near_label = new QLabel();
   near_label->setText("Near Plane");
-  QLabel *far_label = new QLabel(); // Far plane label
+  // Far plane label
+  QLabel *far_label = new QLabel();
   far_label->setText("Far Plane");
   QLabel *renderoption_label = new QLabel();
   renderoption_label->setText("Render Options");
@@ -57,6 +60,10 @@ void MainWindow::initialize() {
   proc_label->setFont(font);
   QLabel *oct_label = new QLabel();
   oct_label->setText("Number of Octaves");
+  QLabel *th_label = new QLabel();
+  th_label->setText("Terrain Height");
+  QLabel *ts_label = new QLabel();
+  ts_label->setText("Terrain Scale");
 
   softShadow = new QCheckBox();
   softShadow->setText(QStringLiteral("Soft Shadow"));
@@ -140,6 +147,18 @@ void MainWindow::initialize() {
   octaveBox->setSingleStep(1);
   octaveBox->setValue(5);
 
+  terrainH = new QDoubleSpinBox();
+  terrainH->setMinimum(0);
+  terrainH->setMaximum(10);
+  terrainH->setSingleStep(0.5);
+  terrainH->setValue(5);
+
+  terrainS = new QDoubleSpinBox();
+  terrainS->setMinimum(-5);
+  terrainS->setMaximum(10);
+  terrainS->setSingleStep(0.5);
+  terrainS->setValue(9.5);
+
   QGroupBox *nearLayout = new QGroupBox(); // horizonal near slider alignment
   QHBoxLayout *lnear = new QHBoxLayout();
   QGroupBox *farLayout = new QGroupBox(); // horizonal far slider alignment
@@ -147,6 +166,8 @@ void MainWindow::initialize() {
   QHBoxLayout *epsLayout = new QHBoxLayout();
   QHBoxLayout *powerLayout = new QHBoxLayout();
   QHBoxLayout *octLayout = new QHBoxLayout();
+  QHBoxLayout *terrainHL = new QHBoxLayout();
+  QHBoxLayout *terrainSL = new QHBoxLayout();
 
   // Adds the slider and number box to the parameter layouts
   lnear->addWidget(near_label);
@@ -165,6 +186,12 @@ void MainWindow::initialize() {
 
   octLayout->addWidget(oct_label);
   octLayout->addWidget(octaveBox);
+
+  terrainHL->addWidget(th_label);
+  terrainHL->addWidget(terrainH);
+
+  terrainSL->addWidget(ts_label);
+  terrainSL->addWidget(terrainS);
 
   vLayout->addWidget(uploadFile);
   vLayout->addWidget(saveImage);
@@ -188,6 +215,8 @@ void MainWindow::initialize() {
   vLayout->addLayout(powerLayout);
   vLayout->addWidget(juliaSeed);
   vLayout->addWidget(proc_label);
+  vLayout->addLayout(terrainHL);
+  vLayout->addLayout(terrainSL);
   vLayout->addLayout(octLayout);
 
   connectUIElements();
@@ -222,6 +251,8 @@ void MainWindow::connectUIElements() {
   connectPower();
   connectJuliaSeed();
   connectOctave();
+  connectTerrainH();
+  connectTerrainS();
 }
 
 void MainWindow::connectUploadFile() {
@@ -305,6 +336,20 @@ void MainWindow::connectOctave() {
 void MainWindow::connectFractal() {
   connect(fractalOption, &QComboBox::currentIndexChanged, this,
           &MainWindow::onFractal);
+}
+
+void MainWindow::connectTerrainH() {
+  connect(terrainH,
+          static_cast<void (QDoubleSpinBox::*)(double)>(
+              &QDoubleSpinBox::valueChanged),
+          this, &MainWindow::onTerrainH);
+}
+
+void MainWindow::connectTerrainS() {
+  connect(terrainS,
+          static_cast<void (QDoubleSpinBox::*)(double)>(
+              &QDoubleSpinBox::valueChanged),
+          this, &MainWindow::onTerrainS);
 }
 
 void MainWindow::onUploadFile() {
@@ -461,5 +506,15 @@ void MainWindow::onPower(double newValue) {
 
 void MainWindow::onOctave(double newValue) {
   settings.numOctaves = newValue;
+  realtime->settingsChanged();
+}
+
+void MainWindow::onTerrainH(double newValue) {
+  settings.terrainH = newValue;
+  realtime->settingsChanged();
+}
+
+void MainWindow::onTerrainS(double newValue) {
+  settings.terrainS = newValue;
   realtime->settingsChanged();
 }

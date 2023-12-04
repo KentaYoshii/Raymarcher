@@ -35,6 +35,8 @@ private:
   void connectPower();
   void connectJuliaSeed();
   void connectOctave();
+  void connectTerrainH();
+  void connectTerrainS();
 
   Realtime *realtime;
   AspectRatioWidget *aspectRatioWidget;
@@ -47,6 +49,8 @@ private:
   QDoubleSpinBox *powerBox;
   QPushButton *juliaSeed;
   QDoubleSpinBox *octaveBox;
+  QDoubleSpinBox *terrainH;
+  QDoubleSpinBox *terrainS;
 
   QCheckBox *softShadow;
   QCheckBox *reflection;
@@ -74,4 +78,6 @@ private slots:
   void onFractal(int idx);
   void onJuliaSeed();
   void onOctave(double newValue);
+  void onTerrainH(double newValue);
+  void onTerrainS(double newValue);
 };
