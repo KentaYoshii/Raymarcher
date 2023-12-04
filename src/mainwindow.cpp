@@ -154,7 +154,7 @@ void MainWindow::initialize() {
   terrainH->setValue(5);
 
   terrainS = new QDoubleSpinBox();
-  terrainS->setMinimum(-5);
+  terrainS->setMinimum(-10);
   terrainS->setMaximum(10);
   terrainS->setSingleStep(0.5);
   terrainS->setValue(9.5);

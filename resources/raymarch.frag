@@ -382,10 +382,11 @@ float sdTerrain(vec2 p)
         a += b * n.x / (dot(d,d) + 1.0);
         b *= -0.4;
         a *= .85;
+
         p1 = m * p1 * scl;
      }
 
-    return a * 3.0;
+    return a * 3.0 ;
 }
 
 
@@ -638,7 +639,7 @@ float sdMatch(vec3 p, int type, int id, out vec4 trapCol)
     } else if (type == SIERPINSKI) {
         return sdSierpinski(p);
     } else if (type == TERRAIN) {
-        return (p.y - sdTerrain(p.xz));
+        return (p.y - sdTerrain(p.xz))* (0.25 + mix(0, 0.25, 1 - abs(terrainScale)/10));
     }
 }
 
@@ -808,8 +809,6 @@ vec3 getNormal(in vec3 p) {
 // - used in refraction
 // @returns structs that contains the result of raymarching
 RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
-  const float MIN_JUMP = PLANCK * 10.0;
-  const float MIN_JUMP_FACTOR = 0.003;
   // Start from eye pos
   float rayDepth = 0.0;
   SceneMin closest;
@@ -820,15 +819,15 @@ RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
     vec3 p = ro + rd * rayDepth;
     // Find the closest object in the scene
     closest = sdScene(p);
-    if (abs(closest.minD) < PLANCK * 0.1 * rayDepth || rayDepth > end) {
+    if (abs(closest.minD) < SURFACE_DIST || rayDepth > end) {
         // If hit or exceed the far plane, break
         break;
     }
     // March the ray
-    rayDepth += closest.minD * side * (0.4 + rayDepth * MIN_JUMP_FACTOR + MIN_JUMP);
+    rayDepth += closest.minD * side;
   }
   RayMarchRes res;
-  if (abs(closest.minD) < PLANCK * 0.1 * rayDepth) {
+  if (abs(closest.minD) < SURFACE_DIST) {
       // HIT
       res.intersectObj = closest.minObjIdx;
       // Bruh don't ask me why we need this.
