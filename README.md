@@ -18,6 +18,7 @@
   - [Mandelbulb](#mandelbulb)
   - [Julia Set](#julia-set)
   - [Menger Sponge](#menger-sponge)
+- [Procedural Rendering](#procedural-rendering)
 
 # Getting Started
 
@@ -192,4 +193,26 @@ $$z_{n+1}=z_{n}^{2}+c$$
 - Finally, we have Sharpinski Triangle, which we achieved by iteratively folding the space along x, y, and z plane.
 <p align="center">
   <img src="./output/fractals/sierpinski.png">
+</p>
+
+# Procedural Rendering
+## Terrain 
+- To create organic terrain patterns, our initial attempt used __Fractal Brownian Motion__.
+  - FBM composes noises to produce more fine-grained looking results.
+  - We start with a simple base noise with initial amplitude and frequency.
+  - With each iteration (called an _octave_), we apply the same noise with decreased amplitude and increased the frequency
+- This approach of looping however led to sharp decrease in our frame rate as we increased the number of octaves.
+- Referring to this [article](https://iquilezles.org/articles/morenoise/), our next attempt was based on a "tweaked" version of FBM. 
+  - It samples grayscaled noise texture at various points and interpolate between them.
+  - But instead of directly using those values, we use the derivative of them to capture the rate of change
+- Below are the naive rendering of terrains
+
+| Octave 4 | Octave 5 |
+| :---: | :---: |
+| ![](./output/procedural/octave4.png) | ![](./output/procedural/octave5.png) 
+- We immediately notice that there are black spots in the terrain due to rays overshooting the surface.
+- Adding some basic coloring and scaling back the distance ray travels based on the steepness of the terrain, we get the terrain below
+
+<p align="center">
+  <img src="output/procedural/fix_overshoot.png">
 </p>
