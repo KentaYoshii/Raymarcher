@@ -1,7 +1,9 @@
 #version 330 core
 // ==== Preprocessor Directives ====
-#define SKY_BACKGROUND
-// #define DARK_BACKGROUND
+// #define SKY_BACKGROUND
+#define DARK_BACKGROUND
+#define VOLUMETRIC
+// #define TERRAIN
 
 // =============== Out =============
 layout (location = 0) out vec4 fragColor;
@@ -62,6 +64,8 @@ const int AREA = 3;
 
 // Bloom
 const vec3 BRIGHT_FILTER = vec3(0.2126, 0.7152, 0.0722);
+
+int FRAME;
 // ============ Structs ============
 struct RayMarchObject
 {
@@ -160,7 +164,7 @@ struct RenderInfo
 {
     // Struct for holding render results.
     // We need this to differentiate the color values between true hit and environment
-    vec3 fragColor;
+    vec4 fragColor;
     bool isEnv;
     bool isAL;
 };
@@ -192,6 +196,7 @@ uniform samplerCube skybox;
 uniform sampler2D LTC1;
 uniform sampler2D LTC2;
 uniform sampler2D noise;
+uniform sampler2D bluenoise;
 
 // Timer
 uniform float iTime;
@@ -208,22 +213,23 @@ uniform int numOctaves;
 uniform float terrainHeight = 0.f;
 uniform float terrainScale;
 
-vec3 shore      = vec3( 0.3, .400,1.0);
-vec3 beach      = vec3( 1.0, .894, .710);
-vec3 earth      = vec3(.824, .706, .549);
-vec3 calcaire   = vec3(.624, .412, .118);
-vec3 rocks      = vec3(.412, .388, .422);
+// TERRAIN COLOR STUFF
+// - colors
+vec3 SHORE      = vec3( 0.3, .400,1.0);
+vec3 BEACH      = vec3( 1.0, .894, .710);
+vec3 EARTH      = vec3(.824, .706, .549);
+vec3 CALCAIRE   = vec3(.624, .412, .118);
+vec3 ROCKS      = vec3(.412, .388, .422);
+vec3 GRASS1 = vec3 (.19, .335, .14);
+vec3 GRASS2 = vec3 (.478, .451, .14);
+vec3 SNOW1 = vec3 ( .78,.78,.78);
+vec3 SNOW2 = vec3 ( .9,.9,.9);
+
 float SEALEVEL  = 0.1;
 float MAXGRASSSTEEP =  0.5;
 float MAXGRASSALTITUDE= .8;
 float  MAXSNOWSTEEP  =  0.35;
 float MAXSNOWALTITUDE =  0.8;
-
-vec3 grass1 = vec3 (.19, .335, .14);
-vec3 grass2 = vec3 (.478, .451, .14);
-
-vec3 snow1 = vec3 ( .78,.78,.78);
-vec3 snow2 = vec3 ( .9,.9,.9);
 
 // ================== Utility =======================
 // Transforms p along axis by angle
@@ -362,6 +368,15 @@ float calculatePower(float iTime, float minPower, float maxPower, float duration
     return mix(minPower, maxPower, 0.5 * (t + 1.0));
 }
 
+float BeersLaw (float dist, float absorption) {
+  return exp(-dist * absorption);
+}
+
+float HenyeyGreenstein(float g, float mu) {
+  float gg = g * g;
+        return (1.0 / (4.0 * PI))  * ((1.0 - gg) / pow(1.0 + gg - 2.0 * g * mu, 1.5));
+}
+
 // ============ NOISE =============
 
 //iq hash
@@ -387,6 +402,33 @@ vec3 noised(vec2 x) {
   vec2 noiseDerivative = du*(vec2(b-a,c-a)+(a-b-c+d)*u.yx);
 
   return vec3(noiseVal, noiseDerivative);
+}
+
+float noiseV(vec3 x ) {
+  vec3 p = floor(x);
+  vec3 f = fract(x);
+  f = f*f*(3.0-2.0*f);
+  vec2 uv = (p.xy+vec2(37.0,239.0)*p.z) + f.xy;
+  vec2 rg = textureLod(noise,(uv+0.5)/256.0,0.0).yx;
+  return mix( rg.x, rg.y, f.z )*2.0-1.0;
+}
+
+float fbm(vec3 p) {
+  vec3 q = p + iTime * 0.2 * vec3(1.0, -0.2, -1.0);
+  float g = noiseV(q);
+
+  float f = 0.0;
+  float scale = 0.5;
+  float factor = 2.02;
+
+  for (int i = 0; i < 6; i++) {
+      f += scale * noiseV(q);
+      q *= factor;
+      factor += 0.21;
+      scale *= 0.5;
+  }
+
+  return f;
 }
 
 // ============ Signed Distance Fields ==============
@@ -831,6 +873,58 @@ vec3 getNormal(in vec3 p) {
                 );
 }
 
+const float VOLUMETRIC_STEP = 0.1f;
+const int VOLUMETRIC_MAX_STEPS = 100;
+const float SCATTERING_ANISO = 0.3;
+float ABSORPTION_COEFFICIENT = 0.9;
+
+const vec3 SUN_POSITION = vec3(1.0, 0.0, 0.0);
+const int MAX_STEPS_LIGHTS = 6;
+vec3 sunDirection = normalize(SUN_POSITION);
+
+float lightmarch(vec3 position, vec3 rayDirection) {
+  vec3 lightDirection = normalize(SUN_POSITION);
+  float totalDensity = 0.0;
+  float marchSize = 0.03;
+
+  for (int step = 0; step < MAX_STEPS_LIGHTS; step++) {
+      position += lightDirection * marchSize * float(step);
+      float lightSample = -sdScene(position).minD;
+      totalDensity += lightSample;
+  }
+
+  float transmittance = BeersLaw(totalDensity, ABSORPTION_COEFFICIENT);
+  return transmittance;
+}
+
+// Performs raymarching for volumetric data
+float raymarchVolumetric(vec3 rayOrigin, vec3 rayDirection, float offset) {
+  float depth = VOLUMETRIC_STEP * offset;
+  vec3 p = rayOrigin + depth * rayDirection;
+
+  vec4 res = vec4(0.0);
+  float totalTransmittance = 1.0;
+  float lightEnergy = 0.0;
+
+  float phase = HenyeyGreenstein(SCATTERING_ANISO, dot(rayDirection, sunDirection));
+
+
+  for (int i = 0; i < VOLUMETRIC_MAX_STEPS; i++) {
+    float density = -sdScene(p).minD + fbm(p);
+
+    // We only draw the density if it's greater than 0
+    if (density > 0.0) {
+        float lightTransmittance = lightmarch(p, rayDirection);
+        float luminance = 0.05 + density * phase;
+        totalTransmittance *= lightTransmittance;
+        lightEnergy += totalTransmittance * luminance;
+    }
+    depth += VOLUMETRIC_STEP;
+    p = rayOrigin + depth * rayDirection;
+  }
+
+  return lightEnergy;
+}
 
 // Performs raymarching
 // @param ro Ray origin
@@ -988,16 +1082,6 @@ float attenuationFactor(float d, vec3 func) {
     return min(1.f / (func[0] + (d * func[1]) + (d * d * func[2])), 1.f);
 }
 
-float fbm( vec2 p )
-{
-    float f = 0.0;
-    f += 0.5000*texture(noise, p/256.0 ).x; p = m*p*2.02;
-    f += 0.2500*texture(noise, p/256.0 ).x; p = m*p*2.03;
-    f += 0.1250*texture(noise, p/256.0 ).x; p = m*p*2.01;
-    f += 0.0625*texture(noise, p/256.0 ).x;
-    return f/0.9375;
-}
-
 // Get Area Light
 // @param N Normal
 // @param V View vector
@@ -1150,30 +1234,34 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd)
     return total;
 }
 
-vec3 getTerrainColor(vec3 pos, vec3 nor) {
+// Get Terrain Color
+// @param pos Position to color
+// @param nor Normal at intersection
+vec3 getTerrainColor(vec3 pos, inout vec3 nor) {
+    // Normalized to [0, 1]
     float height = pos.y / 15.f;
     vec3 terrainColor = vec3(0.f);
 
     if ( height <= SEALEVEL) {
         //water
-        terrainColor=shore;
+        terrainColor=SHORE;
+        nor = vec3(0,1,0);
         return terrainColor;
     }
 
     height += noised( pos.xz * 47.).x* 0.2;
 
     // base color
-    terrainColor = mix (        beach,    earth, smoothstep(0.0 , 0.08 , height) );
-    terrainColor = mix ( terrainColor, calcaire, smoothstep(0.08, 0.3 , height) );
-    terrainColor = mix ( terrainColor,    rocks, smoothstep(0.3, 1.0  ,height) );
-
+    terrainColor = mix (        BEACH,    EARTH, smoothstep(0.0 , 0.08 , height) );
+    terrainColor = mix ( terrainColor, CALCAIRE, smoothstep(0.08, 0.3 , height) );
+    terrainColor = mix ( terrainColor,    ROCKS, smoothstep(0.3, 1.0  ,height) );
     //add grass
     if (( nor.y > MAXGRASSSTEEP ) && ( height <  MAXGRASSALTITUDE )) {
-        terrainColor = mix( grass1, grass2, smoothstep(0.0 , 1.0, noised( pos.xz * 5.0 ).x));
+        terrainColor = mix( GRASS1, GRASS2, smoothstep(0.0 , 1.0, noised( pos.xz * 5.0 ).x));
     }
     // add snow
     if (( nor.y > MAXSNOWSTEEP) && ( height > MAXSNOWALTITUDE )) {
-        return mix( snow1, snow2, smoothstep(0.0 , 1.0, noised( pos.xz * 131.0 ).x));
+        return mix( SNOW1, SNOW2, smoothstep(0.0 , 1.0, noised( pos.xz * 131.0 ).x));
     }
 
     return terrainColor;
@@ -1211,16 +1299,34 @@ vec3 getSky(vec3 rd) {
 RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
 {
     RenderInfo ri;
+#ifdef VOLUMETRIC
+    vec3 sunColor = vec3(1.0,0.5,0.3);
+    float sun = clamp(dot(sunDirection, rd), 0.0, 1.0);
+    // Base sky color
+    vec3 color = vec3(0.7,0.7,0.90);
+    // Add vertical gradient
+    color -= 0.8 * vec3(0.90,0.75,0.90) * rd.y;
+    // Add sun color to sky
+    color += 0.5 * sunColor * pow(sun, 10.0);
+
+    float blueNoise = texture(bluenoise, gl_FragCoord.xy / 1024.0).r;
+    float off = float(FRAME%64) + 0.61803398875f;
+    float inten = raymarchVolumetric(ro, rd, fract(blueNoise + off));
+    ri.fragColor = vec4(color + sunColor * inten, 1.f);
+    ri.isAL = false;
+    ri.isEnv = false;
+    return ri;
+#endif
     // Raymarching
     RayMarchRes res = raymarch(ro, rd, far, side);
-    vec3 bgCol = vec3(0.);
+    vec4 bgCol = vec4(0.);
 #ifdef SKY_BACKGROUND
-    bgCol = getSky(rd);
+    bgCol = vec4(getSky(rd), 1.f);
 #endif
     if (res.intersectObj == -1) {
         // If no hit but sky box is used, sample
         if (enableSkyBox) {
-            ri.fragColor = vec3(texture(skybox, rd).rgb);
+            ri.fragColor = vec4(texture(skybox, rd).rgb, 1.f);
         } else {
             ri.fragColor = bgCol;
         }
@@ -1251,13 +1357,12 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
             col *= getPhong(pn, res.intersectObj, p, ro, rd) * 8;
         } else if (objects[res.intersectObj].type == MENGERSPONGE) {
             // Orbit Trap to color
-            col = 0.5 + 0.5*cos(vec3(0,1,2)+2.0*res.trap.z);
+            col = 0.5 + 0.5*cos(vec3(0,1,2)+2.0*res.trap.z), 1.f;
             col *= getPhong(pn, res.intersectObj, p, ro, rd);
         } else if (objects[res.intersectObj].type == TERRAIN) {
-
             col = getTerrainColor(p, pn);
             col *= getPhong(pn, res.intersectObj, p, ro, rd);
-            col = mix(col, bgCol, smoothstep(0., .95, res.d/far));
+            col = mix(col, vec3(bgCol), smoothstep(0., .95, res.d/far));
         } else {
             col = getPhong(pn, res.intersectObj, p, ro, rd);
         }
@@ -1271,13 +1376,15 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
     i.intersectObj = res.intersectObj;
 
     // set return
-    ri.fragColor = col;
+    ri.fragColor = vec4(col, 1.f);
     ri.isEnv = false;
 
     return ri;
 }
 
 void main() {
+
+    FRAME += 1;
 
     if (isTwoD) {
         vec2 coord = twoDFragCoord.xy;
@@ -1291,13 +1398,15 @@ void main() {
     // - why we need this? refer to the ref in vertex shader
     vec3 origin = nearClip.xyz / nearClip.w;
     vec3 farC = farClip.xyz / farClip.w;
+#ifdef TERRAIN
     origin.y += 15;
+#endif
     vec3 dir = farC - origin;
     dir = normalize(dir);
 
-    vec3 phong = vec3(0.),
-         refl = vec3(0.),
-         refr = vec3(0.);
+    vec4 phong = vec4(0.);
+    vec3 refl = vec3(0.);
+    vec3 refr = vec3(0.);
 
     IntersectionInfo info,
             originalInfo;
@@ -1306,11 +1415,11 @@ void main() {
     RenderInfo ri = render(origin, dir, info, 1.f);
     if (ri.isEnv) {
        BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
-       fragColor = vec4(ri.fragColor, 1.f);
+       fragColor = ri.fragColor;
        return;
     } else if (ri.isAL) {
-       setBrightness(ri.fragColor);
-       fragColor = vec4(ri.fragColor, 1.f);
+       setBrightness(ri.fragColor.rgb);
+       fragColor = ri.fragColor;
        return;
     }
 
@@ -1336,7 +1445,7 @@ void main() {
             // Render the reflected ray
             RenderInfo res = render(shiftedRO, r, info, 1.f);
             // Always want to incorporate the first reflected ray's color val
-            vec3 bounce = ks * fil * res.fragColor;
+            vec3 bounce = ks * fil * vec3(res.fragColor);
             refl += bounce;
             if (res.isEnv) {
                 // If reflected ray did not hit anything, we break
@@ -1371,11 +1480,11 @@ void main() {
             // Total Internal Reflection
             refr = vec3(0.);
         } else {
-            refr += kt * ct * render(pExit - nExit * SURFACE_DIST*3.f, rdOut, info, 1.).fragColor;
+            refr += kt * ct * vec3(render(pExit - nExit * SURFACE_DIST*3.f, rdOut, info, 1.).fragColor);
         }
     }
 
-    vec3 col = phong + refl + refr;
+    vec3 col = vec3(phong) + refl + refr;
     setBrightness(col);
     fragColor = vec4(col, 1.f);
 }

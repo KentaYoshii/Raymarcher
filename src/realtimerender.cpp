@@ -317,6 +317,7 @@ void Realtime::initDefaults() {
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE,
                std::vector<GLfloat>{0, 0}.data());
   glBindTexture(GL_TEXTURE_2D, 0);
+
   // NULL CUBE MAP TEXTURE
   glActiveTexture(GL_TEXTURE0 + SKYBOX_TEX_UNIT_OFF);
   glGenTextures(1, &m_nullCubeMapTexture);
@@ -328,6 +329,7 @@ void Realtime::initDefaults() {
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+
   // NULL Bloom Texture
   glGenTextures(1, &m_nullBloomBlurTexture);
   glBindTexture(GL_TEXTURE_2D, m_nullBloomBlurTexture);
@@ -338,6 +340,7 @@ void Realtime::initDefaults() {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glBindTexture(GL_TEXTURE_2D, 0);
+
   // Noise Texture
   glGenTextures(1, &m_noiseTexture);
   glBindTexture(GL_TEXTURE_2D, m_noiseTexture);
@@ -356,7 +359,26 @@ void Realtime::initDefaults() {
                GL_RGBA, GL_UNSIGNED_BYTE, myImage.bits());
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+
+  // Blue Noise Texture
+  glGenTextures(1, &m_blueNoiseTexture);
+  glBindTexture(GL_TEXTURE_2D, m_blueNoiseTexture);
+  QImage myImage2;
+  std::filesystem::path fileRelativePath2(
+      "scenefiles/texture_store/blue_noise_texture.png");
+  QString str2((basepath / fileRelativePath2).string().data());
+  std::cout << (basepath / fileRelativePath2).string() << std::endl;
+  if (!myImage2.load(str2)) {
+    std::cout << "Failed to load in image" << std::endl;
+    return;
+  }
+  myImage2 = myImage2.convertToFormat(QImage::Format_RGBA8888).mirrored();
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, myImage2.width(), myImage2.height(),
+               0, GL_RGBA, GL_UNSIGNED_BYTE, myImage2.bits());
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 /**
@@ -380,6 +402,8 @@ void Realtime::initShader() {
   setIntUniform(m_rayMarchShader, "LTC2", LTC2_TEX_UNIT_OFF);
   // Set the noise texture unit for procedual stuff
   setIntUniform(m_rayMarchShader, "noise", NOISE_TEX_UNIT_OFF);
+  // Set the blue noise texture unit for volumetric rendering
+  setIntUniform(m_rayMarchShader, "bluenoise", BLUE_NOISE_TEX_UNIT_OFF);
   // Bind the textures
   glActiveTexture(GL_TEXTURE0 + LTC1_TEX_UNIT_OFF);
   glBindTexture(GL_TEXTURE_2D, m_mTexture);
@@ -575,6 +599,9 @@ void Realtime::configureScreenUniforms(GLuint shader) {
   // Noise
   glActiveTexture(GL_TEXTURE0 + NOISE_TEX_UNIT_OFF);
   glBindTexture(GL_TEXTURE_2D, m_noiseTexture);
+  // Blue Noise
+  glActiveTexture(GL_TEXTURE0 + BLUE_NOISE_TEX_UNIT_OFF);
+  glBindTexture(GL_TEXTURE_2D, m_blueNoiseTexture);
 }
 
 /**

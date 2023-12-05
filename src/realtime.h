@@ -21,6 +21,7 @@
 #define LTC1_TEX_UNIT_OFF 11
 #define LTC2_TEX_UNIT_OFF 12
 #define NOISE_TEX_UNIT_OFF 13
+#define BLUE_NOISE_TEX_UNIT_OFF 14
 #define BLOOM_BLUR_COUNT 10
 
 class Realtime : public QOpenGLWidget {
@@ -99,6 +100,8 @@ private:
   GLuint m_nullCubeMapTexture;
   // - noise texture
   GLuint m_noiseTexture;
+  // - blue noise texture
+  GLuint m_blueNoiseTexture;
 
   // FBO
   // - application window FBO

@@ -20,6 +20,9 @@
   - [Julia Set](#julia-set)
   - [Menger Sponge](#menger-sponge)
 - [Procedural Rendering](#procedural-rendering)
+  - [Terrain](#terrain)
+- [Volumetric Rendering](#volumetric-rendering)
+  - [Clouds](#clouds)
 
 # Getting Started
 
@@ -223,3 +226,6 @@ $$z_{n+1}=z_{n}^{2}+c$$
 <p align="center">
   <img src="output/procedural/terrain_colored.png">
 </p>
+
+# Volumetric Rendering
+## Clouds 

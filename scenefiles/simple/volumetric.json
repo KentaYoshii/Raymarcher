@@ -1,0 +1,37 @@
+{
+  "name": "root",
+  "globalData": {
+    "ambientCoeff": 0.5,
+    "diffuseCoeff": 0.5,
+    "specularCoeff": 0.5,
+    "transparentCoeff": 0.5
+  },
+  "cameraData": {
+    "position": [0, 0, 5.0],
+    "up": [0.0, 1.0, 0.0],
+    "heightAngle": 30.0,
+    "focus": [0.0, 0.0, 0.0]
+  },
+  "groups": [
+    {
+      "groups": [
+        {
+          "scale": [4, 1, 4],
+          "primitives": [
+            {
+              "type": "sphere"
+            }
+          ]
+        },
+        {
+          "scale": [3, 1, 2],
+          "primitives": [
+            {
+              "type": "sphere"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
