@@ -205,8 +205,26 @@ uniform bool enableSkyBox;
 uniform float power;
 uniform vec2 juliaSeed;
 uniform int numOctaves;
-uniform float terrainHeight;
+uniform float terrainHeight = 0.f;
 uniform float terrainScale;
+
+vec3 shore      = vec3( 0.3, .400,1.0);
+vec3 beach      = vec3( 1.0, .894, .710);
+vec3 earth      = vec3(.824, .706, .549);
+vec3 calcaire   = vec3(.624, .412, .118);
+vec3 rocks      = vec3(.412, .388, .422);
+float SEALEVEL  = 0.1;
+float MAXGRASSSTEEP =  0.5;
+float MAXGRASSALTITUDE= .8;
+float  MAXSNOWSTEEP  =  0.35;
+float MAXSNOWALTITUDE =  0.8;
+
+vec3 grass1 = vec3 (.19, .335, .14);
+vec3 grass2 = vec3 (.478, .451, .14);
+
+vec3 snow1 = vec3 ( .78,.78,.78);
+vec3 snow2 = vec3 ( .9,.9,.9);
+
 // ================== Utility =======================
 // Transforms p along axis by angle
 vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
@@ -352,22 +370,6 @@ float hash( float n )
     return fract(sin(n)*54321.98761234);  // value has no meaning that I could find
 }
 
-//iq  noise function
-float noiseF(vec2 x )
-{
-    vec2 p = floor(x);
-    vec2 f = fract(x);
-
-    f= (10.0+(-15.0+6.0*f)*f)*f*f*f; // smooth
-
-    float n = p.x + p.y*57.0;
-
-    float res = mix(mix( hash(n+  0.0), hash(n+  1.0),f.x),
-    mix( hash(n+ 57.0), hash(n+ 58.0),f.x),f.y);
-
-    return res;
-}
-
 // Derivative based noise
 // ref: https://iquilezles.org/articles/morenoise/
 vec3 noised(vec2 x) {
@@ -381,9 +383,12 @@ vec3 noised(vec2 x) {
   float c = textureLod(noise, (p+vec2(0.5,1.5)) /256.,0.).x;
   float d = textureLod(noise, (p+vec2(1.5,1.5)) /256.,0.).x;
 
-  return vec3(a+(b-a)*u.x+(c-a)*u.y+(a-b-c+d)*u.x*u.y,
-                                  du*(vec2(b-a,c-a)+(a-b-c+d)*u.yx));
+  float noiseVal = a+(b-a)*u.x+(c-a)*u.y+(a-b-c+d)*u.x*u.y;
+  vec2 noiseDerivative = du*(vec2(b-a,c-a)+(a-b-c+d)*u.yx);
+
+  return vec3(noiseVal, noiseDerivative);
 }
+
 // ============ Signed Distance Fields ==============
 // Define SDF for different shapes here
 // - Based on https://iquilezles.org/articles/distfunctions/
@@ -393,10 +398,10 @@ mat2 m=mat2(.8,-.6,.6,.8);
 float sdTerrain(vec2 p)
 {
     vec2 p1 = p * 0.06;
-    float a = terrainHeight;
+    float a = 0;
     float b = terrainScale;
     vec2 d = vec2(0.0);
-    float scl = 2.75;
+    float scl = 2.;
 
     for (int i = 0; i < numOctaves; i++ ) {
         vec3 n = noised(p1);
@@ -408,7 +413,7 @@ float sdTerrain(vec2 p)
         p1 = m * p1 * scl;
      }
 
-    return a * 3.0 ;
+    return a * 15;
 }
 
 
@@ -661,7 +666,10 @@ float sdMatch(vec3 p, int type, int id, out vec4 trapCol)
     } else if (type == SIERPINSKI) {
         return sdSierpinski(p);
     } else if (type == TERRAIN) {
-        return (p.y - sdTerrain(p.xz))* (0.20 + mix(0, 0.25, 1 - abs(terrainScale)/10));
+        // bounding bottom plane
+        float d = dot(p,vec3(0.,1.,0.));
+        float terD = (p.y - sdTerrain(p.xz))* (0.20 + mix(0, 0.25, 1 - abs(terrainScale)/10));
+        return min(d, terD);
     }
 }
 
@@ -822,6 +830,7 @@ vec3 getNormal(in vec3 p) {
                 e.xxx*sdScene(p + e.xxx).minD
                 );
 }
+
 
 // Performs raymarching
 // @param ro Ray origin
@@ -989,81 +998,6 @@ float fbm( vec2 p )
     return f/0.9375;
 }
 
-vec3 shore      = vec3( 0.3, .400,1.0);
-vec3 beach      = vec3( 1.0, .894, .710);
-vec3 earth      = vec3(.824, .706, .549);
-vec3 calcaire   = vec3(.624, .412, .118);
-vec3 rocks      = vec3(.412, .388, .422);
-float SEALEVEL  = 0.2;
-float MAXGRASSSTEEP =  0.5;
-float MAXGRASSALTITUDE= .8;
-float  MAXSNOWSTEEP  =  0.35;
-float MAXSNOWALTITUDE =  0.7;
-
-vec3 grass1 = vec3 (.19, .335, .14);
-vec3 grass2 = vec3 (.478, .451, .14);
-
-vec3 snow1 = vec3 ( .78,.78,.78);
-vec3 snow2 = vec3 ( .9,.9,.9);
-
-vec3 getTerrainColor(vec3 pos, vec3 nor) {
-    float height = pos.y / terrainHeight;
-    vec3 terrainColor = vec3(0.f);
-
-    vec3 GROUND_COLOR = vec3(0.7, 0.5, 0.3);
-    vec3 MOUNTAIN_COLOR = vec3(0.4, 0.35, 0.3);
-    vec3 GRASS_COLOR = vec3(0.2, 0.28, 0.16);
-
-    if ( height <= SEALEVEL) {
-        //water
-        terrainColor=shore;
-        return terrainColor;
-    }
-
-    height += noiseF( pos.xz * 47.0 )* 0.2;
-
-    // base color
-    terrainColor = mix (        beach,    earth, smoothstep(0.0 , 0.08 , height) );
-    terrainColor = mix ( terrainColor, calcaire, smoothstep(0.08, 0.3 , height) );
-    terrainColor = mix ( terrainColor,    rocks, smoothstep(0.3, 1.0  ,height) );
-
-    //add grass
-    if (( nor.y > MAXGRASSSTEEP ) && ( height <  MAXGRASSALTITUDE )) {
-        terrainColor = mix( grass1, grass2, smoothstep(0.0 , 1.0, noiseF( pos.xz * 5.0 )));
-    }
-    // add snow
-    if (( nor.y > MAXSNOWSTEEP) && ( height > MAXSNOWALTITUDE )) {
-        return mix( snow1, snow2, smoothstep(0.0 , 1.0, noiseF( pos.xz * 131.0 )));
-    }
-
-//    vec3 groundCol = GROUND_COLOR * (0.8 + noised(pos.xz * 1000.0) * 0.2) * 0.8;
-//    vec3 mountainCol = MOUNTAIN_COLOR * (0.4 + sdTerrain(pos.xz * 20.0) / terrainHeight * 0.6);
-//    vec3 ground = mix(groundCol, mountainCol, smoothstep(0.0, 0.4, height));
-//    col = ground;
-
-//    float snowTresh = textureLod(noise, (pos.xz+vec2(0.5,0.5)) /256.,0.).x;
-//    vec3 snowCol = mix(GRASS_COLOR, vec3(1.5), smoothstep(snowTresh, snowTresh + 0.07, height));
-//    float snow = smoothstep(0.6 - height * 0.5, 1.0, getNormal(pos).y * getNormal(pos).y);
-//    col = mix(col, snowCol, sqrt(snow));
-
-
-
-//    // rock
-//    float r = texture(noise, (7.0)*pos.xz/256.0 ).x;
-//    col = (r*0.25+0.75)*0.9*mix( vec3(0.08,0.05,0.03), vec3(0.10,0.09,0.08),
-//                                         texture(noise,0.00007*vec2(pos.x,pos.y*48.0)).x );
-//    col = mix( col, 0.20*vec3(0.45,.30,0.15)*(0.50+0.50*r),smoothstep(0.70,0.9,nor.y) );
-//    col = mix( col, 0.15*vec3(0.30,.30,0.10)*(0.25+0.75*r),smoothstep(0.95,1.0,nor.y) );
-//                    col *= 0.1+1.8*sqrt(fbm(pos.xz*0.04)*fbm(pos.xz*0.005));
-//    // snow
-//    float h = smoothstep(55.0,80.0,pos.y + 25.0*fbm(0.01*pos.xz) );
-//    float e = smoothstep(1.0-0.5*h,1.0-0.1*h,nor.y);
-//    float o = 0.3 + 0.7*smoothstep(0.0,0.1,nor.x+h*h);
-//    float s = h*e*o;
-//    col = mix( col, 0.29*vec3(0.62,0.65,0.7), smoothstep( 0.1, 0.9, s ) );
-    return terrainColor;
-}
-
 // Get Area Light
 // @param N Normal
 // @param V View vector
@@ -1216,6 +1150,35 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd)
     return total;
 }
 
+vec3 getTerrainColor(vec3 pos, vec3 nor) {
+    float height = pos.y / 15.f;
+    vec3 terrainColor = vec3(0.f);
+
+    if ( height <= SEALEVEL) {
+        //water
+        terrainColor=shore;
+        return terrainColor;
+    }
+
+    height += noised( pos.xz * 47.).x* 0.2;
+
+    // base color
+    terrainColor = mix (        beach,    earth, smoothstep(0.0 , 0.08 , height) );
+    terrainColor = mix ( terrainColor, calcaire, smoothstep(0.08, 0.3 , height) );
+    terrainColor = mix ( terrainColor,    rocks, smoothstep(0.3, 1.0  ,height) );
+
+    //add grass
+    if (( nor.y > MAXGRASSSTEEP ) && ( height <  MAXGRASSALTITUDE )) {
+        terrainColor = mix( grass1, grass2, smoothstep(0.0 , 1.0, noised( pos.xz * 5.0 ).x));
+    }
+    // add snow
+    if (( nor.y > MAXSNOWSTEEP) && ( height > MAXSNOWALTITUDE )) {
+        return mix( snow1, snow2, smoothstep(0.0 , 1.0, noised( pos.xz * 131.0 ).x));
+    }
+
+    return terrainColor;
+}
+
 // Extract very bright fragments to feed into the color attachment 1
 // which will later be used by Bloom
 // @param colro fragment color in question
@@ -1250,17 +1213,16 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
     RenderInfo ri;
     // Raymarching
     RayMarchRes res = raymarch(ro, rd, far, side);
+    vec3 bgCol = vec3(0.);
+#ifdef SKY_BACKGROUND
+    bgCol = getSky(rd);
+#endif
     if (res.intersectObj == -1) {
         // If no hit but sky box is used, sample
         if (enableSkyBox) {
             ri.fragColor = vec3(texture(skybox, rd).rgb);
         } else {
-            // Simple black screen
-#ifdef SKY_BACKGROUND
-            ri.fragColor = getSky(rd);
-#else
-            ri.fragColor = vec3(0.f);
-#endif
+            ri.fragColor = bgCol;
         }
         ri.isAL = false;
         ri.isEnv = true;
@@ -1294,8 +1256,8 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
         } else if (objects[res.intersectObj].type == TERRAIN) {
 
             col = getTerrainColor(p, pn);
-            //col *= getPhong(pn, res.intersectObj, p, ro, rd);
-            //col *= 2;
+            col *= getPhong(pn, res.intersectObj, p, ro, rd);
+            col = mix(col, bgCol, smoothstep(0., .95, res.d/far));
         } else {
             col = getPhong(pn, res.intersectObj, p, ro, rd);
         }
@@ -1329,6 +1291,7 @@ void main() {
     // - why we need this? refer to the ref in vertex shader
     vec3 origin = nearClip.xyz / nearClip.w;
     vec3 farC = farClip.xyz / farClip.w;
+    origin.y += 15;
     vec3 dir = farC - origin;
     dir = normalize(dir);
 

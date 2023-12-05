@@ -125,8 +125,8 @@ void MainWindow::initialize() {
 
   farBox = new QDoubleSpinBox();
   farBox->setMinimum(10.f);
-  farBox->setMaximum(100.f);
-  farBox->setSingleStep(0.5f);
+  farBox->setMaximum(300.f);
+  farBox->setSingleStep(1.f);
   farBox->setValue(100.f);
 
   epsilonBox = new QDoubleSpinBox();
@@ -143,7 +143,7 @@ void MainWindow::initialize() {
 
   octaveBox = new QDoubleSpinBox();
   octaveBox->setMinimum(1);
-  octaveBox->setMaximum(8);
+  octaveBox->setMaximum(15);
   octaveBox->setSingleStep(1);
   octaveBox->setValue(8);
 
@@ -154,10 +154,10 @@ void MainWindow::initialize() {
   terrainH->setValue(10);
 
   terrainS = new QDoubleSpinBox();
-  terrainS->setMinimum(-10);
-  terrainS->setMaximum(10);
-  terrainS->setSingleStep(0.5);
-  terrainS->setValue(10);
+  terrainS->setMinimum(0);
+  terrainS->setMaximum(15);
+  terrainS->setSingleStep(0.25);
+  terrainS->setValue(2.75);
 
   QGroupBox *nearLayout = new QGroupBox(); // horizonal near slider alignment
   QHBoxLayout *lnear = new QHBoxLayout();

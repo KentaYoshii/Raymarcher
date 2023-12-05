@@ -171,7 +171,7 @@ private:
 
   // Procedural
   float m_terrainH = 10.;
-  float m_terrainS = 10.;
+  float m_terrainS = 2.75;
   int m_numOctaves = 8.;
 
   // PRIVATE METHODS
