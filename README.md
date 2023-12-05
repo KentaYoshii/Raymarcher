@@ -1,6 +1,7 @@
 # Raymarcher
 ![](./output/fractals/top.png)
 ![](./output/fractals/top2.png)
+![](./output/procedural/top3.png)
 - [Getting Started](#getting-started)
   - [Raymarching Algorithm](#raymarching-algorithm)
 - [Raymarcher Implementation](#raymarcher-implementation)
@@ -215,4 +216,10 @@ $$z_{n+1}=z_{n}^{2}+c$$
 
 <p align="center">
   <img src="output/procedural/fix_overshoot.png">
+</p>
+
+- With fully fledged coloring based on the height of the intersection point and the normal, we get a beautiful scene like the one below
+
+<p align="center">
+  <img src="output/procedural/terrain_colored.png">
 </p>
