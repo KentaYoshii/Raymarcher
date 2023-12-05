@@ -46,9 +46,9 @@ struct Settings {
   float power = 8.f;
   glm::vec2 juliaSeed = glm::vec2(0.f);
   // Procedural
-  int numOctaves = 5;
-  float terrainH = 5.;
-  float terrainS = 9.5;
+  int numOctaves = 10.;
+  float terrainH = 10.;
+  float terrainS = 8.;
 };
 
 // The global Settings object, will be initialized by MainWindow

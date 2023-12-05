@@ -7,7 +7,7 @@
     "transparentCoeff": 0.5
   },
   "cameraData": {
-    "position": [4, 15, 4],
+    "position": [0, 0, 4],
     "up": [0.0, 1.0, 0.0],
     "heightAngle": 40.0,
     "focus": [0.0, 0.0, 0.0]
@@ -17,7 +17,7 @@
       "lights": [
         {
           "type": "directional",
-          "color": [6, 6, 6],
+          "color": [1, 1, 1],
           "direction": [0.8, -0.4, 0.3]
         }
       ]
@@ -25,7 +25,8 @@
     {
       "groups": [
         {
-          "translate": [0, 0, 0],
+          "translate": [0, -8, 0],
+          "rotate": [1, 0, 0, 0],
           "primitives": [
             {
               "type": "terrain",

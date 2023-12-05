@@ -145,19 +145,19 @@ void MainWindow::initialize() {
   octaveBox->setMinimum(1);
   octaveBox->setMaximum(8);
   octaveBox->setSingleStep(1);
-  octaveBox->setValue(5);
+  octaveBox->setValue(8);
 
   terrainH = new QDoubleSpinBox();
   terrainH->setMinimum(0);
   terrainH->setMaximum(10);
   terrainH->setSingleStep(0.5);
-  terrainH->setValue(5);
+  terrainH->setValue(10);
 
   terrainS = new QDoubleSpinBox();
   terrainS->setMinimum(-10);
   terrainS->setMaximum(10);
   terrainS->setSingleStep(0.5);
-  terrainS->setValue(9.5);
+  terrainS->setValue(10);
 
   QGroupBox *nearLayout = new QGroupBox(); // horizonal near slider alignment
   QHBoxLayout *lnear = new QHBoxLayout();
