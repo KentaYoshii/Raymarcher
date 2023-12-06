@@ -66,6 +66,8 @@ const int AREA = 3;
 const vec3 BRIGHT_FILTER = vec3(0.2126, 0.7152, 0.0722);
 
 int FRAME;
+float SPEED;
+const int SPEED_SCALE = 3;
 // ============ Structs ============
 struct RayMarchObject
 {
@@ -362,21 +364,6 @@ vec3 samplePointOnRectangleAreaLight(vec3 lightPos1, vec3 lightPos2, vec3 lightP
     return randomPoint;
 }
 
-float calculatePower(float iTime, float minPower, float maxPower, float duration)
-{
-    float t = sin(2.0 * 3.1416 * iTime / duration);
-    return mix(minPower, maxPower, 0.5 * (t + 1.0));
-}
-
-float BeersLaw (float dist, float absorption) {
-  return exp(-dist * absorption);
-}
-
-float HenyeyGreenstein(float g, float mu) {
-  float gg = g * g;
-        return (1.0 / (4.0 * PI))  * ((1.0 - gg) / pow(1.0 + gg - 2.0 * g * mu, 1.5));
-}
-
 // ============ NOISE =============
 
 //iq hash
@@ -413,24 +400,6 @@ float noiseV(vec3 x ) {
   return mix( rg.x, rg.y, f.z )*2.0-1.0;
 }
 
-float fbm(vec3 p) {
-  vec3 q = p + iTime * 0.2 * vec3(1.0, -0.2, -1.0);
-  float g = noiseV(q);
-
-  float f = 0.0;
-  float scale = 0.5;
-  float factor = 2.02;
-
-  for (int i = 0; i < 6; i++) {
-      f += scale * noiseV(q);
-      q *= factor;
-      factor += 0.21;
-      scale *= 0.5;
-  }
-
-  return f;
-}
-
 // ============ Signed Distance Fields ==============
 // Define SDF for different shapes here
 // - Based on https://iquilezles.org/articles/distfunctions/
@@ -457,7 +426,6 @@ float sdTerrain(vec2 p)
 
     return a * 15;
 }
-
 
 // Mandelbrot Set Signed Distance Field
 // ref: https://www.shadertoy.com/view/Mss3R8
@@ -873,59 +841,6 @@ vec3 getNormal(in vec3 p) {
                 );
 }
 
-const float VOLUMETRIC_STEP = 0.1f;
-const int VOLUMETRIC_MAX_STEPS = 100;
-const float SCATTERING_ANISO = 0.3;
-float ABSORPTION_COEFFICIENT = 0.9;
-
-const vec3 SUN_POSITION = vec3(1.0, 0.0, 0.0);
-const int MAX_STEPS_LIGHTS = 6;
-vec3 sunDirection = normalize(SUN_POSITION);
-
-float lightmarch(vec3 position, vec3 rayDirection) {
-  vec3 lightDirection = normalize(SUN_POSITION);
-  float totalDensity = 0.0;
-  float marchSize = 0.03;
-
-  for (int step = 0; step < MAX_STEPS_LIGHTS; step++) {
-      position += lightDirection * marchSize * float(step);
-      float lightSample = -sdScene(position).minD;
-      totalDensity += lightSample;
-  }
-
-  float transmittance = BeersLaw(totalDensity, ABSORPTION_COEFFICIENT);
-  return transmittance;
-}
-
-// Performs raymarching for volumetric data
-float raymarchVolumetric(vec3 rayOrigin, vec3 rayDirection, float offset) {
-  float depth = VOLUMETRIC_STEP * offset;
-  vec3 p = rayOrigin + depth * rayDirection;
-
-  vec4 res = vec4(0.0);
-  float totalTransmittance = 1.0;
-  float lightEnergy = 0.0;
-
-  float phase = HenyeyGreenstein(SCATTERING_ANISO, dot(rayDirection, sunDirection));
-
-
-  for (int i = 0; i < VOLUMETRIC_MAX_STEPS; i++) {
-    float density = -sdScene(p).minD + fbm(p);
-
-    // We only draw the density if it's greater than 0
-    if (density > 0.0) {
-        float lightTransmittance = lightmarch(p, rayDirection);
-        float luminance = 0.05 + density * phase;
-        totalTransmittance *= lightTransmittance;
-        lightEnergy += totalTransmittance * luminance;
-    }
-    depth += VOLUMETRIC_STEP;
-    p = rayOrigin + depth * rayDirection;
-  }
-
-  return lightEnergy;
-}
-
 // Performs raymarching
 // @param ro Ray origin
 // @param rd Ray direction
@@ -965,6 +880,144 @@ RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
   }
   return res;
 }
+
+// ============== CLOUDS ================
+
+vec3 sundir = normalize( vec3(-0.5,-0.1,-1.0) );
+
+float CLOUD1 ( in vec3 p )
+{
+    vec3 q = p - vec3(0.0,0.1,1.0)*SPEED;
+    float f;
+    f  = 0.50000*noiseV( q ); q = q*2.02;
+    f += 0.25000*noiseV( q ); q = q*2.03;
+    f += 0.12500*noiseV( q ); q = q*2.01;
+    f += 0.06250*noiseV( q );
+    return clamp( -p.y - 0.5 + 1.75*f, 0.0, 1.0 );
+}
+
+float CLOUD2( in vec3 p )
+{
+    vec3 q = p - vec3(0.0,0.1,1.0)*SPEED;
+    float f;
+    f  = 0.50000*noiseV( q ); q = q*2.02;
+    f += 0.25000*noiseV( q ); q = q*2.03;
+    f += 0.12500*noiseV( q );
+        return clamp( -p.y - 0.5 + 1.75*f, 0.0, 1.0 );
+}
+
+float CLOUD3 ( in vec3 p )
+{
+    vec3 q = p - vec3(0.0,0.1,1.0)*SPEED;
+    float f;
+    f  = 0.50000*noiseV( q ); q = q*2.02;
+    f += 0.25000*noiseV( q );;
+    return clamp( -p.y - 0.5 + 1.75*f, 0.0, 1.0 );
+}
+
+vec4 integrate( in vec4 sum, in float dif, in float den, in vec3 bgcol, in float t )
+{
+    // lighting
+    vec3 lin = vec3(0.65,0.68,0.7)*1.2 + 0.5*vec3(0.7, 0.5, 0.3)*dif;
+    vec4 col = vec4( mix( 1.15*vec3(1.0,0.95,0.8), vec3(0.65), den ), den );
+    col.xyz *= lin;
+    col.xyz = mix( col.xyz, bgcol, 1.0-exp(-0.004*t*t) );
+    // front to back blending
+    col.a *= 0.4;
+    col.rgb *= col.a;
+    return sum + col*(1.0-sum.a);
+}
+
+const float CLOUD_STEP_SIZE = 0.2f;
+
+void cloudMarch(int type, int steps, in vec3 ro,
+                in vec3 rd, float offset, inout float t,
+                inout vec4 sum, in vec3 bgcol)
+{
+    bool hasHit = false;
+    float stepSize = CLOUD_STEP_SIZE;
+    for (int i = 0; i < steps; i++) {
+        vec3 pos = ro + rd * t;
+        if( pos.y<-3. || pos.y>1.2 || sum.a > 0.99 ) break;
+        float den;
+        if (type == 1) {
+            den = CLOUD1(pos);
+            if (den > 0.1) {
+                if (!hasHit)
+                {
+                    hasHit = true;
+                    stepSize *= 0.25f;          // Reduce the step size.
+                    t -= (stepSize * 3.0f);     // Take a partial step back.
+                    continue;
+                }
+                float dif = clamp((den - CLOUD1(pos+0.5*sundir))*2., 0.0, 1.0 );
+                sum = integrate( sum, dif, den, bgcol, t );
+            }
+        } else if (type == 2) {
+            den = CLOUD2(pos);
+            if (den > 0.1) {
+                if (!hasHit)
+                {
+                    hasHit = true;
+                    stepSize *= 0.25f;          // Reduce the step size.
+                    t -= (stepSize * 3.0f);     // Take a partial step back.
+                    continue;
+                }
+                float dif = clamp((den - CLOUD2(pos+0.5*sundir))*2., 0.0, 1.0 );
+                sum = integrate( sum, dif, den, bgcol, t );
+            }
+        } else {
+            den = CLOUD3(pos);
+            if (den > 0.1) {
+                if (!hasHit)
+                {
+                    hasHit = true;
+                    stepSize *= 0.25f;          // Reduce the step size.
+                    t -= (stepSize * 3.0f);     // Take a partial step back.
+                    continue;
+                }
+                float dif = clamp((den - CLOUD3(pos+0.5*sundir))*2., 0.0, 1.0 );
+                sum = integrate( sum, dif, den, bgcol, t );
+            }
+        }
+        t += max(0.2, 0.03 * t);
+    }
+}
+// Performs raymarching for volumetric data
+vec4 raymarchVolumetric(vec3 ro, vec3 rd, float offset, in vec3 bgcol) {
+    vec4 sum = vec4(0.0);
+    float t = CLOUD_STEP_SIZE * offset;
+
+    cloudMarch(1, 25, ro, rd, offset, t, sum, bgcol);
+    cloudMarch(2, 20, ro, rd, offset, t, sum, bgcol);
+    cloudMarch(3, 15, ro, rd, offset, t, sum, bgcol);
+    cloudMarch(3, 15, ro, rd, offset, t, sum, bgcol);
+
+    return clamp( sum, 0.0, 1.0 );
+}
+
+// CLOUD
+vec3 cloudRender( in vec3 ro, in vec3 rd )
+{
+    // background sky
+    float sun = clamp( dot(sundir,rd), 0.0, 1.0 );
+    vec3 col = 0.9*vec3(0.949,0.757,0.525) - rd.y*0.2*vec3(0.949,0.757,0.525);// + 0.15*0.5;
+    col += 0.8*vec3(1.0,.6,0.1)*pow( sun, 20.0 );
+
+    // get noise
+    float blueNoise = texture(bluenoise, gl_FragCoord.xy / 1024.0).r;
+    float off = float(FRAME%64) + 0.61803398875f;
+
+    // clouds
+    vec4 res = raymarchVolumetric( ro, rd, fract(blueNoise + off), col );
+    col = col*(1.0-res.w) + res.xyz;
+
+    // sun glare
+    col += 0.1*vec3(0.949,0.757,0.525)*pow( sun, 3.0 );
+
+    return col;
+}
+
 
 // ================== Phong Total Illumination =================
 // Area Light Stuff
@@ -1300,19 +1353,8 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
 {
     RenderInfo ri;
 #ifdef VOLUMETRIC
-    vec3 sunColor = vec3(1.0,0.5,0.3);
-    float sun = clamp(dot(sunDirection, rd), 0.0, 1.0);
-    // Base sky color
-    vec3 color = vec3(0.7,0.7,0.90);
-    // Add vertical gradient
-    color -= 0.8 * vec3(0.90,0.75,0.90) * rd.y;
-    // Add sun color to sky
-    color += 0.5 * sunColor * pow(sun, 10.0);
 
-    float blueNoise = texture(bluenoise, gl_FragCoord.xy / 1024.0).r;
-    float off = float(FRAME%64) + 0.61803398875f;
-    float inten = raymarchVolumetric(ro, rd, fract(blueNoise + off));
-    ri.fragColor = vec4(color + sunColor * inten, 1.f);
+    ri.fragColor = vec4(cloudRender(ro, rd), 1.f);
     ri.isAL = false;
     ri.isEnv = false;
     return ri;
@@ -1385,6 +1427,7 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
 void main() {
 
     FRAME += 1;
+    SPEED = iTime * SPEED_SCALE;
 
     if (isTwoD) {
         vec2 coord = twoDFragCoord.xy;

@@ -16,15 +16,7 @@
     {
       "groups": [
         {
-          "scale": [4, 1, 4],
-          "primitives": [
-            {
-              "type": "sphere"
-            }
-          ]
-        },
-        {
-          "scale": [3, 1, 2],
+          "scale": [2, 2, 2],
           "primitives": [
             {
               "type": "sphere"
