@@ -2,6 +2,7 @@
 ![](./output/fractals/top.png)
 ![](./output/fractals/top2.png)
 ![](./output/procedural/top3.png)
+![](./output/procedural/top4.png)
 - [Getting Started](#getting-started)
   - [Raymarching Algorithm](#raymarching-algorithm)
 - [Raymarcher Implementation](#raymarcher-implementation)
@@ -228,4 +229,18 @@ $$z_{n+1}=z_{n}^{2}+c$$
 </p>
 
 # Volumetric Rendering
-## Clouds 
+- The real strength of raymarching is its ability to render participating media such as fog, smoke, clouds and other volumetric effects.
+- To achive this, we shoot a ray normally, but instead of stopping whenever we hit an object, we _march_ through it.
+
+<p align="center">
+  <img src="output/procedural/volumetric_1.gif">
+</p>
+
+- We then accumulate the sampled values along the ray, taking into account the density and color of the participating medium.
+
+## Cloud
+- Using the same noise texture, we can render clouds very easily. 
+
+<p align="center">
+  <img src="output/procedural/cloud.png">
+</p>
