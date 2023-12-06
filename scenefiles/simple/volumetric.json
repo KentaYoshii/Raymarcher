@@ -18,13 +18,14 @@
         {
           "type": "directional",
           "color": [3, 2.6, 2.0],
-          "direction": [0.5, 0.1, 1.0]
+          "direction": [-0.577, -0.577, 0.577]
         }
       ]
     },
     {
       "groups": [
         {
+          "translate": [0, 2, 0],
           "scale": [2, 2, 2],
           "primitives": [
             {

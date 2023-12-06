@@ -65,6 +65,12 @@ const int AREA = 3;
 // Bloom
 const vec3 BRIGHT_FILTER = vec3(0.2126, 0.7152, 0.0722);
 
+// VOLUMETRIC
+const float CLOUD_STEP_SIZE = 0.3f;
+const float ABSORPTION_COEFFICIENT = 0.5;
+const vec3 CLOUD_DIFFUSE = vec3(0.8f);
+const vec3 CLOUD_AMBIENT = vec3(0.03, 0.018, 0.018);
+
 int FRAME;
 float SPEED;
 const int SPEED_SCALE = 3;
@@ -364,6 +370,31 @@ vec3 samplePointOnRectangleAreaLight(vec3 lightPos1, vec3 lightPos2, vec3 lightP
     return randomPoint;
 }
 
+// Gets the angular fall off term
+float angularFalloffFactor(float angle, float innerA, float outerA) {
+    float t = (angle - innerA) / (outerA - innerA);
+    return -2 * pow(t, 3) + 3 * pow(t, 2);
+}
+
+// Gets the attenuation factor
+float attenuationFactor(float d, vec3 func) {
+    return min(1.f / (func[0] + (d * func[1]) + (d * d * func[2])), 1.f);
+}
+
+float angularFalloff(vec3 L, int i) {
+    float cosalpha = dot(-normalize(lights[i].lightDir), L);
+    float inner = lights[i].lightAngle - lights[i].lightPenumbra;
+    if (cosalpha <= cos(lights[i].lightAngle)){
+        return 0.f;
+    } else if (cosalpha > cos(inner)) {
+        return 1.f;
+    } else {
+        return 1.f -
+                angularFalloffFactor(acos(cosalpha), inner, lights[i].lightAngle);
+     }
+}
+
+
 // ============ NOISE =============
 
 //iq hash
@@ -398,6 +429,27 @@ float noiseV(vec3 x ) {
   vec2 uv = (p.xy+vec2(37.0,239.0)*p.z) + f.xy;
   vec2 rg = textureLod(noise,(uv+0.5)/256.0,0.0).yx;
   return mix( rg.x, rg.y, f.z )*2.0-1.0;
+}
+
+const mat3 m3  = mat3( 0.00,  0.80,  0.60,
+                      -0.80,  0.36, -0.48,
+                      -0.60, -0.48,  0.64 );
+// Taken from Inigo Quilez's Rainforest ShaderToy:
+// https://www.shadertoy.com/view/4ttSWf
+float fbm_4( in vec3 x )
+{
+    float f = 2.0;
+    float s = 0.5;
+    float a = 0.0;
+    float b = 0.5;
+    for( int i=min(0, FRAME); i<4; i++ )
+    {
+        float n = noiseV(x);
+        a += b*n;
+        b *= s;
+        x = f*m3*x;
+    }
+        return a;
 }
 
 // ============ Signed Distance Fields ==============
@@ -882,7 +934,10 @@ RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
 }
 
 // ============== CLOUDS ================
+// Greatly helped by:
+// https://wallisc.github.io/rendering/2020/05/02/Volumetric-Rendering-Part-2.html
 
+// Define different clouds
 float CLOUD0( in vec3 p )
 {
     vec3 q = p - vec3(0.0,0.1,1.0)*SPEED;
@@ -894,7 +949,6 @@ float CLOUD0( in vec3 p )
     f += 0.03125*noiseV( q );
         return clamp( -p.y - 0.5 + 1.75*f, 0.0, 1.0 );
 }
-
 float CLOUD1( in vec3 p )
 {
     vec3 q = p - vec3(0.0,0.1,1.0)*SPEED;
@@ -905,7 +959,6 @@ float CLOUD1( in vec3 p )
     f += 0.06250*noiseV( q );
     return clamp( -p.y - 0.5 + 1.75*f, 0.0, 1.0 );
 }
-
 float CLOUD2( in vec3 p )
 {
     vec3 q = p - vec3(0.0,0.1,1.0)*SPEED;
@@ -915,7 +968,6 @@ float CLOUD2( in vec3 p )
     f += 0.12500*noiseV( q );
         return clamp( -p.y - 0.5 + 1.75*f, 0.0, 1.0 );
 }
-
 float CLOUD3( in vec3 p )
 {
     vec3 q = p - vec3(0.0,0.1,1.0)*SPEED;
@@ -925,91 +977,103 @@ float CLOUD3( in vec3 p )
     return clamp( -p.y - 0.5 + 1.75*f, 0.0, 1.0 );
 }
 
-vec4 integrate( in vec4 sum, in float dif, in float den, in vec3 bgcol, in float t )
+float BeerLambert(float absorptionCoefficient, float distanceTraveled)
 {
-    // lighting
-    vec3 lin = vec3(0.65,0.68,0.7)*1.2 + 0.5*vec3(0.7, 0.5, 0.3)*dif;
-    vec4 col = vec4( mix( 1.15*vec3(1.0,0.95,0.8), vec3(0.65), den ), den );
-    col.xyz *= lin;
-    col.xyz = mix( col.xyz, bgcol, 1.0-exp(-0.004*t*t) );
-    // front to back blending
-    col.a *= 0.4;
-    col.rgb *= col.a;
-    return sum + col*(1.0-sum.a);
+    return exp(-absorptionCoefficient * distanceTraveled);
 }
 
-const float CLOUD_STEP_SIZE = 0.05f;
-vec3 sundir = normalize( vec3(-0.5,-0.1,-1.0) );
+// Dispatcher function
+float cloudMarchDispatch(vec3 p, int type) {
+    if (type == 0) {
+        return CLOUD0(p);
+    } else if (type == 1) {
+        return CLOUD1(p);
+    } else if (type == 2) {
+        return CLOUD2(p);
+    } else {
+        return CLOUD3(p);
+    }
+}
+
+//
+float getLightVisiblity(in vec3 ro, in vec3 rd, in float maxT,
+                        in int maxSteps, in float marchSize, in int type) {
+    float t = 0.0f;
+    float lightVisiblity = 1.0f;
+    for(int i = 0; i < maxSteps; i++) {
+        t += marchSize;
+        if(t > maxT) break;
+        vec3 pos = ro + t*rd;
+        if(cloudMarchDispatch(pos, type) > 0.1) {
+            lightVisiblity *= BeerLambert(ABSORPTION_COEFFICIENT, marchSize);
+        }
+    }
+    return lightVisiblity;
+}
+
+// Gets the mulitplier to scale down the density based on how close we are to the edge
+float getFogDensity(vec3 position, int type) {
+    float val = cloudMarchDispatch(position, type);
+    const float maxSDFMultiplier = 1.0;
+    if (val > 0.1) {
+        return min(abs(val), maxSDFMultiplier) * abs(fbm_4(position / 6.0) + 0.5);;
+    } else {
+        return 0.f;
+    }
+}
 
 bool cloudMarch(int type, int steps, in vec3 ro, in vec3 rd, inout float t,
-                inout vec4 sum, in vec3 bgcol)
+                inout vec4 sum)
 {
     bool hasHit = false;
     float stepSize = CLOUD_STEP_SIZE;
+    float opaqueVisibility = 1.f;
     for (int i = 0; i < steps; i++) {
         vec3 pos = ro + rd * t;
-        if( pos.y<-3. || pos.y>3. || sum.a > 0.99 ) break;
-        float den;
-        if (type == 0) {
-            den = CLOUD0(pos);
-            if (den > 0.1) {
-                if (!hasHit)
-                {
-                    hasHit = true;
-                    stepSize *= 0.25f;          // Reduce the step size.
-                    t -= (stepSize * 3.0f);     // Take a partial step back.
-                    continue;
-                }
-                float dif = clamp((den - CLOUD0(pos+0.5*sundir))*2., 0.0, 1.0 );
-                sum = integrate( sum, dif, den, bgcol, t );
+        if (pos.y < -3. || pos.y > 3. || sum.a > 0.99 ) break;
+        float den = cloudMarchDispatch(pos, type);
+        if (den > 0.1) {
+            if (!hasHit) {
+                // Upon entering, take a step back and reduce the step size
+                // This helps with getting rid of banding artifacts
+                hasHit = true; stepSize *= 0.25f; t -= (stepSize * 3.0f);
+                continue;
             }
-        } else if (type == 1) {
-            den = CLOUD1(pos);
-            if (den > 0.1) {
-                if (!hasHit)
-                {
-                    hasHit = true;
-                    stepSize *= 0.25f;
-                    t -= (stepSize * 3.0f);
-                    continue;
+            float previousOpaqueVisibility = opaqueVisibility;
+            opaqueVisibility *= BeerLambert(ABSORPTION_COEFFICIENT * getFogDensity(pos, type), stepSize);
+            float absorptionFromMarch = previousOpaqueVisibility - opaqueVisibility;
+            for (int i = 0; i < numLights; i++) {
+                float fAtt = 1.f; float aFall = 1.f; vec3 L;
+                float d = length(lights[i].lightPos - pos);
+                if (lights[i].type == DIRECTIONAL) {
+                    d = far;
+                    L = normalize(-lights[i].lightDir);
+                } else if (lights[i].type == POINT) {
+                    L = normalize(lights[i].lightPos - pos);
+                    fAtt = attenuationFactor(d, lights[i].lightFunc);
+                } else if (lights[i].type == SPOT) {
+                    L = normalize(lights[i].lightPos - pos);
+                    fAtt = attenuationFactor(d, lights[i].lightFunc);
+                    aFall = angularFalloff(L, i);
                 }
-                float dif = clamp((den - CLOUD1(pos+0.5*sundir))*2., 0.0, 1.0 );
-                sum = integrate( sum, dif, den, bgcol, t );
+                vec3 lightC = lights[i].lightColor * fAtt * aFall;
+                float lightVisibility = getLightVisiblity(ro, rd, d, 4, CLOUD_STEP_SIZE, type);
+                sum += absorptionFromMarch * lightVisibility
+                        * vec4(CLOUD_DIFFUSE, 1.f) * vec4(lightC, 1.f);
             }
-        } else if (type == 2) {
-            den = CLOUD2(pos);
-            if (den > 0.1) {
-                if (!hasHit)
-                {
-                    hasHit = true;
-                    stepSize *= 0.25f;
-                    t -= (stepSize * 3.0f);
-                    continue;
-                }
-                float dif = clamp((den - CLOUD2(pos+0.5*sundir))*2., 0.0, 1.0 );
-                sum = integrate( sum, dif, den, bgcol, t );
-            }
-        } else {
-            den = CLOUD3(pos);
-            if (den > 0.1) {
-                if (!hasHit)
-                {
-                    hasHit = true;
-                    stepSize *= 0.25f;
-                    t -= (stepSize * 3.0f);
-                    continue;
-                }
-                float dif = clamp((den - CLOUD3(pos+0.5*sundir))*2., 0.0, 1.0 );
-                sum = integrate( sum, dif, den, bgcol, t );
-            }
+            // ambient term
+            sum += absorptionFromMarch * vec4(CLOUD_DIFFUSE, 1.f)
+                    * 1.2 * vec4(CLOUD_AMBIENT, 1.f);
         }
         t += max(CLOUD_STEP_SIZE, 0.03 * t);
     }
     return hasHit;
 }
+
 // Performs raymarching for volumetric data
-vec4 raymarchVolumetric(vec3 ro, vec3 rd, inout float t,
-                        in vec3 bgcol, out bool hit) {
+// To prevent banding from happening, offset the ray start position using
+// blue noise texture (aka blue noise dithering)
+vec4 raymarchVolumetric(vec3 ro, vec3 rd, inout float t, out bool hit) {
     vec4 sum = vec4(0.0);
     // get noise
     float blueNoise = texture(bluenoise, gl_FragCoord.xy / 1024.0).r;
@@ -1018,33 +1082,27 @@ vec4 raymarchVolumetric(vec3 ro, vec3 rd, inout float t,
     // different starting points
     t = CLOUD_STEP_SIZE * fract(off + blueNoise);
 
-    bool hit0 = cloudMarch(0, 35, ro, rd, t, sum, bgcol);
-    bool hit1 = cloudMarch(1, 30, ro, rd, t, sum, bgcol);
-    bool hit2 = cloudMarch(2, 25, ro, rd, t, sum, bgcol);
-    bool hit3 = cloudMarch(3, 20, ro, rd, t, sum, bgcol);
-    bool hit4 = cloudMarch(3, 20, ro, rd, t, sum, bgcol);
+    bool hit0 = cloudMarch(0, 35, ro, rd, t, sum);
+    bool hit1 = cloudMarch(1, 30, ro, rd, t, sum);
+    bool hit2 = cloudMarch(2, 25, ro, rd, t, sum);
+    bool hit3 = cloudMarch(3, 20, ro, rd, t, sum);
+    bool hit4 = cloudMarch(3, 20, ro, rd, t, sum);
 
     hit = hit0 || hit1 || hit2 || hit3 || hit4;
 
     return clamp( sum, 0.0, 1.0 );
 }
 
+// Function that renders volumetric cloud
 vec3 cloudRender( in vec3 ro, in vec3 rd, in vec3 bgCol, out bool hit, out float t )
 {
-    // background sky
-//    float sun = clamp( dot(sundir,rd), 0.0, 1.0 );
-//    vec3 col = 0.9 * vec3(0.949,0.757,0.525) - rd.y*0.2*vec3(0.949,0.757,0.525);// + 0.15*0.5;
-//    col += 0.8 * vec3(1.0,.6,0.1)*pow( sun, 20.0 );
+    // Background color
     vec3 col = bgCol;
-
-    // clouds
+    // Raymarch volumetric cloud
     t = 0.f;
-    vec4 res = raymarchVolumetric( ro, rd, t, bgCol, hit );
+    vec4 res = raymarchVolumetric(ro, rd, t, hit);
+    // Blend with background color
     col = col*(1.0-res.w) + res.xyz;
-
-    // sun glare
-    // col += 0.1*vec3(0.949,0.757,0.525)*pow( sun, 3.0 );
-
     return col;
 }
 
@@ -1143,17 +1201,6 @@ vec3 getSpecular(float RdotV, vec3 cspec, float shi) {
     return ks * pow(RdotV, shi) * cspec;
 }
 
-// Gets the angular fall off term
-float angularFalloffFactor(float angle, float innerA, float outerA) {
-    float t = (angle - innerA) / (outerA - innerA);
-    return -2 * pow(t, 3) + 3 * pow(t, 2);
-}
-
-// Gets the attenuation factor
-float attenuationFactor(float d, vec3 func) {
-    return min(1.f / (func[0] + (d * func[1]) + (d * d * func[2])), 1.f);
-}
-
 // Get Area Light
 // @param N Normal
 // @param V View vector
@@ -1210,13 +1257,10 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd)
 
     // Loop Lights
     for (int i = 0; i < numLights; i++) {
-        float fAtt = 1.f;
-        float aFall = 1.f;
+        float fAtt = 1.f; float aFall = 1.f;
         float d = length(p - lights[i].lightPos);
-        vec3 currColor = vec3(0.f);
-        vec3 L;
-        float maxT;
-        vec3 center;
+        vec3 currColor = vec3(0.f); vec3 L; float maxT;
+
         if (lights[i].type == POINT) {
             L = normalize(lights[i].lightPos - p);
             fAtt = attenuationFactor(d, lights[i].lightFunc);
@@ -1228,17 +1272,7 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd)
             L = normalize(lights[i].lightPos - p);
             fAtt = attenuationFactor(d, lights[i].lightFunc);
             maxT = length(lights[i].lightPos - p);
-            // Angular Falloff
-            float cosalpha = dot(-normalize(lights[i].lightDir), L);
-            float inner = lights[i].lightAngle - lights[i].lightPenumbra;
-            if (cosalpha <= cos(lights[i].lightAngle)){
-                aFall = 0.f;
-            } else if (cosalpha > cos(inner)) {
-                aFall = 1.f;
-            } else {
-                aFall =  1.f -
-                        angularFalloffFactor(acos(cosalpha), inner, lights[i].lightAngle);
-             }
+            aFall = angularFalloff(L, i);
         }
 
         vec3 V = normalize(-rd);
@@ -1433,6 +1467,7 @@ void main() {
     // Update Globals
     FRAME += 1;
     SPEED = iTime * SPEED_SCALE;
+    SPEED = 1.f;
 
     if (isTwoD) {
         vec2 coord = twoDFragCoord.xy;
