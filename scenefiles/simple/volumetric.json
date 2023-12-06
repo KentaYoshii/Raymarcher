@@ -9,17 +9,32 @@
   "cameraData": {
     "position": [0, 0, 5.0],
     "up": [0.0, 1.0, 0.0],
-    "heightAngle": 30.0,
+    "heightAngle": 50.0,
     "focus": [0.0, 0.0, 0.0]
   },
   "groups": [
+    {
+      "lights": [
+        {
+          "type": "directional",
+          "color": [3, 2.6, 2.0],
+          "direction": [0.5, 0.1, 1.0]
+        }
+      ]
+    },
     {
       "groups": [
         {
           "scale": [2, 2, 2],
           "primitives": [
             {
-              "type": "sphere"
+              "type": "sphere",
+              "reflective": [1, 1, 1],
+              "transparent": [1, 1, 1],
+              "diffuse": [1, 1, 1],
+              "ambient": [0.3, 0.3, 0.3],
+              "specular": [1, 1, 1],
+              "shininess": 100.0
             }
           ]
         }

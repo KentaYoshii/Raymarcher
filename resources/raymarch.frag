@@ -883,8 +883,6 @@ RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
 
 // ============== CLOUDS ================
 
-vec3 sundir = normalize( vec3(-0.5,-0.1,-1.0) );
-
 float CLOUD1 ( in vec3 p )
 {
     vec3 q = p - vec3(0.0,0.1,1.0)*SPEED;
@@ -928,10 +926,10 @@ vec4 integrate( in vec4 sum, in float dif, in float den, in vec3 bgcol, in float
     return sum + col*(1.0-sum.a);
 }
 
-const float CLOUD_STEP_SIZE = 0.2f;
+const float CLOUD_STEP_SIZE = 0.05f;
+vec3 sundir = normalize( vec3(-0.5,-0.1,-1.0) );
 
-void cloudMarch(int type, int steps, in vec3 ro,
-                in vec3 rd, float offset, inout float t,
+bool cloudMarch(int type, int steps, in vec3 ro, in vec3 rd, inout float t,
                 inout vec4 sum, in vec3 bgcol)
 {
     bool hasHit = false;
@@ -980,36 +978,41 @@ void cloudMarch(int type, int steps, in vec3 ro,
                 sum = integrate( sum, dif, den, bgcol, t );
             }
         }
-        t += max(0.2, 0.03 * t);
+        t += max(CLOUD_STEP_SIZE, 0.03 * t);
     }
+    return hasHit;
 }
 // Performs raymarching for volumetric data
-vec4 raymarchVolumetric(vec3 ro, vec3 rd, float offset, in vec3 bgcol) {
+vec4 raymarchVolumetric(vec3 ro, vec3 rd, inout float t,
+                        in vec3 bgcol, out bool hit) {
     vec4 sum = vec4(0.0);
-    float t = CLOUD_STEP_SIZE * offset;
-
-    cloudMarch(1, 25, ro, rd, offset, t, sum, bgcol);
-    cloudMarch(2, 20, ro, rd, offset, t, sum, bgcol);
-    cloudMarch(3, 15, ro, rd, offset, t, sum, bgcol);
-    cloudMarch(3, 15, ro, rd, offset, t, sum, bgcol);
-
-    return clamp( sum, 0.0, 1.0 );
-}
-
-// CLOUD
-vec3 cloudRender( in vec3 ro, in vec3 rd )
-{
-    // background sky
-    float sun = clamp( dot(sundir,rd), 0.0, 1.0 );
-    vec3 col = 0.9*vec3(0.949,0.757,0.525) - rd.y*0.2*vec3(0.949,0.757,0.525);// + 0.15*0.5;
-    col += 0.8*vec3(1.0,.6,0.1)*pow( sun, 20.0 );
-
     // get noise
     float blueNoise = texture(bluenoise, gl_FragCoord.xy / 1024.0).r;
     float off = float(FRAME%64) + 0.61803398875f;
 
+    // different starting points
+    t = CLOUD_STEP_SIZE * fract(off + blueNoise);
+
+    bool hit1 = cloudMarch(1, 30, ro, rd, t, sum, bgcol);
+    bool hit2 = cloudMarch(2, 25, ro, rd, t, sum, bgcol);
+    bool hit3 = cloudMarch(3, 20, ro, rd, t, sum, bgcol);
+    bool hit4 = cloudMarch(3, 20, ro, rd, t, sum, bgcol);
+
+    hit = hit1 || hit2 || hit3 || hit4;
+
+    return clamp( sum, 0.0, 1.0 );
+}
+
+vec3 cloudRender( in vec3 ro, in vec3 rd, out bool hit, out float t )
+{
+    // background sky
+    float sun = clamp( dot(sundir,rd), 0.0, 1.0 );
+    vec3 col = 0.9 * vec3(0.949,0.757,0.525) - rd.y*0.2*vec3(0.949,0.757,0.525);// + 0.15*0.5;
+    col += 0.8 * vec3(1.0,.6,0.1)*pow( sun, 20.0 );
+
     // clouds
-    vec4 res = raymarchVolumetric( ro, rd, fract(blueNoise + off), col );
+    t = 0.f;
+    vec4 res = raymarchVolumetric( ro, rd, t, col, hit );
     col = col*(1.0-res.w) + res.xyz;
 
     // sun glare
@@ -1349,18 +1352,11 @@ vec3 getSky(vec3 rd) {
 // @param rd Ray direction
 // @param i IntersectionInfo we are populating
 // @param side Determines if we are inside or outside of an object (for refraction)
-RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side)
+RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i, in float side, in float maxT)
 {
     RenderInfo ri;
-#ifdef VOLUMETRIC
-
-    ri.fragColor = vec4(cloudRender(ro, rd), 1.f);
-    ri.isAL = false;
-    ri.isEnv = false;
-    return ri;
-#endif
     // Raymarching
-    RayMarchRes res = raymarch(ro, rd, far, side);
+    RayMarchRes res = raymarch(ro, rd, maxT, side);
     vec4 bgCol = vec4(0.);
 #ifdef SKY_BACKGROUND
     bgCol = vec4(getSky(rd), 1.f);
@@ -1428,6 +1424,7 @@ void main() {
 
     FRAME += 1;
     SPEED = iTime * SPEED_SCALE;
+    //SPEED = 1;
 
     if (isTwoD) {
         vec2 coord = twoDFragCoord.xy;
@@ -1450,21 +1447,34 @@ void main() {
     vec4 phong = vec4(0.);
     vec3 refl = vec3(0.);
     vec3 refr = vec3(0.);
+    bool cloudHit = false;
+
+#ifdef VOLUMETRIC
+    float t;
+    phong = vec4(cloudRender(origin, dir, cloudHit, t), 1.f);
+#endif
+
+    if (!cloudHit) t = far;
 
     IntersectionInfo info,
             originalInfo;
-
     // Main render
-    RenderInfo ri = render(origin, dir, info, 1.f);
+    RenderInfo ri = render(origin, dir, info, 1.f, t);
     if (ri.isEnv) {
-       BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
-       fragColor = ri.fragColor;
+       if (cloudHit) {
+           setBrightness(phong.rgb);
+           fragColor = phong;
+       } else {
+           BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
+           fragColor = ri.fragColor;
+       }
        return;
     } else if (ri.isAL) {
        setBrightness(ri.fragColor.rgb);
        fragColor = ri.fragColor;
        return;
     }
+
 
     phong = ri.fragColor;
 
@@ -1486,7 +1496,14 @@ void main() {
             vec3 shiftedRO = info.p + r * SURFACE_DIST * 3.f;
             fil *= objects[info.intersectObj].cReflective;
             // Render the reflected ray
-            RenderInfo res = render(shiftedRO, r, info, 1.f);
+            bool hit = false; float t; vec4 cres;
+#ifdef VOLUMETRIC
+            cres = vec4(cloudRender(shiftedRO, r, hit, t),1.f);
+#endif
+            if (!hit) t = far; // if did not hit cloud -> maxT is far plane
+            RenderInfo res = render(shiftedRO, r, info, 1.f, far);
+            // If refl ray not hit anything but hit cloud
+            if (res.isEnv && hit) res.fragColor = cres;
             // Always want to incorporate the first reflected ray's color val
             vec3 bounce = ks * fil * vec3(res.fragColor);
             refl += bounce;
@@ -1523,7 +1540,15 @@ void main() {
             // Total Internal Reflection
             refr = vec3(0.);
         } else {
-            refr += kt * ct * vec3(render(pExit - nExit * SURFACE_DIST*3.f, rdOut, info, 1.).fragColor);
+            vec3 shiftedRO = pExit - nExit * SURFACE_DIST*5.f;
+            bool hit = false; float t; vec4 cres; vec4 resC;
+#ifdef VOLUMETRIC
+            cres = vec4(cloudRender(shiftedRO, rdOut, hit, t), 1.f);
+#endif
+            if (!hit) t = far; // ditto
+            RenderInfo res = render(shiftedRO, rdOut, info, 1., t);
+            if (res.isEnv && hit) resC = cres; else resC = res.fragColor;
+            refr += kt * ct * vec3(resC);
         }
     }
 
