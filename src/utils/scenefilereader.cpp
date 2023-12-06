@@ -967,6 +967,8 @@ bool ScenefileReader::parsePrimitive(const QJsonObject &prim, SceneNode *node) {
     primitive->type = PrimitiveType::SIERPINSKI;
   else if (primType == "terrain")
     primitive->type = PrimitiveType::TERRAIN;
+  else if (primType == "custom")
+    primitive->type = PrimitiveType::CUSTOM;
   else {
     std::cout << "unknown primitive type \"" << primType << "\"" << std::endl;
     return false;

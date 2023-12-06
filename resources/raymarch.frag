@@ -3,7 +3,7 @@
 #define SKY_BACKGROUND
 // #define DARK_BACKGROUND
 #define VOLUMETRIC
-// #define TERRAIN
+#define TERRAIN
 
 // =============== Out =============
 layout (location = 0) out vec4 fragColor;
@@ -54,7 +54,10 @@ const int MENGERSPONGE = 11;
 const int SIERPINSKI = 12;
 
 // PROCEDUAL
-const int TERRAIN = 13;
+const int TERRAINID = 13;
+
+// CUSTOM SCENE
+const int CUSTOM = 100;
 
 // LIGHT TYPES
 const int POINT = 0;
@@ -70,6 +73,7 @@ const float CLOUD_STEP_SIZE = 0.3f;
 const float ABSORPTION_COEFFICIENT = 0.5;
 const vec3 CLOUD_DIFFUSE = vec3(0.8f);
 const vec3 CLOUD_AMBIENT = vec3(0.03, 0.018, 0.018);
+const float CLOUD_HEIGHT = 20.f;
 
 int FRAME;
 float SPEED;
@@ -452,6 +456,13 @@ float fbm_4( in vec3 x )
         return a;
 }
 
+// ================ SDF Combo Functs ====================
+float sdSmoothUnion( float d1, float d2, float k )
+{
+    float h = clamp( 0.5 + 0.5*(d2-d1)/k, 0.0, 1.0 );
+    return mix( d2, d1, h ) - k*h*(1.0-h);
+}
+
 // ============ Signed Distance Fields ==============
 // Define SDF for different shapes here
 // - Based on https://iquilezles.org/articles/distfunctions/
@@ -693,6 +704,20 @@ float sdMengerSponge(vec3 p, out vec4 res)
     return d;
 }
 
+float sdPlane( vec3 p, vec3 n, float h )
+{
+  // n must be normalized
+  return dot(p,n) + h;
+}
+
+float sdCUSTOM(vec3 p) {
+    vec3 fbmCoord = (p + 2.0 * vec3(iTime, 0.0, iTime)) / 1.5f;
+    float sdfValue = sdSphere(p - vec3(-8.0, 2.0 + 10.0 * sin(iTime), -1), 1.6);
+    sdfValue = sdSmoothUnion(sdfValue,sdSphere(p - vec3(2.0, 2.0 + 8.0 * cos(iTime), 3), 1.6), 3.0f);
+    sdfValue = sdSmoothUnion(sdfValue, sdSphere(p - vec3(3.0 * sin(iTime), 2.0, 0), 1.5), 1.0) + 7.0 * fbm_4(fbmCoord / 3.2);
+    return sdfValue;
+}
+
 // Given a point in object space and type of the SDF
 // Invoke the appropriate SDF function and return the distance
 // @param p Point in object space
@@ -727,11 +752,13 @@ float sdMatch(vec3 p, int type, int id, out vec4 trapCol)
         return sdMengerSponge(p, trapCol);
     } else if (type == SIERPINSKI) {
         return sdSierpinski(p);
-    } else if (type == TERRAIN) {
+    } else if (type == TERRAINID) {
         // bounding bottom plane
         float d = dot(p,vec3(0.,1.,0.));
         float terD = (p.y - sdTerrain(p.xz))* (0.20 + mix(0, 0.25, 1 - abs(terrainScale)/10));
         return min(d, terD);
+    } else if (type == CUSTOM) {
+        return sdCUSTOM(p);
     }
 }
 
@@ -995,7 +1022,6 @@ float cloudMarchDispatch(vec3 p, int type) {
     }
 }
 
-//
 float getLightVisiblity(in vec3 ro, in vec3 rd, in float maxT,
                         in int maxSteps, in float marchSize, in int type) {
     float t = 0.0f;
@@ -1030,7 +1056,7 @@ bool cloudMarch(int type, int steps, in vec3 ro, in vec3 rd, inout float t,
     float opaqueVisibility = 1.f;
     for (int i = 0; i < steps; i++) {
         vec3 pos = ro + rd * t;
-        if (pos.y < -3. || pos.y > 3. || sum.a > 0.99 ) break;
+        if (pos.y < -3 || pos.y > 3 || sum.a > 0.99 ) break;
         float den = cloudMarchDispatch(pos, type);
         if (den > 0.1) {
             if (!hasHit) {
@@ -1448,10 +1474,11 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i,
         // Orbit Trap to color
         col = 0.5 + 0.5*cos(vec3(0,1,2)+2.0*res.trap.z), 1.f;
         col *= getPhong(pn, res.intersectObj, p, ro, rd);
-    } else if (objects[res.intersectObj].type == TERRAIN) {
+    } else if (objects[res.intersectObj].type == TERRAINID) {
         col = getTerrainColor(p, pn);
         col *= getPhong(pn, res.intersectObj, p, ro, rd);
-        col = mix(col, vec3(bgCol), smoothstep(0., .95, res.d/far));
+        // fog
+        // col = mix(col, vec3(bgCol), smoothstep(0., .95, res.d/far));
     } else {
         col = getPhong(pn, res.intersectObj, p, ro, rd);
     }

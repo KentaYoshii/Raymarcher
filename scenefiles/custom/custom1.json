@@ -1,0 +1,50 @@
+{
+  "name": "root",
+  "globalData": {
+    "ambientCoeff": 0.5,
+    "diffuseCoeff": 0.5,
+    "specularCoeff": 0.5,
+    "transparentCoeff": 0
+  },
+  "cameraData": {
+    "position": [0, 0, 4.0],
+    "up": [0.0, 1.0, 0.0],
+    "focus": [0, 0, 0],
+    "heightAngle": 30.0
+  },
+  "groups": [
+    {
+      "lights": [
+        {
+          "type": "directional",
+          "color": [1.0, 1.0, 1.0],
+          "direction": [0.0, -1.0, 0.0]
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "translate": [0, 1, 0],
+          "primitives": [
+            {
+              "type": "custom",
+              "ambient": [0.5, 0.5, 0.5],
+              "shininess": 15.0
+            }
+          ]
+        },
+        {
+          "translate": [0.0, -0.6, 0.0],
+          "scale": [30.0, 0.1, 30.0],
+          "primitives": [
+            {
+              "type": "cube",
+              "diffuse": [0.1, 0.4, 0.8]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
