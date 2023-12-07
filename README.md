@@ -1,8 +1,24 @@
 # Raymarcher
-![](./output/fractals/top.png)
-![](./output/fractals/top2.png)
-![](./output/procedural/top3.png)
-![](./output/procedural/top4.png)
+
+|            Mandelbulb Fractal            |            Mandelbox Fractal             |
+| :--------------------------------------: | :--------------------------------------: |
+| ![mandelbulb](./output/fractals/top.png) | ![mandelbox](./output/fractals/top2.png) |
+
+|                 Terrain                               
+| :--------------------------------------: 
+| ![terrain](./output/procedural/top3.png) 
+
+|              Clouds                            |     Clouds                                    |
+| :--------------------------------------: | :-------------------------------------: |
+| ![terrain](./output/procedural/top5.png) | ![clouds](./output/procedural/top4.png) |
+
+<p align="center">
+
+|                 Terrain  + Clouds                             
+| :--------------------------------------: 
+| ![terrain](./output/procedural/top6.png) 
+</p>
+
 - [Getting Started](#getting-started)
   - [Raymarching Algorithm](#raymarching-algorithm)
 - [Raymarcher Implementation](#raymarcher-implementation)
@@ -43,6 +59,7 @@
 </p>
 - Once an intersection point is found, shading calculations are performed to determine the final color of the pixel.
 - Since each object in the scene is represented as an SDF, raymarching is easily parallelizable!
+
 # Raymarcher Implementation
 
 ## Simple SDFs
@@ -136,85 +153,95 @@
 - In the second pass, we perform a Reinhard tone mapping.
 - Additionally, we test with different exposure values to adjust how much detail we wished to keep
 
-|            No HDR             |      HDR with exposure = 0.5       | HDR with exposure = 0.25            |
-| :---------------------------: | :--------------------------------: | :----------------------------------: |
+|            No HDR             |      HDR with exposure = 0.5       |      HDR with exposure = 0.25       |
+| :---------------------------: | :--------------------------------: | :---------------------------------: |
 | ![](./output/misc/no_hdr.png) | ![](./output/misc/hdr_exp_0.5.png) | ![](./output/misc/hdr_exp_0.25.png) |
 
 ## Bloom
+
 - The bloom effect is typically applied to parts of an image that are significantly brighter than their surroundings. When a light source in a scene exceeds a certain intensity threshold, the bloom effect causes light to bleed into surrounding areas, creating a halo or glow around the bright object.
 - To achieve this, we attach an additional color buffer to the custom FBO to store fragments that exceed certain color threshold. Then in the second pass, we apply a blur filter on that color buffer to achieve the halo effect. In the final pass, we combine the two color buffers.
-![](./output/misc/bloom.png)
+  ![](./output/misc/bloom.png)
 - Combined with Area Lights, we distincly see the visual differences
 
-|  Without Bloom  |    With Bloom    |
-| :--------------------------: | :---------------------------: |
+|          Without Bloom          |          With Bloom          |
+| :-----------------------------: | :--------------------------: |
 | ![](./output/misc/no_bloom.gif) | ![](./output/misc/bloom.gif) |
 
 # Fractal Generation
+
 - Once we have the basic raymarcher, we can render many interesting objects. Below, we explored different kinds of fractals.
 
 ## Mandelbrot set
+
 - The Mandelbrot set is a set of points in a complex plane that has a particular property. It is defined by iterating a simple mathematical formula on each point in the complex plane and determining whether the result remains bounded or not.
 - The formula is given by
-$$z_{n+1} = z_{n}^{2} + c$$
-- In other words, Mandelbrob set is set of all points that does not diverge to infinity as you increase $n$ to infinity. 
+  $$z_{n+1} = z_{n}^{2} + c$$
+- In other words, Mandelbrob set is set of all points that does not diverge to infinity as you increase $n$ to infinity.
 - Since we cannot run until infinity, we define the max steps to be $256$ and divergence criteria to be $200$ measured from the center. Rendering this in 2D space, we obtain the below image.
 <p align="center">
   <img src="./output/fractals/mandelbrot.png">
 </p>
 
 ## Mandelbulb
-- Mandelbulb is a three-dimensional analogue of the above Mandelbrot set. 
+
+- Mandelbulb is a three-dimensional analogue of the above Mandelbrot set.
 - The formula for generating points in the Mandelbulb fractal involves iterating a mathematical function (described below) on points in 3D space, and determining whether the resulting values stay within certain bounds or diverge. This process is typically repeated for each ray. For our project, the iteretion count is set to $20$.
 - Starting at position $z_{0}$, we obtain the next position $z_{1}$ by solving the below formula for certain value of c.
-$$z_{n+1} = z_{n}^{p} + c$$
+  $$z_{n+1} = z_{n}^{p} + c$$
 - For a typical Mandelbulb, $n=8$ and $c=z_{0}$ (like the one at the very top of this file!).
-- Below is a gif obtained by incrementing the $p$ from $1$ to $30$. 
+- Below is a gif obtained by incrementing the $p$ from $1$ to $30$.
 
 <p align="center">
   <img src="./output/fractals/mandelbulb.gif">
 </p>
 
-## Julia Set 
+## Julia Set
+
 - Julia set is almost the same as Mandelbulb set. The only differece is that Julia sets are generally two-dimensional.
-$$z_{n+1}=z_{n}^{2}+c$$
-- The $c$ term above is called __Julia seed__ and we experiment with different julia seeds. 
+  $$z_{n+1}=z_{n}^{2}+c$$
+- The $c$ term above is called **Julia seed** and we experiment with different julia seeds.
 - You can generate random seed from the UI when a fractal is loaded.
 
-| 1 | 2 | 3 |
-| :---: | :---: | :---: |
+|                 1                 |                 2                 |                 3                 |
+| :-------------------------------: | :-------------------------------: | :-------------------------------: |
 | ![](./output/fractals/julia1.png) | ![](./output/fractals/julia2.png) | ![](./output/fractals/julia3.png) |
 
 ## Menger Sponge
+
 - A Menger sponge is a three-dimensional fractal, specifically a sponge-like structure with an infinite surface area and zero volume.
-- With SDF, we can simulate a Menger sponge by performing a set of operations on SDFs. 
+- With SDF, we can simulate a Menger sponge by performing a set of operations on SDFs.
 - Start with a cube. We can then define a cross and subtract the cross from a cube to create a box with cross-shaped hole in it. We can then itereate this process.
 
-| Normal Menger Sponge | Menger Sponge with rotation applied to point p |
-| :---: | :---: |
-| ![](./output/fractals/mengersponge0.png) | ![](./output/fractals/mengersponge1.png) 
+|           Normal Menger Sponge           | Menger Sponge with rotation applied to point p |
+| :--------------------------------------: | :--------------------------------------------: |
+| ![](./output/fractals/mengersponge0.png) |    ![](./output/fractals/mengersponge1.png)    |
 
 ## Sierpinski Triangle
+
 - Finally, we have Sharpinski Triangle, which we achieved by iteratively folding the space along x, y, and z plane.
 <p align="center">
   <img src="./output/fractals/sierpinski.png">
 </p>
 
 # Procedural Rendering
-## Terrain 
-- To create organic terrain patterns, our initial attempt used __Fractal Brownian Motion__.
+
+## Terrain
+
+- To create organic terrain patterns, our initial attempt used **Fractal Brownian Motion**.
   - FBM composes noises to produce more fine-grained looking results.
   - We start with a simple base noise with initial amplitude and frequency.
   - With each iteration (called an _octave_), we apply the same noise with decreased amplitude and increased the frequency
 - This approach of looping however led to sharp decrease in our frame rate as we increased the number of octaves.
-- Referring to this [article](https://iquilezles.org/articles/morenoise/), our next attempt was based on a "tweaked" version of FBM. 
+- Referring to this [article](https://iquilezles.org/articles/morenoise/), our next attempt was based on a "tweaked" version of FBM.
   - It samples grayscaled noise texture at various points and interpolate between them.
   - But instead of directly using those values, we use the derivative of them to capture the rate of change
 - Below are the naive rendering of terrains
 
-| Octave 4 | Octave 5 |
-| :---: | :---: |
-| ![](./output/procedural/octave4.png) | ![](./output/procedural/octave5.png) 
+|               Octave 4               |               Octave 5               |
+| :----------------------------------: | :----------------------------------: |
+| ![](./output/procedural/octave4.png) | ![](./output/procedural/octave5.png) |
+
 - We immediately notice that there are black spots in the terrain due to rays overshooting the surface.
 - Adding some basic coloring and scaling back the distance ray travels based on the steepness of the terrain, we get the terrain below
 
@@ -229,6 +256,7 @@ $$z_{n+1}=z_{n}^{2}+c$$
 </p>
 
 # Volumetric Rendering
+
 - The real strength of raymarching is its ability to render participating media such as fog, smoke, clouds and other volumetric effects.
 - To achive this, we shoot a ray normally, but instead of stopping whenever we hit an object, we _march_ through it.
 
@@ -239,8 +267,10 @@ $$z_{n+1}=z_{n}^{2}+c$$
 - We then accumulate the sampled values along the ray, taking into account the density and color of the participating medium.
 
 ## Cloud
-- Using the same noise texture, we can render clouds very easily. 
+
+- Using the same noise texture, we can render clouds very easily.
 
 <p align="center">
   <img src="output/procedural/cloud.png">
 </p>
+
