@@ -3,7 +3,7 @@
 #define SKY_BACKGROUND
 // #define DARK_BACKGROUND
 #define VOLUMETRIC
-// #define TERRAIN
+#define TERRAIN
 
 // =============== Out =============
 layout (location = 0) out vec4 fragColor;
@@ -13,6 +13,8 @@ in vec4 nearClip;
 in vec4 farClip;
 in vec2 twoDFragCoord;
 // ============ CONST ==============
+const float INSIDE = -1.f;
+const float OUTSIDE = 1.f;
 // - max raymarching steps
 const int MAX_STEPS = 256;
 const int MAX_STEPS_FRACTALS = 20;
@@ -73,7 +75,9 @@ const float CLOUD_STEP_SIZE = 0.3f;
 const float ABSORPTION_COEFFICIENT = 0.5;
 const vec3 CLOUD_DIFFUSE = vec3(0.8f);
 const vec3 CLOUD_AMBIENT = vec3(0.03, 0.018, 0.018);
-const float CLOUD_HEIGHT = 20.f;
+const float CLOUD_LOW = 600.f;
+const float CLOUD_MID = 900.f;
+const float CLOUD_HIGH = 1200.f;
 
 int FRAME;
 float SPEED;
@@ -186,7 +190,7 @@ struct RenderInfo
 // Screen/Camera
 uniform vec4 eyePosition;
 uniform vec2 screenDimensions;
-uniform float far;
+uniform float initialFar;
 uniform bool isTwoD;
 
 // Lighting
@@ -408,6 +412,50 @@ float hash( float n )
     return fract(sin(n)*54321.98761234);  // value has no meaning that I could find
 }
 
+float hash1( float n )
+{
+    return fract( n*17.0*fract( n*0.3183099 ) );
+}
+
+// value noise, and its analytical derivatives
+vec4 noised( in vec3 x )
+{
+    vec3 p = floor(x);
+    vec3 w = fract(x);
+    #if 1
+    vec3 u = w*w*w*(w*(w*6.0-15.0)+10.0);
+    vec3 du = 30.0*w*w*(w*(w-2.0)+1.0);
+    #else
+    vec3 u = w*w*(3.0-2.0*w);
+    vec3 du = 6.0*w*(1.0-w);
+    #endif
+
+    float n = p.x + 317.0*p.y + 157.0*p.z;
+
+    float a = hash1(n+0.0);
+    float b = hash1(n+1.0);
+    float c = hash1(n+317.0);
+    float d = hash1(n+318.0);
+    float e = hash1(n+157.0);
+        float f = hash1(n+158.0);
+    float g = hash1(n+474.0);
+    float h = hash1(n+475.0);
+
+    float k0 =   a;
+    float k1 =   b - a;
+    float k2 =   c - a;
+    float k3 =   e - a;
+    float k4 =   a - b - c + d;
+    float k5 =   a - c - e + g;
+    float k6 =   a - b - e + f;
+    float k7 = - a + b + c - d + e - f - g + h;
+
+    return vec4( -1.0+2.0*(k0 + k1*u.x + k2*u.y + k3*u.z + k4*u.x*u.y + k5*u.y*u.z + k6*u.z*u.x + k7*u.x*u.y*u.z),
+                      2.0* du * vec3( k1 + k4*u.y + k6*u.z + k7*u.y*u.z,
+                                      k2 + k5*u.z + k4*u.x + k7*u.z*u.x,
+                                      k3 + k6*u.x + k5*u.y + k7*u.x*u.y ) );
+}
+
 // Derivative based noise
 // ref: https://iquilezles.org/articles/morenoise/
 vec3 noised(vec2 x) {
@@ -439,6 +487,10 @@ float noiseV(vec3 x ) {
 const mat3 m3  = mat3( 0.00,  0.80,  0.60,
                       -0.80,  0.36, -0.48,
                       -0.60, -0.48,  0.64 );
+const mat3 m3i = mat3( 0.00, -0.80, -0.60,
+                       0.80,  0.36, -0.48,
+                       0.60, -0.48,  0.64 );
+
 // Taken from Inigo Quilez's Rainforest ShaderToy:
 // https://www.shadertoy.com/view/4ttSWf
 float fbm_4( in vec3 x )
@@ -455,6 +507,29 @@ float fbm_4( in vec3 x )
         x = f*m3*x;
     }
         return a;
+}
+
+vec4 fbmd_8( in vec3 x )
+{
+    float f = 2.0;
+    float s = 0.65;
+    float a = 0.0;
+    float b = 0.5;
+    vec3  d = vec3(0.0);
+    mat3  m = mat3(1.0,0.0,0.0,
+                   0.0,1.0,0.0,
+                   0.0,0.0,1.0);
+    for( int i=0; i<8; i++ )
+    {
+        vec4 n = noised(x);
+        a += b*n.x;          // accumulate values
+        if( i<4 )
+        d += b*m*n.yzw;      // accumulate derivatives
+        b *= s;
+        x = f*m3*x;
+        m = f*m3i*m;
+    }
+        return vec4( a, d );
 }
 
 // ================ SDF Combo Functs ====================
@@ -1031,7 +1106,8 @@ float getLightVisiblity(in vec3 ro, in vec3 rd, in float maxT,
         t += marchSize;
         if(t > maxT) break;
         vec3 pos = ro + t*rd;
-        if(cloudMarchDispatch(pos, type) > 0.1) {
+        pos.y -= CLOUD_MID;
+        if(cloudMarchDispatch(abs(pos), type) > 0.1) {
             lightVisiblity *= BeerLambert(ABSORPTION_COEFFICIENT, marchSize);
         }
     }
@@ -1049,59 +1125,125 @@ float getFogDensity(vec3 position, int type) {
     }
 }
 
-bool cloudMarch(int type, int steps, in vec3 ro, in vec3 rd, inout float t, in float maxT,
+vec4 cloudsFbm( in vec3 pos )
+{
+    return fbmd_8(pos*0.0015+vec3(2.0,1.1,1.0)+0.07*vec3(iTime,0.5*iTime,-0.15*iTime));
+}
+
+vec4 cloudsMap( in vec3 pos, out float nnd )
+{
+    float d = abs(pos.y-CLOUD_MID)-4.f;
+    vec3 gra = vec3(0.0,sign(pos.y-CLOUD_MID),0.0);
+
+    vec4 n = cloudsFbm(pos);
+    d += 400.0*n.x * (0.7+0.3*gra.y);
+
+    if( d>0.0 ) return vec4(-d,0.0,0.0,0.0);
+
+    nnd = -d;
+    d = min(-d/100.0,0.25);
+
+    return vec4( d, gra );
+}
+const vec3  kSunDir = vec3(-0.624695,0.468521,-0.624695);
+
+bool cloudMarch(int type, int steps, in vec3 ro, in vec3 rd, inout float t, in float minT, in float maxT,
                 inout vec4 sum)
 {
     bool hasHit = false;
     float stepSize = CLOUD_STEP_SIZE;
     float opaqueVisibility = 1.f;
+    t = minT;
+    float lastT = -1.0;
+    float thickness = 0.0;
     for (int i = 0; i < steps; i++) {
         vec3 pos = ro + rd * t;
-        if (pos.y < -3 || pos.y > 3 || sum.a > 0.99 || t > maxT) break;
-        float den = cloudMarchDispatch(pos, type);
-        if (den > 0.1) {
-            if (!hasHit) {
-                // Upon entering, take a step back and reduce the step size
-                // This helps with getting rid of banding artifacts
-                hasHit = true; stepSize *= 0.25f; t -= (stepSize * 3.0f);
-                continue;
-            }
-            float previousOpaqueVisibility = opaqueVisibility;
-            opaqueVisibility *= BeerLambert(ABSORPTION_COEFFICIENT * getFogDensity(pos, type), stepSize);
-            float absorptionFromMarch = previousOpaqueVisibility - opaqueVisibility;
-            for (int i = 0; i < numLights; i++) {
-                float fAtt = 1.f; float aFall = 1.f; vec3 L;
-                float d = length(lights[i].lightPos - pos);
-                if (lights[i].type == DIRECTIONAL) {
-                    d = far;
-                    L = normalize(-lights[i].lightDir);
-                } else if (lights[i].type == POINT) {
-                    L = normalize(lights[i].lightPos - pos);
-                    fAtt = attenuationFactor(d, lights[i].lightFunc);
-                } else if (lights[i].type == SPOT) {
-                    L = normalize(lights[i].lightPos - pos);
-                    fAtt = attenuationFactor(d, lights[i].lightFunc);
-                    aFall = angularFalloff(L, i);
-                }
-                vec3 lightC = lights[i].lightColor * fAtt * aFall;
-                float lightVisibility = getLightVisiblity(ro, rd, d, 4, CLOUD_STEP_SIZE, type);
-                sum += absorptionFromMarch * lightVisibility
-                        * vec4(CLOUD_DIFFUSE, 1.f) * vec4(lightC, 1.f);
-            }
-            // ambient term
-            sum += absorptionFromMarch * vec4(CLOUD_DIFFUSE, 1.f)
-                    * 1.2 * vec4(CLOUD_AMBIENT, 1.f);
+        if (sum.a > 0.99 || t > maxT) break;
+        //float den = cloudMarchDispatch(pos, type);
+        float nnd;
+        vec4 denGra = cloudsMap(pos, nnd);
+        float den = denGra.x;
+        float dt = max(CLOUD_STEP_SIZE, 0.011 * t);
+        if (den > 0.001) {
+            float kk;
+            cloudsMap( pos+kSunDir*70.0, kk );
+            float sha = 1.0-smoothstep(-200.0,200.0,kk); sha *= 1.5;
+
+            vec3 nor = normalize(denGra.yzw);
+            float dif = clamp( 0.4+0.6*dot(nor,kSunDir), 0.0, 1.0 )*sha;
+            float fre = clamp( 1.0+dot(nor,rd), 0.0, 1.0 )*sha;
+            float occ = 0.2+0.7*max(1.0-kk/200.0,0.0) + 0.1*(1.0-den);
+            // lighting
+            vec3 lin  = vec3(0.0);
+                 lin += vec3(0.70,0.80,1.00)*1.0*(0.5+0.5*nor.y)*occ;
+                 lin += vec3(0.10,0.40,0.20)*1.0*(0.5-0.5*nor.y)*occ;
+                 lin += vec3(1.00,0.95,0.85)*3.0*dif*occ + 0.1;
+
+            // color
+            vec3 col = vec3(0.8,0.8,0.8)*0.45;
+
+            col *= lin;
+
+            //col = fog( col, t );
+
+            // front to back blending
+            float alp = clamp(den*0.5*0.125*dt,0.0,1.0);
+            col.rgb *= alp;
+            sum = sum + vec4(col,alp)*(1.0-sum.a);
+
+            thickness += dt*den;
+            if( lastT<0.0 ) lastT = t;
+//            if (!hasHit) {
+//                // Upon entering, take a step back and reduce the step size
+//                // This helps with getting rid of banding artifacts
+//                hasHit = true; stepSize *= 0.25f; t -= (stepSize * 3.0f);
+//                continue;
+//            }
+//            float previousOpaqueVisibility = opaqueVisibility;
+//            pos.y -= CLOUD_MID;
+//            opaqueVisibility *= BeerLambert(ABSORPTION_COEFFICIENT * getFogDensity(pos, type), stepSize);
+//            float absorptionFromMarch = previousOpaqueVisibility - opaqueVisibility;
+//            for (int i = 0; i < numLights; i++) {
+//                float fAtt = 1.f; float aFall = 1.f; vec3 L;
+//                float d = length(lights[i].lightPos - pos);
+//                if (lights[i].type == DIRECTIONAL) {
+//                    d = far;
+//                    L = normalize(-lights[i].lightDir);
+//                } else if (lights[i].type == POINT) {
+//                    L = normalize(lights[i].lightPos - pos);
+//                    fAtt = attenuationFactor(d, lights[i].lightFunc);
+//                } else if (lights[i].type == SPOT) {
+//                    L = normalize(lights[i].lightPos - pos);
+//                    fAtt = attenuationFactor(d, lights[i].lightFunc);
+//                    aFall = angularFalloff(L, i);
+//                }
+//                vec3 lightC = lights[i].lightColor * fAtt * aFall;
+//                float lightVisibility = getLightVisiblity(ro, rd, d, 4, CLOUD_STEP_SIZE, type);
+//                sum += absorptionFromMarch * lightVisibility
+//                        * vec4(CLOUD_DIFFUSE, 1.f) * vec4(lightC, 1.f);
+//                //sum += vec4(CLOUD_DIFFUSE, 1.f) * vec4(lightC, 1.f);
+//            }
+//            // ambient term
+//            // sum += vec4(CLOUD_DIFFUSE, 1.f) * 1.2 * vec4(CLOUD_AMBIENT, 1.f);
+//            sum += absorptionFromMarch * vec4(CLOUD_DIFFUSE, 1.f)
+//                   * 1.2 * vec4(CLOUD_AMBIENT, 1.f);
+        } else {
+            dt = abs(den) + 0.2;
         }
-        t += max(CLOUD_STEP_SIZE, 0.03 * t);
+        t += dt;
     }
+    sum.xyz += max(0.0,1.0-0.0125*thickness)*vec3(1.00,0.60,0.40)*0.3*pow(clamp(dot(kSunDir,rd),0.0,1.0),32.0);
+
     return hasHit;
 }
 
 // Performs raymarching for volumetric data
 // To prevent banding from happening, offset the ray start position using
 // blue noise texture (aka blue noise dithering)
-vec4 raymarchVolumetric(vec3 ro, vec3 rd, inout float t, out bool hit, in float maxT) {
+vec4 raymarchVolumetric(vec3 ro, vec3 rd, inout float t, out bool hit,
+                        in float minT, in float maxT) {
     vec4 sum = vec4(0.0);
+    bool hit0, hit1, hit2, hit3, hit4;
     // get noise
     float blueNoise = texture(bluenoise, gl_FragCoord.xy / 1024.0).r;
     float off = float(FRAME%64) + 0.61803398875f;
@@ -1109,11 +1251,11 @@ vec4 raymarchVolumetric(vec3 ro, vec3 rd, inout float t, out bool hit, in float 
     // different starting points
     t = CLOUD_STEP_SIZE * fract(off + blueNoise);
 
-    bool hit0 = cloudMarch(0, 35, ro, rd, t, maxT, sum);
-    bool hit1 = cloudMarch(1, 30, ro, rd, t, maxT, sum);
-    bool hit2 = cloudMarch(2, 25, ro, rd, t, maxT, sum);
-    bool hit3 = cloudMarch(3, 20, ro, rd, t, maxT, sum);
-    bool hit4 = cloudMarch(3, 20, ro, rd, t, maxT, sum);
+    hit0 = cloudMarch(0, 100, ro, rd, t, minT, maxT, sum);
+//    hit1 = cloudMarch(1, 30, ro, rd, t, maxT, sum);
+//    hit2 = cloudMarch(2, 25, ro, rd, t, maxT, sum);
+//    hit3 = cloudMarch(3, 20, ro, rd, t, maxT, sum);
+//    hit4 = cloudMarch(3, 20, ro, rd, t, maxT, sum);
 
     hit = hit0 || hit1 || hit2 || hit3 || hit4;
 
@@ -1124,10 +1266,15 @@ vec4 raymarchVolumetric(vec3 ro, vec3 rd, inout float t, out bool hit, in float 
 vec3 cloudRender( in vec3 ro, in vec3 rd, in vec3 bgCol, out bool hit, out float t, in float maxT )
 {
     // Background color
-    vec3 col = bgCol;
+    vec3 col = bgCol; float minT = 0;
     // Raymarch volumetric cloud
     t = 0.f;
-    vec4 res = raymarchVolumetric(ro, rd, t, hit, maxT);
+    // Bounding Volume
+    float tl = ( CLOUD_LOW-ro.y)/rd.y;
+    float th = ( CLOUD_HIGH-ro.y)/rd.y;
+    if( tl>0.0 ) { minT = max( minT, tl ); } else { hit = false; return vec3(0.f); }
+    if( th>0.0 ) maxT = min( maxT, th );
+    vec4 res = raymarchVolumetric(ro, rd, t, hit, minT, maxT);
     // Blend with background color
     col = col*(1.0-res.w) + res.xyz;
     return col;
@@ -1270,55 +1417,46 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, int objIdx)
 // @param p Intersection point
 // @param rd Ray direction
 // @returns phong color for that fragment
-vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd)
+vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far)
 {
     vec3 total = vec3(0.f);
     RayMarchObject obj = objects[intersectObj];
 
     // Ambience
     float ao = 1.f;
-    if (enableAmbientOcculusion) {
-        ao = calcAO(p, N);
-    }
+    if (enableAmbientOcculusion) ao = calcAO(p, N);
     total += obj.cAmbient * ka * ao;
 
     // Loop Lights
     for (int i = 0; i < numLights; i++) {
-        float fAtt = 1.f; float aFall = 1.f;
-        float d = length(p - lights[i].lightPos);
+        float fAtt = 1.f; float aFall = 1.f; LightSource li = lights[i];
+        float d = length(p - li.lightPos);
         vec3 currColor = vec3(0.f); vec3 L; float maxT;
-
-        if (lights[i].type == POINT) {
-            L = normalize(lights[i].lightPos - p);
-            fAtt = attenuationFactor(d, lights[i].lightFunc);
-            maxT = length(lights[i].lightPos - p);
-        } else if (lights[i].type == DIRECTIONAL) {
-            L = normalize(-lights[i].lightDir);
+        if (li.type == POINT) {
+            L = normalize(li.lightPos - p);
+            fAtt = attenuationFactor(d, li.lightFunc);
+            maxT = length(li.lightPos - p);
+        } else if (li.type == DIRECTIONAL) {
+            L = normalize(-li.lightDir);
             maxT = far;
-        } else if (lights[i].type == SPOT) {
-            L = normalize(lights[i].lightPos - p);
-            fAtt = attenuationFactor(d, lights[i].lightFunc);
-            maxT = length(lights[i].lightPos - p);
+        } else if (li.type == SPOT) {
+            L = normalize(li.lightPos - p);
+            fAtt = attenuationFactor(d, li.lightFunc);
+            maxT = length(li.lightPos - p);
             aFall = angularFalloff(L, i);
         }
 
         vec3 V = normalize(-rd);
         // Area Light Calculation
-        if (lights[i].type == AREA) {
+        if (li.type == AREA) {
             vec3 areaColor = vec3(0.f);
-            vec3 p1 = lights[i].points[0],
-                 p2 = lights[i].points[1],
-                 p3 = lights[i].points[2],
-                 p4 = lights[i].points[3];
+            vec3 p1 = lights[i].points[0], p2 = lights[i].points[1], p3 = lights[i].points[2], p4 = lights[i].points[3];
             for (int idx = 0; idx < AREA_LIGHT_SAMPLES; idx++) {
                 // Sample a point and cast a shadow ray towards it
                 vec3 randomP = samplePointOnRectangleAreaLight(p1,p2,p3,p4,vec2(rd + idx));
                 L = normalize(randomP - p);
                 float NdotL = dot(N, L);
-                if (NdotL <= 0.005f) {
-                    // Pointing away
-                    continue;
-                }
+                if (NdotL <= 0.005f) continue;
                 maxT = length(randomP - p);
                 // Check for shadow
                 RayMarchRes res = softshadow(p + N * SURFACE_DIST, L, 0, maxT, 8);
@@ -1326,10 +1464,7 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd)
                     // Shadow Ray intersected an object
                     // We need to check if the intersected object
                     // is indeed area light or not
-                    if (objects[res.intersectObj].lightIdx != i) {
-                        // Intersected others
-                        continue;
-                    }
+                    if (objects[res.intersectObj].lightIdx != i) continue;
                 }
                 // calculate light contribution
                 areaColor += getAreaLight(N, V, p, i, intersectObj);
@@ -1338,16 +1473,10 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd)
         } else {
             // Shadow
             RayMarchRes res = softshadow(p + N * SURFACE_DIST, L, 0, maxT, 8);
-            if (res.intersectObj != -1) {
-                // Shadow ray intersect
-                continue;
-            }
+            if (res.intersectObj != -1) continue; // shadow ray intersect
             // Diffuse
             float NdotL = dot(N, L);
-            if (NdotL <= 0.005f) {
-                // Pointing away
-                continue;
-            }
+            if (NdotL <= 0.005f) continue; // pointing away
             NdotL = clamp(NdotL, 0.f, 1.f);
             currColor +=  getDiffuse(intersectObj, p, N) * NdotL * lights[i].lightColor;
 
@@ -1357,11 +1486,8 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd)
             currColor += getSpecular(RdotV, obj.cSpecular, obj.shininess) * lights[i].lightColor;
             // Add the light source's contribution
             currColor *= fAtt * aFall;
-            if (enableSoftShadow) {
-                currColor *= res.d;
-            }
+            if (enableSoftShadow) currColor *= res.d;
         }
-
         total += currColor;
     }
     return total;
@@ -1435,100 +1561,106 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i,
     RenderInfo ri;
     // Raymarching
     RayMarchRes res = raymarch(ro, rd, maxT, side);
-    // NO HIT
     if (res.intersectObj == -1) {
+        // NO HIT
         ri.fragColor = vec4(bgCol, 1.f);
         // If no hit but sky box is used, sample
-        if (enableSkyBox) {
-            ri.fragColor = vec4(texture(skybox, rd).rgb, 1.f);
-        }
-        ri.isAL = false; ri.isEnv = true; ri.d = far; return ri;
+        if (enableSkyBox) ri.fragColor = vec4(texture(skybox, rd).rgb, 1.f);
+        ri.isAL = false; ri.isEnv = true; ri.d = maxT; return ri;
     }
 
     // HIT
-    ri.isEnv = false;
-    vec3 p = ro + rd * res.d; // intersection point
-    vec3 pn = getNormal(p); // intersection normal
-    vec3 col;
-
-    if (objects[res.intersectObj].isEmissive) {
+    ri.isEnv = false; ri.d = res.d;
+    vec3 p = ro + rd * res.d; vec3 pn = getNormal(p); vec3 col;
+    RayMarchObject obj = objects[res.intersectObj];
+    if (obj.isEmissive) {
         // Area Light
-        col = objects[res.intersectObj].color;
-        ri.fragColor = vec4(col, 1.f);
-        ri.isAL = true;
-        return ri;
+        col = obj.color; ri.fragColor = vec4(col, 1.f); ri.isAL = true; return ri;
     }
 
     ri.isAL = false;
 
-    if (objects[res.intersectObj].type == MANDELBULB) {
+    if (obj.type == MANDELBULB) {
         // Orbit Trap to color
         col = vec3(0.2);
         col = mix( col, vec3(0.10,0.20,0.30), clamp(res.trap.y,0.0,1.0) );
         col = mix( col, vec3(0.02,0.10,0.30), clamp(res.trap.z*res.trap.z,0.0,1.0) );
         col = mix( col, vec3(0.30,0.10,0.02), clamp(pow(res.trap.w,6.0),0.0,1.0) );
         col *= 0.5;
-        col *= getPhong(pn, res.intersectObj, p, ro, rd) * 8;
-    } else if (objects[res.intersectObj].type == MENGERSPONGE) {
+        col *= getPhong(pn, res.intersectObj, p, ro, rd, maxT) * 8;
+    } else if (obj.type == MENGERSPONGE) {
         // Orbit Trap to color
         col = 0.5 + 0.5*cos(vec3(0,1,2)+2.0*res.trap.z), 1.f;
-        col *= getPhong(pn, res.intersectObj, p, ro, rd);
-    } else if (objects[res.intersectObj].type == TERRAINID) {
+        col *= getPhong(pn, res.intersectObj, p, ro, rd, maxT);
+    } else if (obj.type == TERRAINID) {
         col = getTerrainColor(p, pn);
-        col *= getPhong(pn, res.intersectObj, p, ro, rd);
+        col *= getPhong(pn, res.intersectObj, p, ro, rd, maxT);
         // fog
         // col = mix(col, vec3(bgCol), smoothstep(0., .95, res.d/far));
     } else {
-        col = getPhong(pn, res.intersectObj, p, ro, rd);
+        col = getPhong(pn, res.intersectObj, p, ro, rd, maxT);
     }
     // set output variable
     i.p = p; i.n = pn; i.rd = rd; i.intersectObj = res.intersectObj;
     // set return
-    ri.fragColor = vec4(col, 1.f); ri.d = res.d;
+    ri.fragColor = vec4(col, 1.f);
     return ri;
+}
+
+vec3 render2D(vec2 pos) {
+    float scol = sdMandelBrot(twoDFragCoord.xy);
+    return pow( vec3(scol), vec3(0.9,1.1,1.4) );
+}
+
+void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
+    // === Update Globals ===
+    FRAME += 1;
+    SPEED = iTime * SPEED_SCALE;
+    // === Perspective divide ===
+    ro = nearClip.xyz / nearClip.w;
+    vec3 farC = farClip.xyz / farClip.w;
+
+#ifdef TERRAIN
+    ro.y += 15;
+#endif
+
+    rd = normalize(farC - ro);
+
+#ifdef SKY_BACKGROUND
+    bgCol = getSky(rd);
+#else
+    bgCol = vec3(0.f);
+#endif
+
+    // === Set far plane ===
+#ifdef VOLUMETRIC
+    far = 2000.f;
+#else
+    far = initialFar;
+#endif
 }
 
 void main() {
 
-    // Update Globals
-    FRAME += 1;
-    SPEED = iTime * SPEED_SCALE;
-    //SPEED = 1.f;
+    if (isTwoD) { fragColor = vec4(render2D(twoDFragCoord.xy), 1.f); return; }
 
-    if (isTwoD) {
-        vec2 coord = twoDFragCoord.xy;
-        float scol = sdMandelBrot(coord);
-        vec3 vcol = pow( vec3(scol), vec3(0.9,1.1,1.4) );
-        fragColor = vec4(vec3(vcol), 1.f);
-        return;
-    }
+    // Get background c, ro, rd, and far plane
+    vec3 ro, rd, bgCol; float far;
+    setScene(ro, rd, bgCol, far);
 
-    // Perspective divide and get Ray origin and Ray direction
-    vec3 origin = nearClip.xyz / nearClip.w;
-    vec3 farC = farClip.xyz / farClip.w;
+    // Colors
+    vec4 phong, refl, refr, cres;
 
-#ifdef TERRAIN
-    origin.y += 15;
-#endif
-
-    vec3 dir = normalize(farC - origin);
-
-    vec4 phong = vec4(0.); vec3 refl = vec3(0.); vec3 refr = vec3(0.); vec4 cres;
-    bool cloudHit = false; float t = far; vec3 bgCol = vec3(0.);
+    bool cloudHit = false; float t;
     IntersectionInfo info, oi;
 
-#ifdef SKY_BACKGROUND
-    bgCol = getSky(dir);
-#endif
-
     // Main render
-    RenderInfo ri = render(origin, dir, info, 1.f, t, bgCol);
+    RenderInfo ri = render(ro, rd, info, OUTSIDE, far, bgCol);
 #ifdef VOLUMETRIC
     // Second render if cloud is enabled
-    cres = vec4(cloudRender(origin, dir, bgCol, cloudHit, t, ri.d), 1.f);
+    cres = vec4(cloudRender(ro, rd, bgCol, cloudHit, t, ri.d), 1.f);
     if (cloudHit) ri.fragColor = cres;
 #endif
-
     if (ri.isEnv && cloudHit) {
         // If main render did not hit and we hit cloud
         setBrightness(cres.rgb); fragColor = cres; return;
@@ -1558,20 +1690,15 @@ void main() {
             fil *= objects[info.intersectObj].cReflective;
             // Render the reflected ray
             bool hit = false; float t = far; vec4 cres;
-            RenderInfo res = render(shiftedRO, r, info, 1.f, far, bgCol);
-
+            RenderInfo res = render(shiftedRO, r, info, OUTSIDE, far, bgCol);
 #ifdef VOLUMETRIC
             cres = vec4(cloudRender(shiftedRO, r, bgCol, hit, t, res.d), 1.f);
-            if (hit) res.fragColor = cres;
+            if (hit) { res.fragColor = cres; res.isEnv = true; }
 #endif
             // Always want to incorporate the first reflected ray's color val
-            vec3 bounce = ks * fil * vec3(res.fragColor);
+            vec4 bounce = vec4(ks * fil * vec3(res.fragColor), 1.f);
             refl += bounce;
-            if (res.isEnv) {
-                // If reflected ray did not hit anything, we break
-                // since we cannot reflect off a skybox/void
-                break;
-            }
+            if (res.isEnv) break;
         }
     }
 
@@ -1590,7 +1717,7 @@ void main() {
         // - air ior is 1.
         vec3 rdIn = refract(oi.rd, oi.n, 1./ior);
         vec3 pEnter = oi.p - oi.n * SURFACE_DIST * 3.f;
-        float dIn = raymarch(pEnter, rdIn, far, -1.).d;
+        float dIn = raymarch(pEnter, rdIn, far, INSIDE).d;
 
         vec3 pExit = pEnter + rdIn * dIn;
         vec3 nExit = -getNormal(pExit);
@@ -1598,20 +1725,20 @@ void main() {
         vec3 rdOut = refract(rdIn, nExit, ior);
         if (length(rdOut) == 0) {
             // Total Internal Reflection
-            refr = vec3(0.);
+            refr = vec4(0.);
         } else {
             vec3 shiftedRO = pExit - nExit * SURFACE_DIST*5.f;
             bool hit = false; float t = far; vec4 cres; vec4 resC;
-            RenderInfo res = render(shiftedRO, rdOut, info, 1., t, bgCol);
+            RenderInfo res = render(shiftedRO, rdOut, info, OUTSIDE, t, bgCol);
 #ifdef VOLUMETRIC
             cres = vec4(cloudRender(shiftedRO, rdOut, bgCol, hit, t, res.d), 1.f);
             if (hit) res.fragColor = cres;
 #endif
-            refr += kt * ct * vec3(res.fragColor);
+            refr += vec4(kt * ct * vec3(res.fragColor), 1.f);
         }
     }
 
-    vec3 col = vec3(phong) + refl + refr;
-    setBrightness(col);
-    fragColor = vec4(col, 1.f);
+    vec4 col = phong + refl + refr;
+    setBrightness(vec3(col));
+    fragColor = col;
 }
