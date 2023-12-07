@@ -1,22 +1,33 @@
 # Raymarcher
 
-|            Mandelbulb Fractal            |            Mandelbox Fractal             |
-| :--------------------------------------: | :--------------------------------------: |
-| ![mandelbulb](./output/fractals/top.png) | ![mandelbox](./output/fractals/top2.png) |
-
-|                 Terrain                               
-| :--------------------------------------: 
-| ![terrain](./output/procedural/top3.png) 
-
-|              Clouds                            |     Clouds                                    |
-| :--------------------------------------: | :-------------------------------------: |
-| ![terrain](./output/procedural/top5.png) | ![clouds](./output/procedural/top4.png) |
+<p align="center">
+  <img src="./output/fractals/top.png" width="49%" />
+  <img src="./output/fractals/top2.png" width="49%"/>
+</p>
+<p align="center">
+  <em> Fractals</em>
+</p>
 
 <p align="center">
+  <img src="./output/procedural/top3.png">
+</p>
+<p align="center">
+  <em> Terrain</em>
+</p>
 
-|                 Terrain  + Clouds                             
-| :--------------------------------------: 
-| ![terrain](./output/procedural/top6.png) 
+<p align="center" float="left">
+  <img src="./output/procedural/top4.png" width="49%" />
+  <img src="./output/procedural/top5.png" width="49%"/>
+</p>
+<p align="center">
+  <em> Clouds </em>
+</p>
+
+<p align="center">
+  <img src="./output/procedural/top6.png">
+</p>
+<p align="center">
+  <em> Clouds + Terrain</em>
 </p>
 
 - [Getting Started](#getting-started)
@@ -273,4 +284,3 @@
 <p align="center">
   <img src="output/procedural/cloud.png">
 </p>
-
