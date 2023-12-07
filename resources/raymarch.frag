@@ -1145,26 +1145,25 @@ vec4 cloudsMap( in vec3 pos, out float nnd )
 
     return vec4( d, gra );
 }
-const vec3  kSunDir = vec3(-0.624695,0.468521,-0.624695);
+const vec3  kSunDir = vec3(0.577, 0.577, -0.577);
 
-bool cloudMarch(int type, int steps, in vec3 ro, in vec3 rd, inout float t, in float minT, in float maxT,
+bool cloudMarch(int steps, in vec3 ro, in vec3 rd, in float minT, in float maxT,
                 inout vec4 sum)
 {
     bool hasHit = false;
     float stepSize = CLOUD_STEP_SIZE;
     float opaqueVisibility = 1.f;
-    t = minT;
+    float t = minT;
     float lastT = -1.0;
     float thickness = 0.0;
     for (int i = 0; i < steps; i++) {
         vec3 pos = ro + rd * t;
-        if (sum.a > 0.99 || t > maxT) break;
-        //float den = cloudMarchDispatch(pos, type);
         float nnd;
         vec4 denGra = cloudsMap(pos, nnd);
         float den = denGra.x;
         float dt = max(CLOUD_STEP_SIZE, 0.011 * t);
         if (den > 0.001) {
+            hasHit = true;
             float kk;
             cloudsMap( pos+kSunDir*70.0, kk );
             float sha = 1.0-smoothstep(-200.0,200.0,kk); sha *= 1.5;
@@ -1181,100 +1180,53 @@ bool cloudMarch(int type, int steps, in vec3 ro, in vec3 rd, inout float t, in f
 
             // color
             vec3 col = vec3(0.8,0.8,0.8)*0.45;
-
             col *= lin;
-
             //col = fog( col, t );
-
             // front to back blending
             float alp = clamp(den*0.5*0.125*dt,0.0,1.0);
             col.rgb *= alp;
             sum = sum + vec4(col,alp)*(1.0-sum.a);
-
             thickness += dt*den;
-            if( lastT<0.0 ) lastT = t;
-//            if (!hasHit) {
-//                // Upon entering, take a step back and reduce the step size
-//                // This helps with getting rid of banding artifacts
-//                hasHit = true; stepSize *= 0.25f; t -= (stepSize * 3.0f);
-//                continue;
-//            }
-//            float previousOpaqueVisibility = opaqueVisibility;
-//            pos.y -= CLOUD_MID;
-//            opaqueVisibility *= BeerLambert(ABSORPTION_COEFFICIENT * getFogDensity(pos, type), stepSize);
-//            float absorptionFromMarch = previousOpaqueVisibility - opaqueVisibility;
-//            for (int i = 0; i < numLights; i++) {
-//                float fAtt = 1.f; float aFall = 1.f; vec3 L;
-//                float d = length(lights[i].lightPos - pos);
-//                if (lights[i].type == DIRECTIONAL) {
-//                    d = far;
-//                    L = normalize(-lights[i].lightDir);
-//                } else if (lights[i].type == POINT) {
-//                    L = normalize(lights[i].lightPos - pos);
-//                    fAtt = attenuationFactor(d, lights[i].lightFunc);
-//                } else if (lights[i].type == SPOT) {
-//                    L = normalize(lights[i].lightPos - pos);
-//                    fAtt = attenuationFactor(d, lights[i].lightFunc);
-//                    aFall = angularFalloff(L, i);
-//                }
-//                vec3 lightC = lights[i].lightColor * fAtt * aFall;
-//                float lightVisibility = getLightVisiblity(ro, rd, d, 4, CLOUD_STEP_SIZE, type);
-//                sum += absorptionFromMarch * lightVisibility
-//                        * vec4(CLOUD_DIFFUSE, 1.f) * vec4(lightC, 1.f);
-//                //sum += vec4(CLOUD_DIFFUSE, 1.f) * vec4(lightC, 1.f);
-//            }
-//            // ambient term
-//            // sum += vec4(CLOUD_DIFFUSE, 1.f) * 1.2 * vec4(CLOUD_AMBIENT, 1.f);
-//            sum += absorptionFromMarch * vec4(CLOUD_DIFFUSE, 1.f)
-//                   * 1.2 * vec4(CLOUD_AMBIENT, 1.f);
+            if( lastT < 0.0 ) lastT = t;
+
         } else {
             dt = abs(den) + 0.2;
         }
         t += dt;
+        if (sum.a > 0.995 || t > maxT) break;
     }
-    sum.xyz += max(0.0,1.0-0.0125*thickness)*vec3(1.00,0.60,0.40)*0.3*pow(clamp(dot(kSunDir,rd),0.0,1.0),32.0);
 
+    sum.xyz += max(0.0,1.0-0.0125*thickness)*vec3(1.00,0.60,0.40)*0.3*pow(clamp(dot(kSunDir,rd),0.0,1.0),32.0);
     return hasHit;
 }
 
 // Performs raymarching for volumetric data
 // To prevent banding from happening, offset the ray start position using
 // blue noise texture (aka blue noise dithering)
-vec4 raymarchVolumetric(vec3 ro, vec3 rd, inout float t, out bool hit,
+vec4 raymarchVolumetric(vec3 ro, vec3 rd, inout bool hit,
                         in float minT, in float maxT) {
     vec4 sum = vec4(0.0);
-    bool hit0, hit1, hit2, hit3, hit4;
     // get noise
     float blueNoise = texture(bluenoise, gl_FragCoord.xy / 1024.0).r;
     float off = float(FRAME%64) + 0.61803398875f;
-
     // different starting points
-    t = CLOUD_STEP_SIZE * fract(off + blueNoise);
-
-    hit0 = cloudMarch(0, 100, ro, rd, t, minT, maxT, sum);
-//    hit1 = cloudMarch(1, 30, ro, rd, t, maxT, sum);
-//    hit2 = cloudMarch(2, 25, ro, rd, t, maxT, sum);
-//    hit3 = cloudMarch(3, 20, ro, rd, t, maxT, sum);
-//    hit4 = cloudMarch(3, 20, ro, rd, t, maxT, sum);
-
-    hit = hit0 || hit1 || hit2 || hit3 || hit4;
-
+    minT += CLOUD_STEP_SIZE * fract(off + blueNoise);
+    // march towards clouds
+    hit = cloudMarch(128, ro, rd, minT, maxT, sum);
     return clamp( sum, 0.0, 1.0 );
 }
 
 // Function that renders volumetric cloud
-vec3 cloudRender( in vec3 ro, in vec3 rd, in vec3 bgCol, out bool hit, out float t, in float maxT )
+vec3 cloudRender( in vec3 ro, in vec3 rd, in vec3 bgCol, out bool hit, in float maxT )
 {
-    // Background color
     vec3 col = bgCol; float minT = 0;
     // Raymarch volumetric cloud
-    t = 0.f;
     // Bounding Volume
     float tl = ( CLOUD_LOW-ro.y)/rd.y;
     float th = ( CLOUD_HIGH-ro.y)/rd.y;
-    if( tl>0.0 ) { minT = max( minT, tl ); } else { hit = false; return vec3(0.f); }
+    if( tl>0.0 ) { minT = max( minT, tl ); } else { hit = false; return col; }
     if( th>0.0 ) maxT = min( maxT, th );
-    vec4 res = raymarchVolumetric(ro, rd, t, hit, minT, maxT);
+    vec4 res = raymarchVolumetric(ro, rd, hit, minT, maxT);
     // Blend with background color
     col = col*(1.0-res.w) + res.xyz;
     return col;
@@ -1297,12 +1249,9 @@ RayMarchRes softshadow(vec3 ro, vec3 rd, float mint, float maxt, float k )
     float rayDepth = mint;
     RayMarchRes r;
     SceneMin closest;
-    for(int i=0; i < MAX_STEPS; i++)
-    {
+    for(int i=0; i < MAX_STEPS; i++) {
         closest = sdScene(ro + rd*rayDepth);
-        if(abs(closest.minD) < SURFACE_DIST || rayDepth > maxt) {
-           break;
-        }
+        if(abs(closest.minD) < SURFACE_DIST || rayDepth > maxt) break;
         res = min(res, k * closest.minD/(rayDepth));
         // March the ray
         rayDepth += abs(closest.minD);
@@ -1641,25 +1590,21 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
 }
 
 void main() {
-
+    // === 2D Render ===
     if (isTwoD) { fragColor = vec4(render2D(twoDFragCoord.xy), 1.f); return; }
 
-    // Get background c, ro, rd, and far plane
+    // === set scene ===
     vec3 ro, rd, bgCol; float far;
     setScene(ro, rd, bgCol, far);
 
-    // Colors
-    vec4 phong, refl, refr, cres;
-
-    bool cloudHit = false; float t;
+    vec4 phong, refl = vec4(0.f), refr = vec4(0.f), cres;
+    bool cloudHit = false;
     IntersectionInfo info, oi;
 
-    // Main render
+    // === Main render ===
     RenderInfo ri = render(ro, rd, info, OUTSIDE, far, bgCol);
 #ifdef VOLUMETRIC
-    // Second render if cloud is enabled
-    cres = vec4(cloudRender(ro, rd, bgCol, cloudHit, t, ri.d), 1.f);
-    if (cloudHit) ri.fragColor = cres;
+    cres = vec4(cloudRender(ro, rd, bgCol, cloudHit, ri.d), 1.f);
 #endif
     if (ri.isEnv && cloudHit) {
         // If main render did not hit and we hit cloud
@@ -1672,11 +1617,11 @@ void main() {
        setBrightness(ri.fragColor.rgb); fragColor = ri.fragColor; return;
     }
 
-    phong = ri.fragColor;
+    phong = cloudHit ? cres : ri.fragColor;
 
-    // Copy
     oi.intersectObj = info.intersectObj; oi.n = info.n; oi.p = info.p; oi.rd = info.rd;
 
+    // === Secondary Render ===
     RayMarchObject obj = objects[info.intersectObj];
     if (enableReflection && length(obj.cReflective) != 0) {
         vec3 fil = vec3(1.f);
@@ -1689,10 +1634,10 @@ void main() {
             vec3 shiftedRO = info.p + r * SURFACE_DIST * 3.f;
             fil *= objects[info.intersectObj].cReflective;
             // Render the reflected ray
-            bool hit = false; float t = far; vec4 cres;
+            bool hit = false; vec4 cres;
             RenderInfo res = render(shiftedRO, r, info, OUTSIDE, far, bgCol);
 #ifdef VOLUMETRIC
-            cres = vec4(cloudRender(shiftedRO, r, bgCol, hit, t, res.d), 1.f);
+            cres = vec4(cloudRender(shiftedRO, r, bgCol, hit, res.d), 1.f);
             if (hit) { res.fragColor = cres; res.isEnv = true; }
 #endif
             // Always want to incorporate the first reflected ray's color val
@@ -1728,10 +1673,10 @@ void main() {
             refr = vec4(0.);
         } else {
             vec3 shiftedRO = pExit - nExit * SURFACE_DIST*5.f;
-            bool hit = false; float t = far; vec4 cres; vec4 resC;
-            RenderInfo res = render(shiftedRO, rdOut, info, OUTSIDE, t, bgCol);
+            bool hit = false; vec4 cres; vec4 resC;
+            RenderInfo res = render(shiftedRO, rdOut, info, OUTSIDE, far, bgCol);
 #ifdef VOLUMETRIC
-            cres = vec4(cloudRender(shiftedRO, rdOut, bgCol, hit, t, res.d), 1.f);
+            cres = vec4(cloudRender(shiftedRO, rdOut, bgCol, hit, res.d), 1.f);
             if (hit) res.fragColor = cres;
 #endif
             refr += vec4(kt * ct * vec3(res.fragColor), 1.f);
