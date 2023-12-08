@@ -25,11 +25,10 @@
     {
       "groups": [
         {
-          "translate": [0, 600, 0],
-          "scale": [2, 2, 2],
+          "translate": [0, 600, 1],
           "primitives": [
             {
-              "type": "sphere",
+              "type": "torus",
               "reflective": [1, 1, 1],
               "transparent": [1, 1, 1],
               "diffuse": [1, 1, 1],

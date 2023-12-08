@@ -178,25 +178,29 @@ void Camera::applyTranslation(glm::vec3 &disp) {
  * @brief Handles the W key (move along the look vector)
  * @returns unit displacement with sensitivity applied
  */
-glm::vec3 Camera::onWPressed() { return 0.35f * m_look; }
+glm::vec3 Camera::onWPressed() { return 0.35f * (100.f / m_far) * m_look; }
 
 /**
  * @brief Handles the S key (move along the neg look vector)
  * @returns unit displacement with sensitivity applied
  */
-glm::vec3 Camera::onSPressed() { return -0.35f * m_look; }
+glm::vec3 Camera::onSPressed() { return -0.35f * (100.f / m_far) * m_look; }
 
 /**
  * @brief Handles the A key (move to the left)
  * @returns unit displacement with sensitivity applied
  */
-glm::vec3 Camera::onAPressed() { return -0.35f * glm::cross(m_look, m_up); }
+glm::vec3 Camera::onAPressed() {
+  return -0.35f * (100.f / m_far) * glm::cross(m_look, m_up);
+}
 
 /**
  * @brief Handles the D key (move to the right)
  * @returns unit displacement with sensitivity applied
  */
-glm::vec3 Camera::onDPressed() { return 0.35f * glm::cross(m_look, m_up); }
+glm::vec3 Camera::onDPressed() {
+  return 0.35f * (100.f / m_far) * glm::cross(m_look, m_up);
+}
 
 /**
  * @brief Handles the Space key (move along <0, 1, 0> in world space)

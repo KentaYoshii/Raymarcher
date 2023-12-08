@@ -529,7 +529,7 @@ float fbm_9( in vec2 x )
     float s = 0.55;
     float a = 0.0;
     float b = 0.5;
-    for( int i=0; i<numOctaves; i++ )
+    for( int i=0; i<9; i++ )
     {
         float n = noiseT(x);
         a += b*n;
@@ -711,6 +711,10 @@ float sdSphere(vec3 p, float r)
   return length(p)-r;
 }
 
+float sdSine(vec3 p) {
+  return 1.0 - (sin(p.x) + sin(p.y) + sin(p.z))/3.0;
+}
+
 // Box Signed Distance Field
 // @param p Point in object space
 // @param b half-length dimensions of the box (x,y,z)
@@ -846,13 +850,30 @@ float sdCUSTOM(vec3 p) {
     return sdfValue;
 }
 
+float sdFlowerBall(vec3 p) {
+    vec2 t = vec2(1.5, 1.5 * .2);
+
+    float s = sdTorus(p, t);
+
+    p = rotateAxis(p, vec3(0, 0, 1), 90);
+
+    float s2 = sdTorus(p, t);
+
+    p = rotateAxis(p, vec3(0, 0, 1), 90);
+
+    float s3 = sdTorus(p, t);
+
+    float s4 = sdSphere(p, 1.5);
+
+    return max(s4, min(min(s, s2), s3));
+}
+
 // Given a point in object space and type of the SDF
 // Invoke the appropriate SDF function and return the distance
 // @param p Point in object space
 // @param type Type of the object
 float sdMatch(vec3 p, int type, int id, out vec4 trapCol)
 {
-
     if (type == CUBE) {
         return sdBox(p, vec3(0.5));
     } else if (type == CONE) {
@@ -870,7 +891,6 @@ float sdMatch(vec3 p, int type, int id, out vec4 trapCol)
     } else if (type == DEATHSTAR) {
         return sdDeathStar(p, 0.5, 0.35, 0.5);
     } else if (type == RECTANGLE) {
-        // in 2d
         return sdBox(p, vec3(0.5, 0.5, 0));
     } else if (type == MANDELBROT) {
         return sdMandelBrot(vec2(p));
@@ -1083,6 +1103,54 @@ RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
   return res;
 }
 
+// =============== SUN & SKY =================
+
+// [0, 1]
+float timeOfDay = mod(iTime, 24.) / 24.0;
+float sunriseStart = 0.2;
+float sunsetStart = 0.8;
+
+// Get current sun direction
+vec3 getSunDir() {
+    float elevationAngle = mix(0, 3.14, timeOfDay);
+    return normalize(vec3(cos(elevationAngle), sin(elevationAngle), -0.577));
+}
+
+// Get current sky color
+vec3 getSkyColor() {
+    vec3 dayColor = vec3(0.8, 0.9, 1.1);
+    vec3 sunriseColor = vec3(1.0, 0.5, 0.2);
+    vec3 sunsetColor = vec3(1.0, 0.8, 0.5);
+
+    vec3 blendedColor = mix(sunriseColor, dayColor, smoothstep(0.0, sunriseStart, timeOfDay));
+    blendedColor = mix(blendedColor, sunsetColor, smoothstep(sunsetStart, 1.0, timeOfDay));
+
+    return blendedColor;
+}
+
+// Get current sun color
+vec3 getSunColor() {
+    vec3 sunriseColor = vec3(1.0, 0.5, 0.2);
+    vec3 daytimeColor = vec3(1.f, 1.f, 0.8f);
+    vec3 sunsetColor = vec3(1.0, 0.8, 0.5);
+
+    vec3 sunColor = mix(sunriseColor, daytimeColor, smoothstep(0.0, sunriseStart, timeOfDay));
+    sunColor = mix(sunColor, sunsetColor, smoothstep(sunsetStart, 1.f, timeOfDay));
+    return sunColor;
+}
+
+// Get the background color
+vec3 getSky(vec3 rd) {
+    vec3 col  = getSkyColor()*(0.6+0.4*rd.y);
+    col += getSunColor() *
+            pow(clamp(
+                    dot(rd, getSunDir()),
+                    0.0,1.0),
+                32.0 );
+    return col;
+}
+
+
 // ================== Phong Total Illumination =================
 
 // Computes the shadow scale for soft shadow
@@ -1237,6 +1305,7 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far)
             maxT = length(li.lightPos - p);
         } else if (li.type == DIRECTIONAL) {
             L = normalize(-li.lightDir);
+            L = getSunDir(); //TODO: del later
             maxT = far;
         } else if (li.type == SPOT) {
             L = normalize(li.lightPos - p);
@@ -1277,12 +1346,16 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far)
             float NdotL = dot(N, L);
             if (NdotL <= 0.005f) continue; // pointing away
             NdotL = clamp(NdotL, 0.f, 1.f);
-            currColor +=  getDiffuse(intersectObj, p, N) * NdotL * li.lightColor;
+            currColor +=  getDiffuse(intersectObj, p, N) * NdotL
+                    // * li.lightColor;
+                    * getSunColor();
 
             // Specular
             vec3 R = reflect(-L, N);
             float RdotV = clamp(dot(R, V), 0.f, 1.f);
-            currColor += getSpecular(RdotV, obj.cSpecular, obj.shininess) * li.lightColor;
+            currColor += getSpecular(RdotV, obj.cSpecular, obj.shininess)
+                    //* li.lightColor;
+                    * getSunColor();
             // Add the light source's contribution
             currColor *= fAtt * aFall;
             if (enableSoftShadow) currColor *= res.d;
@@ -1303,53 +1376,6 @@ void setBrightness(vec3 color) {
     else {
         BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
     }
-}
-
-// =============== SUN & SKY =================
-
-// [0, 1]
-float timeOfDay = mod(iTime, 24.) / 24.0;
-float sunriseStart = 0.2;
-float sunsetStart = 0.8;
-
-// Get current sun direction
-vec3 getSunDir() {
-    float elevationAngle = mix(0, 3.14, timeOfDay);
-    return normalize(vec3(cos(elevationAngle), sin(elevationAngle), -0.577));
-}
-
-// Get current sky color
-vec3 getSkyColor() {
-    vec3 dayColor = vec3(0.8, 0.9, 1.1);
-    vec3 sunriseColor = vec3(1.0, 0.5, 0.2);
-    vec3 sunsetColor = vec3(1.0, 0.8, 0.5);
-
-    vec3 blendedColor = mix(sunriseColor, dayColor, smoothstep(0.0, sunriseStart, timeOfDay));
-    blendedColor = mix(blendedColor, sunsetColor, smoothstep(sunsetStart, 1.0, timeOfDay));
-
-    return blendedColor;
-}
-
-// Get current sun color
-vec3 getSunColor() {
-    vec3 sunriseColor = vec3(1.0, 0.5, 0.2);
-    vec3 daytimeColor = vec3(1.f, 1.f, 0.8f);
-    vec3 sunsetColor = vec3(1.0, 0.8, 0.5);
-
-    vec3 sunColor = mix(sunriseColor, daytimeColor, smoothstep(0.0, sunriseStart, timeOfDay));
-    sunColor = mix(sunColor, sunsetColor, smoothstep(sunsetStart, 1.f, timeOfDay));
-    return sunColor;
-}
-
-// Get the background color
-vec3 getSky(vec3 rd) {
-    vec3 col  = getSkyColor()*(0.6+0.4*rd.y);
-    col += getSunColor() *
-            pow(clamp(
-                    dot(rd, getSunDir()),
-                    0.0,1.0),
-                32.0 );
-    return col;
 }
 
 // ============== CLOUDS ================
@@ -1651,7 +1677,19 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
     ro.y += 100.f;
 #endif
 
+    // == NO rotation ==
     rd = normalize(farC - ro);
+
+    // == Smooth zoom in/out ==
+//    float disp = smoothstep(-1.,1., sin(iTime));
+//    ro.xz += disp;
+    // == Rotation about the center ==
+//    float rotationAngle = iTime / 5.;
+//    ro = rotateAxis(ro, vec3(0.0, 1.0, 0.0), rotationAngle);
+//    rd = normalize(farC - ro);
+//    rd = rotateAxis(rd, vec3(0.0, 1.0, 0.0), rotationAngle);
+
+
 
 #ifdef SKY_BACKGROUND
     bgCol = getSky(rd);
