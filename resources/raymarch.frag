@@ -71,22 +71,6 @@ const int AREA = 3;
 const vec3 BRIGHT_FILTER = vec3(0.2126, 0.7152, 0.0722);
 
 // TERRAIN
-// - colors
-const vec3 SHORE      = vec3( 0.3, .400,1.0);
-const vec3 BEACH      = vec3( 1.0, .894, .710);
-const vec3 EARTH      = vec3(.824, .706, .549);
-const vec3 CALCAIRE   = vec3(.624, .412, .118);
-const vec3 ROCKS      = vec3(.412, .388, .422);
-const vec3 GRASS1 = vec3 (.19, .335, .14);
-const vec3 GRASS2 = vec3 (.478, .451, .14);
-const vec3 SNOW1 = vec3 ( .78,.78,.78);
-const vec3 SNOW2 = vec3 ( .9,.9,.9);
-
-const float SEALEVEL  = 0.1;
-const float MAXGRASSSTEEP =  0.5;
-const float MAXGRASSALTITUDE= .8;
-const float  MAXSNOWSTEEP  =  0.35;
-const float MAXSNOWALTITUDE =  0.8;
 const float TERRAIN_HIGH = 700.f;
 
 
@@ -1070,7 +1054,7 @@ RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
   // Start from eye pos
   float rayDepth = 0.0;
   SceneMin closest;
-  closest.minD = 10000;
+  closest.minD = 1000000;
   // Start the march
   for(int i = 0; i < MAX_STEPS; i++) {
     // Get the point
@@ -1562,40 +1546,7 @@ float terrainShadow( in vec3 ro, in vec3 rd, in float mint )
     return clamp( res, 0.0, 1.0 );
 }
 
-// Get Terrain Color
-// @param pos Position to color
-// @param nor Normal at intersection
-vec3 getTerrainColor(vec3 pos, inout vec3 nor) {
-    // Normalized to [0, 1]
-    float height = pos.y / TERRAIN_HIGH;
-    vec3 terrainColor = vec3(0.f);
-
-    if ( height <= SEALEVEL) {
-        //water
-        terrainColor=SHORE;
-        nor = vec3(0,1,0);
-        return terrainColor;
-    }
-
-    height += noised( pos.xz * 47.).x* 0.2;
-
-    // base color
-    terrainColor = mix (        BEACH,    EARTH, smoothstep(0.0 , 0.08 , height) );
-    terrainColor = mix ( terrainColor, CALCAIRE, smoothstep(0.08, 0.3 , height) );
-    terrainColor = mix ( terrainColor,    ROCKS, smoothstep(0.3, 1.0  ,height) );
-    //add grass
-    if (( nor.y > MAXGRASSSTEEP ) && ( height <  MAXGRASSALTITUDE )) {
-        terrainColor = mix( GRASS1, GRASS2, smoothstep(0.0 , 1.0, noised( pos.xz * 5.0 ).x));
-    }
-    // add snow
-    if (( nor.y > MAXSNOWSTEEP) && ( height > MAXSNOWALTITUDE )) {
-        return mix( SNOW1, SNOW2, smoothstep(0.0 , 1.0, noised( pos.xz * 131.0 ).x));
-    }
-
-    return terrainColor;
-}
-
-RenderInfo terrainRender(in vec3 ro, in vec3 rd, out bool hit, in float maxT, in vec3 bgCol) {
+RenderInfo terrainRender(in vec3 ro, in vec3 rd, inout bool hit, in float maxT, in vec3 bgCol) {
     RenderInfo ri; vec3 col = bgCol; ri.d = maxT;
     // Raymarch terrain
     float res = raymarchTerrain(ro, rd, 15.f, maxT);
@@ -1618,12 +1569,9 @@ RenderInfo terrainRender(in vec3 ro, in vec3 rd, out bool hit, in float maxT, in
         float dom = clamp( 0.5 + 0.5*nor.y, 0.0, 1.0 );
 
         vec3  lin  = 1.0*0.2*mix(0.1*vec3(0.1,0.2,0.1),sunColor*3.0,dom)*foc;
-              //lin += 1.0*8.5*vec3(1.0,0.9,0.8)*dif;
-              // lin += 1.0*0.27*vec3(1.1,1.0,0.9)*bac*foc;
               lin += 1.0*8.5*sunColor*dif;
               lin += 1.0*0.27*sunColor*bac*foc;
         speC = vec3(4.0)*dif*smoothstep(20.0,0.0,abs(p.y/2.0-310.0)-20.0);
-
         col *= lin;
     }
     ri.fragColor = vec4(col, 1.f);
@@ -1654,6 +1602,7 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i,
     // HIT
     ri.isEnv = false; ri.d = res.d;
     vec3 p = ro + rd * res.d; vec3 pn = getNormal(p); vec3 col;
+
     RayMarchObject obj = objects[res.intersectObj];
     if (obj.isEmissive) {
         // Area Light
@@ -1674,11 +1623,6 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i,
         // Orbit Trap to color
         col = 0.5 + 0.5*cos(vec3(0,1,2)+2.0*res.trap.z), 1.f;
         col *= getPhong(pn, res.intersectObj, p, ro, rd, maxT);
-    } else if (obj.type == TERRAINID) {
-        col = getTerrainColor(p, pn);
-        col *= getPhong(pn, res.intersectObj, p, ro, rd, maxT);
-        // fog
-        // col = mix(col, vec3(bgCol), smoothstep(0., .95, res.d/far));
     } else {
         col = getPhong(pn, res.intersectObj, p, ro, rd, maxT);
     }
@@ -1737,12 +1681,10 @@ void main() {
     RenderInfo ri, tr;
 
     // === Main render ===
-    ri = render(ro, rd, info, OUTSIDE, far, bgCol);
+    ri = render(ro, rd, info, OUTSIDE, far, bgCol); tr.d = ri.d;
     // === Terrain render ===
 #ifdef TERRAIN
     tr = terrainRender(ro, rd, terrainHit, ri.d, bgCol), 1.f;
-#else
-    tr.d = ri.d;
 #endif
     // === Cloud render ===
 #ifdef VOLUMETRIC
@@ -1766,74 +1708,76 @@ void main() {
     }
     // ======================================================
 
-    // Note the order
-    phong = cloudHit ? cres : (terrainHit ? tr.fragColor : ri.fragColor);
+    phong = ri.fragColor;
 
     // =================== Refl && Refr =====================
-    if (info.intersectObj >= 0) {
-        oi.intersectObj = info.intersectObj; oi.n = info.n; oi.p = info.p; oi.rd = info.rd;
-        // === Secondary Rays ===
-        RayMarchObject obj = objects[info.intersectObj];
-        if (enableReflection && length(obj.cReflective) != 0) {
-            vec3 fil = vec3(1.f);
-            // GLSL does not have recursion apparently :(
-            // Here is my work around
-            // - fil keeps track of the accumulated material reflectivity
-            for (int i = 0; i < NUM_REFLECTION; i++) {
-                // Reflect ray
-                vec3 r = reflect(info.rd, info.n);
-                vec3 shiftedRO = info.p + r * SURFACE_DIST * 3.f;
-                fil *= objects[info.intersectObj].cReflective;
-                // Render the reflected ray
-                bool hit = false; vec4 cres;
-                RenderInfo res = render(shiftedRO, r, info, OUTSIDE, far, bgCol);
-    #ifdef VOLUMETRIC
-                cres = vec4(cloudRender(shiftedRO, r, bgCol, hit, res.d), 1.f);
-                if (hit) { res.fragColor = cres; res.isEnv = true; }
-    #endif
-                // Always want to incorporate the first reflected ray's color val
-                vec4 bounce = vec4(ks * fil * vec3(res.fragColor), 1.f);
-                refl += bounce;
-                if (res.isEnv) break;
-            }
-        }
-
-        if (enableRefraction && length(obj.cTransparent) != 0) {
-            // No recursion so hardcoded 2 refractions :(
-            // also it does not account for the reflected light contributions
-            // of the refracted rays (again, no recursion) so this is really wrong.
-            // I was able to find some article about backward raytracing that cleverly
-            // gets around this but, like many other things, for the time being this is
-            // good enough.
-
-            float ior = objects[oi.intersectObj].ior;
-            vec3 ct = objects[oi.intersectObj].cTransparent;
-
-            // Air -> Medium
-            // - air ior is 1.
-            vec3 rdIn = refract(oi.rd, oi.n, 1./ior);
-            vec3 pEnter = oi.p - oi.n * SURFACE_DIST * 3.f;
-            float dIn = raymarch(pEnter, rdIn, far, INSIDE).d;
-
-            vec3 pExit = pEnter + rdIn * dIn;
-            vec3 nExit = -getNormal(pExit);
-
-            vec3 rdOut = refract(rdIn, nExit, ior);
-            if (length(rdOut) == 0) {
-                // Total Internal Reflection
-                refr = vec4(0.);
-            } else {
-                vec3 shiftedRO = pExit - nExit * SURFACE_DIST*5.f;
-                bool hit = false; vec4 cres; vec4 resC;
-                RenderInfo res = render(shiftedRO, rdOut, info, OUTSIDE, far, bgCol);
-    #ifdef VOLUMETRIC
-                cres = vec4(cloudRender(shiftedRO, rdOut, bgCol, hit, res.d), 1.f);
-                if (hit) res.fragColor = cres;
-    #endif
-                refr += vec4(kt * ct * vec3(res.fragColor), 1.f);
-            }
+    oi.intersectObj = info.intersectObj; oi.n = info.n; oi.p = info.p; oi.rd = info.rd;
+    // === Secondary Rays ===
+    RayMarchObject obj = objects[info.intersectObj];
+    if (enableReflection && length(obj.cReflective) != 0) {
+        vec3 fil = vec3(1.f);
+        // GLSL does not have recursion apparently :(
+        // Here is my work around
+        // - fil keeps track of the accumulated material reflectivity
+        for (int i = 0; i < NUM_REFLECTION; i++) {
+            // Reflect ray
+            vec3 r = reflect(info.rd, info.n);
+            vec3 shiftedRO = info.p + r * SURFACE_DIST * 3.f;
+            fil *= objects[info.intersectObj].cReflective;
+            // Render the reflected ray
+            bool terrainHit = false; bool cloudHit = false; vec4 cres; RenderInfo res, tr;
+            res = render(shiftedRO, r, info, OUTSIDE, far, bgCol); tr.d = res.d;
+#ifdef TERRAIN
+            tr = terrainRender(shiftedRO, r, terrainHit, res.d, bgCol);
+            if (terrainHit) { res.fragColor = tr.fragColor; res.isEnv = true; }
+#endif
+#ifdef VOLUMETRIC
+            cres = vec4(cloudRender(shiftedRO, r, bgCol, cloudHit, tr.d), 1.f);
+            if (cloudHit) { res.fragColor = cres; res.isEnv = true; }
+#endif
+            // Always want to incorporate the first reflected ray's color val
+            vec4 bounce = vec4(ks * fil * vec3(res.fragColor), 1.f);
+            refl += bounce;
+            if (res.isEnv) break;
         }
     }
+
+    if (enableRefraction && length(obj.cTransparent) != 0) {
+        // No recursion so hardcoded 2 refractions :(
+        // also it does not account for the reflected light contributions
+        // of the refracted rays (again, no recursion) so this is really wrong.
+        // I was able to find some article about backward raytracing that cleverly
+        // gets around this but, like many other things, for the time being this is
+        // good enough.
+
+        float ior = objects[oi.intersectObj].ior;
+        vec3 ct = objects[oi.intersectObj].cTransparent;
+
+        // Air -> Medium
+        // - air ior is 1.
+        vec3 rdIn = refract(oi.rd, oi.n, 1./ior);
+        vec3 pEnter = oi.p - oi.n * SURFACE_DIST * 3.f;
+        float dIn = raymarch(pEnter, rdIn, far, INSIDE).d;
+
+        vec3 pExit = pEnter + rdIn * dIn;
+        vec3 nExit = -getNormal(pExit);
+
+        vec3 rdOut = refract(rdIn, nExit, ior);
+        if (length(rdOut) == 0) {
+            // Total Internal Reflection
+            refr = vec4(0.);
+        } else {
+            vec3 shiftedRO = pExit - nExit * SURFACE_DIST*5.f;
+            bool hit = false; vec4 cres; vec4 resC;
+            RenderInfo res = render(shiftedRO, rdOut, info, OUTSIDE, far, bgCol);
+#ifdef VOLUMETRIC
+            cres = vec4(cloudRender(shiftedRO, rdOut, bgCol, hit, res.d), 1.f);
+            if (hit) res.fragColor = cres;
+#endif
+            refr += vec4(kt * ct * vec3(res.fragColor), 1.f);
+        }
+    }
+
 
     vec4 col = phong + refl + refr;
     setBrightness(vec3(col));
