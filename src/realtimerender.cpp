@@ -563,7 +563,7 @@ void Realtime::configureCameraUniforms(GLuint shader) {
   float far = scene.getCamera().getFarPlane();
   // Near & Far
   setFloatUniform(shader, "near", near);
-  setFloatUniform(shader, "far", far);
+  setFloatUniform(shader, "initialFar", far);
   // View Matrix
   setMat4Uniform(shader, "viewMatrix", viewMatrix);
   // Projection Matrix

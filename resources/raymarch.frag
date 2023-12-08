@@ -1,9 +1,9 @@
 #version 330 core
 // ==== Preprocessor Directives ====
-#define SKY_BACKGROUND
-// #define DARK_BACKGROUND
-#define VOLUMETRIC
-#define TERRAIN
+// #define SKY_BACKGROUND
+#define DARK_BACKGROUND
+// #define CLOUD
+// #define TERRAIN
 
 // =============== Out =============
 layout (location = 0) out vec4 fragColor;
@@ -71,7 +71,7 @@ const vec3 BRIGHT_FILTER = vec3(0.2126, 0.7152, 0.0722);
 const float TERRAIN_HIGH = 700.f;
 
 
-// VOLUMETRIC
+// CLOUD
 const float CLOUD_STEP_SIZE = 0.3f;
 const float ABSORPTION_COEFFICIENT = 0.5;
 const vec3 CLOUD_DIFFUSE = vec3(0.8f);
@@ -581,6 +581,13 @@ float sdSmoothUnion( float d1, float d2, float k )
     return mix( d2, d1, h ) - k*h*(1.0-h);
 }
 
+// polynomial smooth min (k = 0.1);
+float smin( float a, float b, float k )
+{
+  float h = clamp( 0.5+0.5*(b-a)/k, 0.0, 1.0 );
+  return mix( b, a, h ) - k*h*(1.0-h);
+}
+
 // ============ Signed Distance Fields ==============
 // Define SDF for different shapes here
 // - Based on https://iquilezles.org/articles/distfunctions/
@@ -822,11 +829,18 @@ float sdPlane( vec3 p, vec3 n, float h )
 }
 
 float sdCUSTOM(vec3 p) {
-    vec3 fbmCoord = (p + 2.0 * vec3(iTime, 0.0, iTime)) / 1.5f;
-    float sdfValue = sdSphere(p - vec3(-8.0, 2.0 + 10.0 * sin(iTime), -1), 1.6);
-    sdfValue = sdSmoothUnion(sdfValue,sdSphere(p - vec3(2.0, 2.0 + 8.0 * cos(iTime), 3), 1.6), 3.0f);
-    sdfValue = sdSmoothUnion(sdfValue, sdSphere(p - vec3(3.0 * sin(iTime), 2.0, 0), 1.5), 1.0) + 7.0 * fbm_4(fbmCoord / 3.2);
-    return sdfValue;
+    float ballRadius = 1.0;
+    const float MAX_DIST = 100.0;
+    float t = iTime / 3.0 + 10500.0;
+    float balls = MAX_DIST;
+    for (float i = 1.0; i < 4.0; i += 1.3) {
+      for (float j = 1.0; j < 4.0; j += 1.3) {
+        float cost = cos(t * j);
+        balls = smin(balls, sdSphere(p + vec3(sin(t * i) * j, cost * i, cost * j), ballRadius), 0.7);
+      }
+    }
+
+    return balls;
 }
 
 float sdFlowerBall(vec3 p) {
@@ -1249,7 +1263,8 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, int objIdx) {
     vec3 specular = LTC_Evaluate(N, V, P, Minv, areaLight.points, areaLight.twoSided);
     // GGX BRDF shadowing and Fresnel
     specular *= mSpecular*t2.x + (areaLight.intensity - mSpecular) * t2.y;
-    vec3 col = areaLight.lightColor * 1.0 * (specular + mDiffuse * diffuse);
+    vec3 col = areaLight.lightColor * 1.0
+            * (specular + getDiffuse(objIdx, P, N) * diffuse);
     return col;
 }
 
@@ -1279,7 +1294,7 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far) {
             maxT = length(li.lightPos - p);
         } else if (li.type == DIRECTIONAL) {
             L = normalize(-li.lightDir);
-            L = getSunDir(); //TODO: del later
+            // L = getSunDir();
             maxT = far;
         } else if (li.type == SPOT) {
             L = normalize(li.lightPos - p);
@@ -1301,7 +1316,7 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far) {
                 if (NdotL <= 0.005f) continue;
                 maxT = length(randomP - p);
                 // Check for shadow
-                RayMarchRes res = softshadow(p + N * SURFACE_DIST, L, 0, maxT, 8);
+                RayMarchRes res = softshadow(p + N * SURFACE_DIST * 5.f, L, 0, maxT, 8);
                 if (res.intersectObj != -1) {
                     // Shadow Ray intersected an object
                     // We need to check if the intersected object
@@ -1314,22 +1329,22 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far) {
             currColor += areaColor / AREA_LIGHT_SAMPLES;
         } else {
             // Shadow
-            RayMarchRes res = softshadow(p + N * SURFACE_DIST, L, 0, maxT, 8);
+            RayMarchRes res = softshadow(p + N * SURFACE_DIST * 5.f, L, 0, maxT, 8);
             if (res.intersectObj != -1) continue; // shadow ray intersect
             // Diffuse
             float NdotL = dot(N, L);
             if (NdotL <= 0.005f) continue; // pointing away
             NdotL = clamp(NdotL, 0.f, 1.f);
             currColor +=  getDiffuse(intersectObj, p, N) * NdotL
-                    // * li.lightColor;
-                    * getSunColor();
+                    * li.lightColor;
+                    // * getSunColor();
 
             // Specular
             vec3 R = reflect(-L, N);
             float RdotV = clamp(dot(R, V), 0.f, 1.f);
             currColor += getSpecular(RdotV, obj.cSpecular, obj.shininess)
-                    //* li.lightColor;
-                    * getSunColor();
+                    * li.lightColor;
+                    // * getSunColor();
             // Add the light source's contribution
             currColor *= fAtt * aFall;
             if (enableSoftShadow) currColor *= res.d;
@@ -1599,6 +1614,10 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i,
         col = obj.color; ri.fragColor = vec4(col, 1.f); ri.isAL = true; return ri;
     }
 
+    if (obj.type == CUSTOM) {
+        // If custom object type
+    }
+
     ri.isAL = false;
 
     if (obj.type == MANDELBULB) {
@@ -1641,6 +1660,8 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
     ro.y += 100.f;
 #endif
 
+    ro.y += 3.;
+
     // == NO rotation ==
     rd = normalize(farC - ro);
 
@@ -1660,7 +1681,7 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
 #endif
 
     // === Set far plane ===
-#ifdef VOLUMETRIC
+#ifdef CLOUD
     far = 2000.f;
 #else
     far = initialFar;
@@ -1687,7 +1708,7 @@ void main() {
     tr = terrainRender(ro, rd, terrainHit, ri.d, bgCol), 1.f;
 #endif
     // === Cloud render ===
-#ifdef VOLUMETRIC
+#ifdef CLOUD
     cres = vec4(cloudRender(ro, rd, bgCol, cloudHit, tr.d), 1.f);
 #endif
 
@@ -1731,7 +1752,7 @@ void main() {
             tr = terrainRender(shiftedRO, r, terrainHit, res.d, bgCol);
             if (terrainHit) { res.fragColor = tr.fragColor; res.isEnv = true; }
 #endif
-#ifdef VOLUMETRIC
+#ifdef CLOUD
             cres = vec4(cloudRender(shiftedRO, r, bgCol, cloudHit, tr.d), 1.f);
             if (cloudHit) { res.fragColor = cres; res.isEnv = true; }
 #endif
@@ -1775,7 +1796,7 @@ void main() {
             tr = terrainRender(shiftedRO, rdOut, terrainHit, res.d, bgCol);
             if (terrainHit) { res.fragColor = tr.fragColor; res.isEnv = true; }
 #endif
-#ifdef VOLUMETRIC
+#ifdef CLOUD
             cres = vec4(cloudRender(shiftedRO, rdOut, bgCol, cloudHit, tr.d), 1.f);
             if (cloudHit) res.fragColor = cres;
 #endif
