@@ -230,6 +230,8 @@ void Camera::applyRotation(glm::mat3 &rotationMat) {
  */
 void Camera::rotateX(float deltaX) {
   float angle = 360.f * deltaX / m_width;
+  float multiple = 100.f / m_far;
+  angle *= multiple;
   float theta = glm::radians(angle);
   glm::mat3 rotationMat(cos(theta), 0, -1 * sin(theta), // r1
                         0, 1.f, 0,                      // r2
@@ -244,6 +246,8 @@ void Camera::rotateX(float deltaX) {
  */
 void Camera::rotateY(float deltaY) {
   float angle = 360.f * deltaY / m_height;
+  float multiple = 100.f / m_far;
+  angle *= multiple / 5;
   float theta = glm::radians(angle);
   glm::vec3 axis = glm::cross(m_look, m_up);
   // Rodrigue's Formula

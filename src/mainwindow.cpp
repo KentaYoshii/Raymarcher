@@ -125,9 +125,9 @@ void MainWindow::initialize() {
 
   farBox = new QDoubleSpinBox();
   farBox->setMinimum(10.f);
-  farBox->setMaximum(300.f);
+  farBox->setMaximum(2000.f);
   farBox->setSingleStep(1.f);
-  farBox->setValue(100.f);
+  farBox->setValue(2000.f);
 
   epsilonBox = new QDoubleSpinBox();
   epsilonBox->setMinimum(0.01f);
@@ -223,7 +223,7 @@ void MainWindow::initialize() {
 
   // Set default values for near and far planes
   onValChangeNearBox(0.1f);
-  onValChangeFarBox(100.f);
+  onValChangeFarBox(2000.f);
   onSkyBox(0);
   onDispOption(0);
   onEpsilon(1.f);
