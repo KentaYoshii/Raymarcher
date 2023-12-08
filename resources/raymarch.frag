@@ -55,9 +55,6 @@ const int MANDELBULB = 10;
 const int MENGERSPONGE = 11;
 const int SIERPINSKI = 12;
 
-// PROCEDUAL
-const int TERRAINID = 13;
-
 // CUSTOM SCENE
 const int CUSTOM = 100;
 
@@ -82,6 +79,18 @@ const vec3 CLOUD_AMBIENT = vec3(0.03, 0.018, 0.018);
 const float CLOUD_LOW = 600.f;
 const float CLOUD_MID = 900.f;
 const float CLOUD_HIGH = 1200.f;
+
+// For noise
+const mat2 m2 = mat2(  0.80,  0.60,
+                      -0.60,  0.80 );
+const mat2 m2i = mat2( 0.80, -0.60,
+                       0.60,  0.80 );
+const mat3 m3  = mat3( 0.00,  0.80,  0.60,
+                      -0.80,  0.36, -0.48,
+                      -0.60, -0.48,  0.64 );
+const mat3 m3i = mat3( 0.00, -0.80, -0.60,
+                       0.80,  0.36, -0.48,
+                       0.60, -0.48,  0.64 );
 
 int FRAME;
 float SPEED;
@@ -246,11 +255,6 @@ vec3 Transform(in vec3 p)
     return p;
 }
 
-mat2 rot(float a) {
-    float s = sin(a), c = cos(a); // sine, cosine
-    return mat2(c, -s, s, c);
-}
-
 // Vector form without project to the plane (dot with the normal)
 // Use for proxy sphere clipping
 vec3 IntegrateEdgeVec(vec3 v1, vec3 v2)
@@ -333,16 +337,6 @@ vec3 LTC_Evaluate(vec3 N, vec3 V, vec3 P, mat3 Minv, vec3 points[4], bool twoSid
     vec3 Lo_i = vec3(sum, sum, sum);
     return Lo_i;
 }
-// PBR-maps for roughness (and metallic) are usually stored in non-linear
-// color space (sRGB), so we use these functions to convert into linear RGB.
-vec3 PowVec3(vec3 v, float p)
-{
-    return vec3(pow(v.x, p), pow(v.y, p), pow(v.z, p));
-}
-
-const float gamma = 2.2;
-vec3 ToLinear(vec3 v) { return PowVec3(v, gamma); }
-vec3 ToSRGB(vec3 v)   { return PowVec3(v, 1.0/gamma); }
 
 // Simple hash function
 float hash(vec2 p) {
@@ -354,6 +348,7 @@ vec2 random2(vec2 seed) {
     return vec2(hash(seed), hash(seed + vec2(1.0)));
 }
 
+// For Shadow effects with area lights
 vec3 samplePointOnRectangleAreaLight(vec3 lightPos1, vec3 lightPos2, vec3 lightPos3, vec3 lightPos4, vec2 randomUV) {
     // Calculate vectors defining the rectangle
     vec3 side1 = lightPos2 - lightPos1;
@@ -365,7 +360,7 @@ vec3 samplePointOnRectangleAreaLight(vec3 lightPos1, vec3 lightPos2, vec3 lightP
     return randomPoint;
 }
 
-// Gets the angular fall off term
+// Compute the angular falloff term
 float angularFalloffFactor(float angle, float innerA, float outerA) {
     float t = (angle - innerA) / (outerA - innerA);
     return -2 * pow(t, 3) + 3 * pow(t, 2);
@@ -376,6 +371,7 @@ float attenuationFactor(float d, vec3 func) {
     return min(1.f / (func[0] + (d * func[1]) + (d * d * func[2])), 1.f);
 }
 
+// Gets the angular falloff term given light direction
 float angularFalloff(vec3 L, int i) {
     float cosalpha = dot(-normalize(lights[i].lightDir), L);
     float inner = lights[i].lightAngle - lights[i].lightPenumbra;
@@ -392,41 +388,33 @@ float angularFalloff(vec3 L, int i) {
 
 // ============ NOISE =============
 
-//iq hash
-float hash( float n )
-{
-    return fract(sin(n)*54321.98761234);  // value has no meaning that I could find
-}
-
+// Used in noised (vec3)
 float hash1( float n )
 {
     return fract( n*17.0*fract( n*0.3183099 ) );
 }
 
+// Used in noiseT
 float hash1( vec2 p )
 {
     p  = 50.0*fract( p*0.3183099 );
     return fract( p.x*p.y*(p.x+p.y) );
 }
 
+// Used in fbm_9
 float noiseT( in vec2 x )
 {
     vec2 p = floor(x);
     vec2 w = fract(x);
-    #if 1
     vec2 u = w*w*w*(w*(w*6.0-15.0)+10.0);
-    #else
-    vec2 u = w*w*(3.0-2.0*w);
-    #endif
-
     float a = hash1(p+vec2(0,0));
     float b = hash1(p+vec2(1,0));
     float c = hash1(p+vec2(0,1));
     float d = hash1(p+vec2(1,1));
-
     return -1.0+2.0*(a + (b-a)*u.x + (c-a)*u.y + (a - b - c + d)*u.x*u.y);
 }
 
+// Used in fbmd_8
 // value noise, and its analytical derivatives
 vec4 noised( in vec3 x )
 {
@@ -447,7 +435,7 @@ vec4 noised( in vec3 x )
     float c = hash1(n+317.0);
     float d = hash1(n+318.0);
     float e = hash1(n+157.0);
-        float f = hash1(n+158.0);
+    float f = hash1(n+158.0);
     float g = hash1(n+474.0);
     float h = hash1(n+475.0);
 
@@ -466,6 +454,7 @@ vec4 noised( in vec3 x )
                                       k3 + k6*u.x + k5*u.y + k7*u.x*u.y ) );
 }
 
+// Used in fbmd_9
 // Derivative based noise
 // ref: https://iquilezles.org/articles/morenoise/
 vec3 noised(vec2 x) {
@@ -485,6 +474,7 @@ vec3 noised(vec2 x) {
   return vec3(noiseVal, noiseDerivative);
 }
 
+// Used in fbm_4
 float noiseV(vec3 x ) {
   vec3 p = floor(x);
   vec3 f = fract(x);
@@ -493,17 +483,6 @@ float noiseV(vec3 x ) {
   vec2 rg = textureLod(noise,(uv+0.5)/256.0,0.0).yx;
   return mix( rg.x, rg.y, f.z )*2.0-1.0;
 }
-
-const mat2 m2 = mat2(  0.80,  0.60,
-                      -0.60,  0.80 );
-const mat2 m2i = mat2( 0.80, -0.60,
-                       0.60,  0.80 );
-const mat3 m3  = mat3( 0.00,  0.80,  0.60,
-                      -0.80,  0.36, -0.48,
-                      -0.60, -0.48,  0.64 );
-const mat3 m3i = mat3( 0.00, -0.80, -0.60,
-                       0.80,  0.36, -0.48,
-                       0.60, -0.48,  0.64 );
 
 // Taken from Inigo Quilez's Rainforest ShaderToy:
 // https://www.shadertoy.com/view/4ttSWf
@@ -523,6 +502,7 @@ float fbm_4( in vec3 x )
         return a;
 }
 
+// Used in sdTerrain to get noise
 float fbm_9( in vec2 x )
 {
     float f = 1.9;
@@ -540,6 +520,7 @@ float fbm_9( in vec2 x )
         return a;
 }
 
+// Used in cloudFbm
 vec4 fbmd_8( in vec3 x )
 {
     float f = 2.0;
@@ -563,6 +544,7 @@ vec4 fbmd_8( in vec3 x )
         return vec4( a, d );
 }
 
+// Used in terrainMapD
 vec3 fbmd_9( in vec2 x )
 {
     float f = 1.9;
@@ -586,8 +568,8 @@ vec3 fbmd_9( in vec2 x )
 // return smoothstep and its derivative
 vec2 smoothstepd( float a, float b, float x)
 {
-        if( x<a ) return vec2( 0.0, 0.0 );
-        if( x>b ) return vec2( 1.0, 0.0 );
+    if( x<a ) return vec2( 0.0, 0.0 );
+    if( x>b ) return vec2( 1.0, 0.0 );
     float ir = 1.0/(b-a);
     x = (x-a)*ir;
     return vec2( x*x*(3.0-2.0*x), 6.0*x*(1.0-x)*ir );
@@ -603,8 +585,6 @@ float sdSmoothUnion( float d1, float d2, float k )
 // Define SDF for different shapes here
 // - Based on https://iquilezles.org/articles/distfunctions/
 
-mat2 m=mat2(.8,-.6,.6,.8);
-
 vec2 sdTerrain(vec2 p)
 {
     float e = fbm_9( p/2000.0 + vec2(1.0,-2.0) );
@@ -613,7 +593,6 @@ vec2 sdTerrain(vec2 p)
 
     // cliff
     e += 90.0*smoothstep( 552.0, 594.0, e );
-    //e += 90.0*smoothstep( 550.0, 600.0, e );
 
     return vec2(e,a);
 }
@@ -1150,7 +1129,6 @@ vec3 getSky(vec3 rd) {
     return col;
 }
 
-
 // ================== Phong Total Illumination =================
 
 // Computes the shadow scale for soft shadow
@@ -1161,8 +1139,7 @@ vec3 getSky(vec3 rd) {
 // @param maxt End t
 // @param k How "hard" we want the shadow to be
 // @retunrs Result of raymarching
-RayMarchRes softshadow(vec3 ro, vec3 rd, float mint, float maxt, float k )
-{
+RayMarchRes softshadow(vec3 ro, vec3 rd, float mint, float maxt, float k ) {
     float res = 1.0;
     float rayDepth = mint;
     RayMarchRes r;
@@ -1187,8 +1164,7 @@ RayMarchRes softshadow(vec3 ro, vec3 rd, float mint, float maxt, float k )
 
 // Calculate the ambient occlusion
 // https://iquilezles.org/articles/nvscene2008/rwwtt.pdf
-float calcAO(in vec3 pos, in vec3 nor)
-{
+float calcAO(in vec3 pos, in vec3 nor) {
     float occ = 0.0;
     float sca = 1.0;
     for (int i=0; i<5; i++) {
@@ -1249,8 +1225,7 @@ vec3 getSpecular(float RdotV, vec3 cspec, float shi) {
 // @param lightIdx Light index of the area light
 // @param objIdx Intersected object's index
 // @returns vec3 of area light's contribution
-vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, int objIdx)
-{
+vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, int objIdx) {
     float dotNV = clamp(dot(N, V), 0.0f, 1.0f);
     // use roughness and sqrt(1-cos_theta) to sample M_texture
     vec2 uv = vec2(0, sqrt(1.0f - dotNV));
@@ -1284,8 +1259,7 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, int objIdx)
 // @param p Intersection point
 // @param rd Ray direction
 // @returns phong color for that fragment
-vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far)
-{
+vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far) {
     vec3 total = vec3(0.f);
     RayMarchObject obj = objects[intersectObj];
 
@@ -1380,27 +1354,23 @@ void setBrightness(vec3 color) {
 
 // ============== CLOUDS ================
 
-vec3 fog( in vec3 col, float t )
-{
+vec3 fog( in vec3 col, float t ) {
     vec3 ext = exp2(-t*0.00025*vec3(1,1.5,4));
     return col*ext + (1.0-ext)*vec3(0.55,0.55,0.58); // 0.55
 }
 
-vec4 cloudsFbm( in vec3 pos )
-{
+vec4 cloudsFbm( in vec3 pos ) {
     return fbmd_8(pos*0.0015+vec3(2.0,1.1,1.0)+0.07*vec3(iTime,0.5*iTime,-0.15*iTime));
 }
 
-float cloudsShadowFlat( in vec3 ro, in vec3 rd )
-{
+float cloudsShadowFlat( in vec3 ro, in vec3 rd ) {
     float t = (CLOUD_MID-ro.y)/rd.y;
     if( t<0.0 ) return 1.0;
     vec3 pos = ro + rd*t;
     return cloudsFbm(pos).x;
 }
 
-vec4 cloudsMap( in vec3 pos, out float nnd )
-{
+vec4 cloudsMap( in vec3 pos, out float nnd ) {
     float d = abs(pos.y-CLOUD_MID)-4.f;
     vec3 gra = vec3(0.0,sign(pos.y-CLOUD_MID),0.0);
 
@@ -1416,8 +1386,7 @@ vec4 cloudsMap( in vec3 pos, out float nnd )
 }
 
 bool cloudMarch(int steps, in vec3 ro, in vec3 rd, in float minT, in float maxT,
-                inout vec4 sum)
-{
+                inout vec4 sum) {
     bool hasHit = false;
     float stepSize = CLOUD_STEP_SIZE;
     float opaqueVisibility = 1.f;
@@ -1485,8 +1454,7 @@ vec4 raymarchVolumetric(vec3 ro, vec3 rd, inout bool hit,
 }
 
 // Function that renders volumetric cloud
-vec3 cloudRender( in vec3 ro, in vec3 rd, in vec3 bgCol, out bool hit, in float maxT )
-{
+vec3 cloudRender( in vec3 ro, in vec3 rd, in vec3 bgCol, out bool hit, in float maxT ) {
     vec3 col = bgCol; float minT = 0;
     // Raymarch volumetric cloud
     // Bounding Volume
@@ -1501,8 +1469,7 @@ vec3 cloudRender( in vec3 ro, in vec3 rd, in vec3 bgCol, out bool hit, in float 
 }
 
 // ================== Terrain ====================
-float raymarchTerrain( in vec3 ro, in vec3 rd, float tmin, float tmax )
-{
+float raymarchTerrain( in vec3 ro, in vec3 rd, float tmin, float tmax ) {
     // bounding plane
     float tp = (TERRAIN_HIGH-ro.y)/rd.y;
     if( tp>0.0 ) tmax = min( tmax, tp );
@@ -1534,8 +1501,7 @@ float raymarchTerrain( in vec3 ro, in vec3 rd, float tmin, float tmax )
     return t;
 }
 
-vec4 terrainMapD( in vec2 p )
-{
+vec4 terrainMapD( in vec2 p ) {
     vec3 e = fbmd_9( p/2000.0 + vec2(1.0,-2.0) );
     e.x  = 600.0*e.x + 600.0;
     e.yz = 600.0*e.yz;
@@ -1549,16 +1515,14 @@ vec4 terrainMapD( in vec2 p )
     return vec4( e.x, normalize( vec3(-e.y,1.0,-e.z) ) );
 }
 
-vec3 terrainNormal( in vec2 pos )
-{
+vec3 terrainNormal( in vec2 pos ) {
     vec2 e = vec2(0.03,0.0);
-        return normalize( vec3(sdTerrain(pos-e.xy).x - sdTerrain(pos+e.xy).x,
-                           2.0*e.x,
-                           sdTerrain(pos-e.yx).x - sdTerrain(pos+e.yx).x ) );
+    return normalize(vec3(sdTerrain(pos-e.xy).x - sdTerrain(pos+e.xy).x,
+                        2.0*e.x,
+                        sdTerrain(pos-e.yx).x - sdTerrain(pos+e.yx).x ) );
 }
 
-float terrainShadow( in vec3 ro, in vec3 rd, in float mint )
-{
+float terrainShadow( in vec3 ro, in vec3 rd, in float mint ) {
     float res = 1.0;
     float t = mint;
     for( int i=0; i<32; i++ ) {
@@ -1572,6 +1536,7 @@ float terrainShadow( in vec3 ro, in vec3 rd, in float mint )
     return clamp( res, 0.0, 1.0 );
 }
 
+// Mostly taken from Inigo's work :)
 RenderInfo terrainRender(in vec3 ro, in vec3 rd, inout bool hit, in float maxT, in vec3 bgCol) {
     RenderInfo ri; vec3 col = bgCol; ri.d = maxT;
     // Raymarch terrain
@@ -1612,8 +1577,7 @@ RenderInfo terrainRender(in vec3 ro, in vec3 rd, inout bool hit, in float maxT, 
 // @param i IntersectionInfo we are populating
 // @param side Determines if we are inside or outside of an object (for refraction)
 RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i,
-                  in float side, in float maxT, in vec3 bgCol)
-{
+                  in float side, in float maxT, in vec3 bgCol) {
     RenderInfo ri; i.intersectObj = -1;
     // Raymarching
     RayMarchRes res = raymarch(ro, rd, maxT, side);
@@ -1689,8 +1653,6 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
 //    rd = normalize(farC - ro);
 //    rd = rotateAxis(rd, vec3(0.0, 1.0, 0.0), rotationAngle);
 
-
-
 #ifdef SKY_BACKGROUND
     bgCol = getSky(rd);
 #else
@@ -1744,7 +1706,7 @@ void main() {
         // If main render did not hit and we hit terrain
         setBrightness(tr.fragColor.rgb); fragColor = tr.fragColor; return;
     }
-    // ======================================================
+    // ========================================================
 
     phong = ri.fragColor;
 
@@ -1806,11 +1768,16 @@ void main() {
             refr = vec4(0.);
         } else {
             vec3 shiftedRO = pExit - nExit * SURFACE_DIST*5.f;
-            bool hit = false; vec4 cres; vec4 resC;
-            RenderInfo res = render(shiftedRO, rdOut, info, OUTSIDE, far, bgCol);
+            bool cloudHit = false; bool terrainHit;
+            vec4 cres; vec4 resC; RenderInfo res, tr;
+            res = render(shiftedRO, rdOut, info, OUTSIDE, far, bgCol); tr.d = res.d;
+#ifdef TERRAIN
+            tr = terrainRender(shiftedRO, rdOut, terrainHit, res.d, bgCol);
+            if (terrainHit) { res.fragColor = tr.fragColor; res.isEnv = true; }
+#endif
 #ifdef VOLUMETRIC
-            cres = vec4(cloudRender(shiftedRO, rdOut, bgCol, hit, res.d), 1.f);
-            if (hit) res.fragColor = cres;
+            cres = vec4(cloudRender(shiftedRO, rdOut, bgCol, cloudHit, tr.d), 1.f);
+            if (cloudHit) res.fragColor = cres;
 #endif
             refr += vec4(kt * ct * vec3(res.fragColor), 1.f);
         }
