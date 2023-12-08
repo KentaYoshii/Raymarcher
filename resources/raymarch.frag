@@ -1321,70 +1321,46 @@ void setBrightness(vec3 color) {
     }
 }
 
-// [0, 2]
-float timeOfDay = mod(iTime, 48.0) / 24.0;
-float sunriseStart = 0.1;
-float sunsetStart = 0.85;
-float nightStart = 1.;
+// =============== SUN & SKY =================
 
+// [0, 1]
+float timeOfDay = mod(iTime, 24.) / 24.0;
+float sunriseStart = 0.2;
+float sunsetStart = 0.8;
+
+// Get current sun direction
 vec3 getSunDir() {
-    // Elevation angle varies from -PI/2 (sunrise) to PI/2 (sunset)
-    float elevationAngle = mix(-3.14 / 2.0, 3.14 / 2.0, timeOfDay);
-    // Direction vector representing the sun position
+    float elevationAngle = mix(0, 3.14, timeOfDay);
     return normalize(vec3(cos(elevationAngle), sin(elevationAngle), -0.577));
 }
 
+// Get current sky color
 vec3 getSkyColor() {
     vec3 dayColor = vec3(0.8, 0.9, 1.1);
     vec3 sunriseColor = vec3(1.0, 0.5, 0.2);
     vec3 sunsetColor = vec3(1.0, 0.8, 0.5);
-    vec3 nightColor = vec3(0.05, 0.1, 0.2);
 
-    // Blend between colors based on time of day
     vec3 blendedColor = mix(sunriseColor, dayColor, smoothstep(0.0, sunriseStart, timeOfDay));
-    blendedColor = mix(blendedColor, sunsetColor, smoothstep(sunriseStart, sunsetStart, timeOfDay));
-    blendedColor = mix(blendedColor, nightColor, smoothstep(sunsetStart, nightStart, timeOfDay));
+    blendedColor = mix(blendedColor, sunsetColor, smoothstep(sunsetStart, 1.0, timeOfDay));
 
     return blendedColor;
 }
 
+// Get current sun color
 vec3 getSunColor() {
-    // Direction vector representing the sun position
-    vec3 sunDirection = getSunDir();
-
-    // Get dynamic sky color based on time of day
-    vec3 dynamicSkyColor = getSkyColor();
-
-    // Interpolate sun color based on time of day and dynamic sky color
     vec3 sunriseColor = vec3(1.0, 0.5, 0.2);
-    vec3 daytimeColor = dynamicSkyColor;
+    vec3 daytimeColor = vec3(1.f, 1.f, 0.8f);
     vec3 sunsetColor = vec3(1.0, 0.8, 0.5);
-    vec3 nigtColor = vec3(0.1,0.2,0.2);
 
-    float sunriseEndTime = 0.3; // 0.0 to 1.0
-    float sunsetStartTime = 1.3; // 0.0 to 1.0
-
-    // Interpolate between sunrise, daytime, and sunset colors based on time of day
-    vec3 sunColor;
-    if (timeOfDay < sunriseEndTime) {
-        // Interpolate between sunrise and daytime colors
-        sunColor = mix(sunriseColor, daytimeColor, timeOfDay / sunriseEndTime);
-    } else if (timeOfDay < sunsetStartTime) {
-        // Sun is in the sky, use the dynamic sky color
-        sunColor = daytimeColor;
-    } else {
-        // Interpolate between daytime and sunset colors
-        sunColor = mix(daytimeColor, sunsetColor, (timeOfDay - sunsetStartTime) / (1.0 - sunsetStartTime));
-    }
-
+    vec3 sunColor = mix(sunriseColor, daytimeColor, smoothstep(0.0, sunriseStart, timeOfDay));
+    sunColor = mix(sunColor, sunsetColor, smoothstep(sunsetStart, 1.f, timeOfDay));
     return sunColor;
 }
 
-vec3  kSunDir = vec3(0.577, 0.577, -0.577);
-
+// Get the background color
 vec3 getSky(vec3 rd) {
     vec3 col  = getSkyColor()*(0.6+0.4*rd.y);
-    col += 2.0 * getSunColor() *
+    col += getSunColor() *
             pow(clamp(
                     dot(rd, getSunDir()),
                     0.0,1.0),

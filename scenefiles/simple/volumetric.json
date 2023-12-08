@@ -7,9 +7,9 @@
     "transparentCoeff": 0.5
   },
   "cameraData": {
-    "position": [0, 400, 5.0],
+    "position": [0, 500, 5.0],
     "up": [0.0, 1.0, 0.0],
-    "heightAngle": 120.0,
+    "heightAngle": 100.0,
     "focus": [0.0, 0.0, 0.0]
   },
   "groups": [
@@ -25,7 +25,7 @@
     {
       "groups": [
         {
-          "translate": [0, 0, 0],
+          "translate": [0, 515, 0],
           "scale": [2, 2, 2],
           "primitives": [
             {
