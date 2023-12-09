@@ -1,7 +1,8 @@
 #version 330 core
 // ==== Preprocessor Directives ====
 // #define SKY_BACKGROUND
-#define DARK_BACKGROUND
+// #define DARK_BACKGROUND
+#define WHITE_BACKGROUND
 // #define CLOUD
 // #define TERRAIN
 
@@ -33,7 +34,7 @@ const float PI = 3.14159265;
 const float TAU = 6.28318;
 const vec3 ANGLE = vec3(0);
 // - reflection depth
-const int NUM_REFLECTION = 3;
+const int NUM_REFLECTION = 1;
 // - Area Lights
 const float LUT_SIZE  = 64.0; // ltc_texture size
 const float LUT_SCALE = (LUT_SIZE - 1.0)/LUT_SIZE;
@@ -199,6 +200,7 @@ struct RenderInfo
     // We need this to differentiate the color values between true hit and environment
     vec4 fragColor;
     float d;
+    int customId;
     bool isEnv;
     bool isAL;
 };
@@ -941,23 +943,27 @@ float sdBalls(vec3 p) {
 
 float sdCUSTOM(vec3 p, out int customId) {
     // Custom ID needed for applying different material
-    float dt = sdBalls(p - vec3(0, 4.75f, 0));
-    customId = 0;
+    float dt = 0.f;
 
-    float col_scale = 2.;
-    p /= col_scale;
-    float c1 = sdColumn(p + vec3(3, 0, -5));
-    float c2 = sdColumn(p + vec3(5, 0, 0));
-    float c3 = sdColumn(p + vec3(3, 0, 5));
-    float c4 = sdColumn(p + vec3(-3, 0, 5));
-    float c5 = sdColumn(p + vec3(-5, 0, 0));
-    float c6 = sdColumn(p + vec3(-3, 0, -5));
-    float c = min(c1, min(c2, min(c3, min(c4, min(c5, c6)))));
+// === BALL & PILLAR Scene ===
+//    float dt = sdBalls(p - vec3(0, 4.75f, 0));
+//    customId = 0;
 
-    if (c < dt) {
-        customId = 1;
-        dt = c;
-    }
+//    float col_scale = 2.;
+//    p /= col_scale;
+//    float c1 = sdColumn(p + vec3(3, 0, -5));
+//    float c2 = sdColumn(p + vec3(5, 0, 0));
+//    float c3 = sdColumn(p + vec3(3, 0, 5));
+//    float c4 = sdColumn(p + vec3(-3, 0, 5));
+//    float c5 = sdColumn(p + vec3(-5, 0, 0));
+//    float c6 = sdColumn(p + vec3(-3, 0, -5));
+//    float c = min(c1, min(c2, min(c3, min(c4, min(c5, c6)))));
+
+//    if (c < dt) {
+//        customId = 1;
+//        dt = c;
+//    }
+
     return dt;
 }
 
@@ -1400,17 +1406,19 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, vec3 cD,
 void setCustomMat(int customId, out vec3 a, out vec3 d, out vec3 s,
                   out int texLoc, out float rU, out float rV, out float blend,
                   out int type, out float shininess) {
-    if (customId == 0) {
-        // ball
-        a = vec3(0.3); d = vec3(1.0, 0.8, 0.6); s = vec3(0.3);
-        texLoc = 0; rU = 2.; rV = 2.;
-        type = CUSTOM; blend = 1.f; shininess = 0.4;
-    } else if (customId == 1) {
-        // pillar
-        a = vec3(0.1); d = vec3(0.5); s = vec3(0.);
-        texLoc = 0; rU = 2.; rV = 2.;
-        type = CUSTOM; blend = 1.f; shininess = 0.;
-    }
+
+// BALL & Pillar Scene Material
+//    if (customId == 0) {
+//        // ball
+//        a = vec3(0.3); d = vec3(1.0, 0.8, 0.6); s = vec3(0.3);
+//        texLoc = -1; rU = 2.; rV = 2.;
+//        type = CUSTOM; blend = 1.f; shininess = 0.4;
+//    } else if (customId == 1) {
+//        // pillar
+//        a = vec3(0.1); d = vec3(0.5); s = vec3(0.);
+//        texLoc = 0; rU = 2.; rV = 2.;
+//        type = CUSTOM; blend = 0.6f; shininess = 0.;
+//    }
 }
 
 // Gets Phong Light
@@ -1790,7 +1798,7 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i,
     // set output variable
     i.p = p; i.n = pn; i.rd = rd; i.intersectObj = res.intersectObj;
     // set return
-    ri.fragColor = vec4(col, 1.f);
+    ri.fragColor = vec4(col, 1.f); ri.customId = res.customId;
     return ri;
 }
 
@@ -1812,7 +1820,7 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
     ro.y += 100.f;
 #endif
 
-    ro.y += 8.;
+    // ro.y += 8.;
 
     // == NO rotation ==
     rd = normalize(farC - ro);
@@ -1821,7 +1829,7 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
 //    float disp = smoothstep(-1.,1., sin(iTime));
 //    ro.xz += disp;
     // == Rotation about the center ==
-//    float rotationAngle = iTime / 5.;
+//    float rotationAngle = iTime / 7.;
 //    ro = rotateAxis(ro, vec3(0.0, 1.0, 0.0), rotationAngle);
 //    rd = normalize(farC - ro);
 //    rd = rotateAxis(rd, vec3(0.0, 1.0, 0.0), rotationAngle);
@@ -1829,9 +1837,12 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
 #ifdef SKY_BACKGROUND
     bgCol = getSky(rd);
 #else
+#ifdef WHITE_BACKGROUND
+    bgCol = vec3(1.f);
+#else
     bgCol = vec3(0.f);
 #endif
-
+#endif
     // === Set far plane ===
 #ifdef CLOUD
     far = 2000.f;
@@ -1887,7 +1898,14 @@ void main() {
     oi.intersectObj = info.intersectObj; oi.n = info.n; oi.p = info.p; oi.rd = info.rd;
     // === Secondary Rays ===
     RayMarchObject obj = objects[info.intersectObj];
-    if (enableReflection && length(obj.cReflective) != 0) {
+    vec3 cRefl = obj.cReflective, cRefr = obj.cTransparent;
+    if (obj.type == CUSTOM) {
+        // Change accordingly
+        if (ri.customId == 0) {
+            cRefl = vec3(0.3);
+        }
+    }
+    if (enableReflection && length(cRefl) != 0) {
         vec3 fil = vec3(1.f);
         // GLSL does not have recursion apparently :(
         // Here is my work around
@@ -1896,7 +1914,8 @@ void main() {
             // Reflect ray
             vec3 r = reflect(info.rd, info.n);
             vec3 shiftedRO = info.p + r * SURFACE_DIST * 3.f;
-            fil *= objects[info.intersectObj].cReflective;
+            // fil *= objects[info.intersectObj].cReflective;
+            fil *= cRefl;
             // Render the reflected ray
             bool terrainHit = false; bool cloudHit = false; vec4 cres; RenderInfo res, tr;
             res = render(shiftedRO, r, info, OUTSIDE, far, bgCol); tr.d = res.d;
@@ -1915,7 +1934,7 @@ void main() {
         }
     }
 
-    if (enableRefraction && length(obj.cTransparent) != 0) {
+    if (enableRefraction && length(cRefr) != 0) {
         // No recursion so hardcoded 2 refractions :(
         // also it does not account for the reflected light contributions
         // of the refracted rays (again, no recursion) so this is really wrong.

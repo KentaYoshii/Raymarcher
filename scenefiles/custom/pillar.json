@@ -14,32 +14,29 @@
   },
   "groups": [
     {
-      "translate": [0.0, 8.0, 0.0],
       "lights": [
         {
-          "type": "point",
+          "type": "directional",
           "color": [1, 1, 1],
-          "attenuationCoeff": [0.8, 0.2, 0]
+          "direction": [0, 0, -1]
         }
       ]
     },
     {
-      "translate": [0.0, 7.0, 1.0],
       "lights": [
         {
-          "type": "point",
+          "type": "directional",
           "color": [1, 1, 1],
-          "attenuationCoeff": [1, 0, 0]
+          "direction": [0, 0, 1]
         }
       ]
     },
     {
-      "translate": [0.0, 7.0, -1.0],
       "lights": [
         {
-          "type": "point",
+          "type": "directional",
           "color": [1, 1, 1],
-          "attenuationCoeff": [1, 0, 0]
+          "direction": [0, -1, 0]
         }
       ]
     },
@@ -54,7 +51,26 @@
               "diffuse": [1, 1, 1],
               "ambient": [0.5, 0.5, 0.5],
               "blend": 1,
-              "textureFile": "texture_store/blackmarble.png",
+              "textureFile": "texture_store/marble.png",
+              "textureU": 2.0,
+              "textureV": 2.0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "translate": [0, -1, 0],
+          "scale": [30, 1, 30],
+          "primitives": [
+            {
+              "type": "cube",
+              "diffuse": [0.4, 0.4, 0.4],
+              "ambient": [0.1, 0.1, 0.1],
+              "blend": 1,
+              "textureFile": "texture_store/brick_wall.png",
               "textureU": 2.0,
               "textureV": 2.0
             }
