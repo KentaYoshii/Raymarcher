@@ -1,10 +1,11 @@
 #version 330 core
 // ==== Preprocessor Directives ====
-// #define SKY_BACKGROUND
+#define SKY_BACKGROUND
 // #define DARK_BACKGROUND
-#define WHITE_BACKGROUND
+// #define WHITE_BACKGROUND
 // #define CLOUD
 // #define TERRAIN
+#define SEA
 
 // =============== Out =============
 layout (location = 0) out vec4 fragColor;
@@ -81,7 +82,22 @@ const float CLOUD_LOW = 600.f;
 const float CLOUD_MID = 900.f;
 const float CLOUD_HIGH = 1200.f;
 
+// SEA
+const int ITER_GEOMETRY = 3;
+const int ITER_FRAGMENT = 5;
+const float SEA_HEIGHT = 0.6;
+const float SEA_CHOPPY = 4.0;
+const float SEA_SPEED = 0.8;
+const float SEA_FREQ = 0.16;
+const vec3 SEA_BASE = vec3(0.1, 0.19, 0.22);
+const vec3 SEA_WATER_COLOR = vec3(0.8,0.9,0.6);
+const mat2 octave_m = mat2(1.6, 1.2, -1.2, 1.6);
+
 // For noise
+const mat3 mt = mat3(0.33338, 0.56034, -0.71817,
+                     -0.87887, 0.32651, -0.15323,
+                     0.15162, 0.69596, 0.61339) * 1.93;
+
 const mat2 m2 = mat2(  0.80,  0.60,
                       -0.60,  0.80 );
 const mat2 m2i = mat2( 0.80, -0.60,
@@ -255,49 +271,10 @@ uniform float terrainScale;
 RayMarchObject customObjects[2];
 
 // ================== Utility =======================
-const vec3 mod3_  = vec3(.1031, .11369, .13787);
-
-vec3 hash3_3(vec3 p3) {
-    p3 = fract(p3 * mod3_);
-    p3 += dot(p3, p3.yxz + 19.19);
-    // random3 has range 0 to 1
-    vec3 random3 = fract(vec3((p3.x + p3.y) * p3.z, (p3.x+p3.z) * p3.y, (p3.y+p3.z) * p3.x));
-    return normalize(-1. + 2. * random3);
+vec3 tri(vec3 x) {
+    return abs(x-floor(x)-.5);
 }
 
-float perlin_noise3(vec3 p) {
-    vec3 pi = floor(p);
-    vec3 pf = p - pi;
-
-    // 5th order interpolant from Improved Perlin Noise
-    vec3 pf3 = pf * pf * pf;
-    vec3 pf4 = pf3 * pf;
-    vec3 pf5 = pf4 * pf;
-    vec3 w = 6. * pf5 - 15. * pf4 + 10. * pf3;
-
-    return mix(
-        mix(
-            mix(
-                dot(pf - vec3(0, 0, 0), hash3_3(pi + vec3(0, 0, 0))),
-                dot(pf - vec3(1, 0, 0), hash3_3(pi + vec3(1, 0, 0))),
-                w.x),
-            mix(
-                dot(pf - vec3(0, 0, 1), hash3_3(pi + vec3(0, 0, 1))),
-                dot(pf - vec3(1, 0, 1), hash3_3(pi + vec3(1, 0, 1))),
-                w.x),
-        w.z),
-        mix(
-            mix(
-                dot(pf - vec3(0, 1, 0), hash3_3(pi + vec3(0, 1, 0))),
-                dot(pf - vec3(1, 1, 0), hash3_3(pi + vec3(1, 1, 0))),
-                w.x),
-            mix(
-                dot(pf - vec3(0, 1, 1), hash3_3(pi + vec3(0, 1, 1))),
-                dot(pf - vec3(1, 1, 1), hash3_3(pi + vec3(1, 1, 1))),
-                w.x),
-        w.z),
-        w.y);
-}
 // Transforms p along axis by angle
 vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
     return mix(dot(axis, p)*axis, p, cos(angle)) + cross(axis,p)*sin(angle);
@@ -472,6 +449,24 @@ float noiseT( in vec2 x )
     float c = hash1(p+vec2(0,1));
     float d = hash1(p+vec2(1,1));
     return -1.0+2.0*(a + (b-a)*u.x + (c-a)*u.y + (a - b - c + d)*u.x*u.y);
+}
+
+float noiseW(in vec2 p)
+{
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+
+    vec2 u = f * f * (3.0 - 2.0 * f);
+
+    float a = hash(i + vec2(0.0,0.0));
+    float b = hash(i + vec2(1.0,0.0));
+    float c = hash(i + vec2(0.0,1.0));
+    float d = hash(i + vec2(1.0,1.0));
+
+    float result = mix(mix(a, b, u.x),
+                        mix(c, d, u.x), u.y);
+
+    return (2.0 * result) - 1.0;
 }
 
 // Used in fbmd_8
@@ -837,6 +832,33 @@ float sdCapsule(vec3 p, float h, float r)
   return length(p) - r;
 }
 
+float sdCapsule( vec3 p, vec3 a, vec3 b, float r )
+{
+  vec3 pa = p - a, ba = b - a;
+  float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+  return length( pa - ba*h ) - r;
+}
+
+float sdRock(in vec3 p) {
+    float d = length(p.xy-vec2(-4.,0.))-2.;
+    d = smin(d, sdCapsule(p, vec3(-5.,0.,7.), vec3(0.,2.,7.), 1.), 1.7);
+    d = smin(d, p.y-.1+smoothstep(-3.1,5.,p.x)*2., 0.1);
+
+    // Add detail only if we are closed of the surface
+    if (d < 1.) {
+        // Inspired by many shaders of Shane, the master of the rock.
+        float z = 1.;
+        for(int i = 0; i < 6; i++)
+        {
+            d -= dot(tri(p*.5 + tri(p.yzx*.375)), vec3(.4*z));
+            z *= -0.55;
+            p = p*mt;
+        }
+    }
+
+    return d;
+}
+
 // Deathstar Signed Distance Field
 // @param p2 Point in object space
 // @param ra,rb,d play around
@@ -908,11 +930,7 @@ float sdColumn( vec3 p )
     float baseBox = sdBox(bp1, vec3(0.75, 0.50, 0.75)) / bp1_scale; // [-0.5, 0.5]
 
     // pillar core
-    //float noise = perlin_noise3(p * NOISE_FREQUENCY) / NOISE_GRADIENT_MAGNITUDE;
     float coreCyl = sdCylinder(cp + vec3(0, -3.5, 0), 3, 0.2); // [0.5, 6.5]
-//    coreCyl = mix(coreCyl / 3.f,
-//                  noise,
-//                  NOISE_PROPORTION);
     cp.xz *= rotate2D(cp.y);
     float bbcore = sdBox(cp + vec3(0, -3.5, 0), vec3(0.25, 2, 0.25));
     float pillarCore = sdSmoothUnion(coreCyl, bbcore, 0.9);
@@ -944,7 +962,8 @@ float sdBalls(vec3 p) {
 float sdCUSTOM(vec3 p, out int customId) {
     // Custom ID needed for applying different material
     float dt = 0.f;
-
+    float bb = sdBox(p, vec3(5.));
+    return bb;
 // === BALL & PILLAR Scene ===
 //    float dt = sdBalls(p - vec3(0, 4.75f, 0));
 //    customId = 0;
@@ -1455,7 +1474,7 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far, boo
             maxT = length(li.lightPos - p);
         } else if (li.type == DIRECTIONAL) {
             L = normalize(-li.lightDir);
-            // L = getSunDir();
+            L = getSunDir();
             maxT = far;
         } else if (li.type == SPOT) {
             L = normalize(li.lightPos - p);
@@ -1498,15 +1517,15 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far, boo
             NdotL = clamp(NdotL, 0.f, 1.f);
             currColor +=  getDiffuse(p, N, custom, type, cDiffuse, texLoc, invModel, rU, rV, blend)
                     * NdotL
-                    * li.lightColor;
-                    // * getSunColor();
+                    // * li.lightColor;
+                    * getSunColor();
 
             // Specular
             vec3 R = reflect(-L, N);
             float RdotV = clamp(dot(R, V), 0.f, 1.f);
             currColor += getSpecular(RdotV, cSpecular, shininess)
-                    * li.lightColor;
-                    // * getSunColor();
+                    //* li.lightColor;
+                    * getSunColor();
             // Add the light source's contribution
             currColor *= fAtt * aFall;
             if (enableSoftShadow) currColor *= res.d;
@@ -1746,6 +1765,156 @@ RenderInfo terrainRender(in vec3 ro, in vec3 rd, inout bool hit, in float maxT, 
     return ri;
 }
 
+// =========================== SEA =============================
+// Get sea wave octave.
+float sea_octave(vec2 uv, float choppy)
+{
+    uv += noiseW(uv);
+    vec2 wv = 1.0 - abs(sin(uv));
+    vec2 swv = abs(cos(uv));
+    wv = mix(wv, swv, wv);
+    return pow(1.0 - pow(wv.x * wv.y, 0.65), choppy);
+}
+
+vec3 getSeaColor(vec3 p, vec3 n, vec3 l, vec3 eye, vec3 dist)
+{
+    float fresnel = clamp(1.0 - dot(n, -eye), 0.0, 1.0);
+    fresnel = pow(fresnel, 3.0) * 0.65;
+
+    vec3 reflected = getSky(reflect(eye, n));
+    vec3 refracted = SEA_BASE +
+            pow(dot(n, l) * 0.4 + 0.6, 80) *
+            SEA_WATER_COLOR * 0.12;
+
+    vec3 color = mix(refracted, reflected, fresnel);
+
+    float atten = max(1.0 - dot(dist, dist) * 0.001, 0.0);
+    color += SEA_WATER_COLOR * (p.y - SEA_HEIGHT) * 0.18 * atten;
+
+    float nrm = (60. + 8.0) / (PI * 8.0);
+    float spec = pow(max(dot(reflect(eye, n), l), 0.), 60.) * nrm;
+    color += spec;
+
+    return color;
+}
+
+float SEA_TIME = 1. + iTime * SEA_SPEED;
+
+// p is ray position.
+float seaMap(vec3 p) {
+    float freq = SEA_FREQ;
+    float amp = SEA_HEIGHT;
+    float choppy = SEA_CHOPPY;
+
+    // XZ plane.
+    vec2 uv = p.xz;
+
+    float d, h = 0.0;
+
+    // FBM
+    for (int i = 0; i < ITER_GEOMETRY; i++) {
+        d = sea_octave((uv + SEA_TIME) * freq, choppy);
+        d += sea_octave((uv - SEA_TIME) * freq, choppy);
+        h += d * amp;
+        uv *= octave_m;
+        freq *= 2.0;
+        amp *= 0.2;
+        choppy = mix(choppy, 1.0, 0.2);
+    }
+    return p.y - h;
+}
+
+// p is ray position.
+// This function calculate detail map with more iteration count.
+float seaMapD(vec3 p) {
+    float freq = SEA_FREQ;
+    float amp = SEA_HEIGHT;
+    float choppy = SEA_CHOPPY;
+
+    vec2 uv = p.xz;
+
+    float d, h = 0.0;
+
+    // ITER_FRAGMENT = 5
+    for (int i = 0; i < ITER_FRAGMENT; i++) {
+        d = sea_octave((uv + SEA_TIME) * freq, choppy);
+        d += sea_octave((uv - SEA_TIME) * freq, choppy);
+        h += d * amp;
+        uv *= octave_m;
+        freq *= 2.0;
+        amp *= 0.2;
+        choppy = mix(choppy, 1.0, 0.2);
+    }
+    return p.y - h;
+}
+
+vec3 getSeaNormal(vec3 p, float eps)
+{
+    vec3 n;
+    n.y = seaMapD(p);
+    n.x = seaMapD(vec3(p.x + eps, p.y, p.z)) - n.y;
+    n.z = seaMapD(vec3(p.x, p.y, p.z + eps)) - n.y;
+    n.y = eps;
+    return normalize(n);
+}
+
+float seaMapHeight(in vec3 ro, in vec3 rd, out vec3 p, float maxT) {
+    float tm = 0.0; float tx = 1000.0;
+
+    // Calculate 1000m far distance map.
+    float hx = seaMap(ro + rd * tx);
+
+    // if hx over 0.0 is that ray on the sky
+    if(hx > 0.0) { p = vec3(0.0); return tx; }
+
+    float hm = seaMap(ro + rd * tm);
+    float tmid = 0.0;
+
+    for (int i = 0; i < 8; i++) {
+        // Normalized by max distance
+        float f = hm / (hm - hx);
+
+        tmid = mix(tm, tx, f);
+        p = ro + rd * tmid;
+
+        if (tmid > maxT) {
+            return -1;
+        }
+
+        float hmid = seaMap(p);
+
+        if (hmid < 0.0) {
+            tx = tmid; hx = hmid;
+        } else {
+            tm = tmid;  hm = hmid;
+        }
+    }
+    return tmid;
+}
+
+RenderInfo seaRender(in vec3 ro, in vec3 rd, inout bool hit, in float maxT, in vec3 bgCol) {
+    RenderInfo ri; vec3 col = vec3(0.f); ri.d = maxT; ri.isEnv = true;
+    vec3 p;
+    // Trace
+    float t = seaMapHeight(ro, rd, p, maxT);
+
+    if (length(p) == 0 || t == -1) { ri.fragColor = vec4(bgCol, 1); return;}
+
+    hit = true; ri.d = t;
+
+    // Shade
+    vec3 d = p - ro;
+    vec3 n = getSeaNormal(p, dot(d, d) * 0.1 / screenDimensions.x);
+
+    // Get Sky
+    vec3 s = getSky(rd);
+    vec3 sc = getSeaColor(p, n, getSunDir(), rd, d);
+    float t2 = pow(smoothstep(0.0, -0.05, rd.y), 0.3);
+    vec3 color = mix(s, sc, t2);
+    ri.fragColor = vec4(color, 1.);
+    return ri;
+}
+
 
 // =============================================================
 // Given ray origin and ray direction, performs a raymarching
@@ -1817,11 +1986,15 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
     vec3 farC = farClip.xyz / farClip.w;
 
 #ifdef TERRAIN
+    // SCENE #1
     ro.y += 100.f;
 #endif
-
+    // SCENE #2
     // ro.y += 8.;
 
+#ifdef SEA
+    ro.y += 5;
+#endif
     // == NO rotation ==
     rd = normalize(farC - ro);
 
@@ -1839,6 +2012,8 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
 #else
 #ifdef WHITE_BACKGROUND
     bgCol = vec3(1.f);
+    // SCENE #2
+    // bgCol = vec3(texture(objTextures[1], rd.xy * 6)).rgb;
 #else
     bgCol = vec3(0.f);
 #endif
@@ -1860,15 +2035,20 @@ void main() {
     setScene(ro, rd, bgCol, far);
 
     vec4 phong, refl = vec4(0.f), refr = vec4(0.f), cres;
-    bool cloudHit = false, terrainHit = false;
+    bool cloudHit = false, terrainHit = false, seaHit = false;
     IntersectionInfo info, oi;
-    RenderInfo ri, tr;
+    RenderInfo ri, tr, sr;
 
     // === Main render ===
-    ri = render(ro, rd, info, OUTSIDE, far, bgCol); tr.d = ri.d;
+    ri = render(ro, rd, info, OUTSIDE, far, bgCol);
+    sr.d = ri.d; tr.d = ri.d;
+    // === Sea render ===
+#ifdef SEA
+    sr = seaRender(ro, rd, seaHit, ri.d, bgCol);
+#endif
     // === Terrain render ===
 #ifdef TERRAIN
-    tr = terrainRender(ro, rd, terrainHit, ri.d, bgCol), 1.f;
+    tr = terrainRender(ro, rd, terrainHit, sr.d, bgCol);
 #endif
     // === Cloud render ===
 #ifdef CLOUD
@@ -1876,7 +2056,7 @@ void main() {
 #endif
 
     // === Case when main render did not hit a real object ===
-    if (ri.isEnv && !cloudHit && !terrainHit) {
+    if (ri.isEnv && !cloudHit && !terrainHit &&!seaHit) {
         // NO HIT
         if (ri.isAL) {
            // If hit area lights
@@ -1889,6 +2069,9 @@ void main() {
     } else if (terrainHit) {
         // If main render did not hit and we hit terrain
         setBrightness(tr.fragColor.rgb); fragColor = tr.fragColor; return;
+    } else if (seaHit) {
+        // If main render did not hit and we hit sea
+        setBrightness(sr.fragColor.rgb); fragColor = sr.fragColor; return;
     }
     // ========================================================
 
@@ -1917,10 +2100,16 @@ void main() {
             // fil *= objects[info.intersectObj].cReflective;
             fil *= cRefl;
             // Render the reflected ray
-            bool terrainHit = false; bool cloudHit = false; vec4 cres; RenderInfo res, tr;
-            res = render(shiftedRO, r, info, OUTSIDE, far, bgCol); tr.d = res.d;
+            bool terrainHit = false, cloudHit = false, seaHit = false; vec4 cres;
+            RenderInfo res, tr, sr;
+            res = render(shiftedRO, r, info, OUTSIDE, far, bgCol);
+            tr.d = res.d; sr.d = res.d;
+#ifdef SEA
+            sr = seaRender(shiftedRO, r, seaHit, res.d, bgCol);
+            if (seaHit) { res.fragColor = sr.fragColor; sr.isEnv = true; }
+#endif
 #ifdef TERRAIN
-            tr = terrainRender(shiftedRO, r, terrainHit, res.d, bgCol);
+            tr = terrainRender(shiftedRO, r, terrainHit, sr.d, bgCol);
             if (terrainHit) { res.fragColor = tr.fragColor; res.isEnv = true; }
 #endif
 #ifdef CLOUD
@@ -1960,12 +2149,17 @@ void main() {
             refr = vec4(0.);
         } else {
             vec3 shiftedRO = pExit - nExit * SURFACE_DIST*5.f;
-            bool cloudHit = false; bool terrainHit;
-            vec4 cres; vec4 resC; RenderInfo res, tr;
-            res = render(shiftedRO, rdOut, info, OUTSIDE, far, bgCol); tr.d = res.d;
+            bool cloudHit = false, terrainHit = false, seaHit = false;
+            vec4 cres; vec4 resC; RenderInfo res, tr, sr;
+            res = render(shiftedRO, rdOut, info, OUTSIDE, far, bgCol);
+            tr.d = res.d; sr.d = res.d;
+#ifdef SEA
+            sr = seaRender(shiftedRO, rdOut, seaHit, res.d, bgCol);
+            if (seaHit) res.fragColor = sr.fragColor;
+#endif
 #ifdef TERRAIN
-            tr = terrainRender(shiftedRO, rdOut, terrainHit, res.d, bgCol);
-            if (terrainHit) { res.fragColor = tr.fragColor; res.isEnv = true; }
+            tr = terrainRender(shiftedRO, rdOut, terrainHit, sr.d, bgCol);
+            if (terrainHit) res.fragColor = tr.fragColor;
 #endif
 #ifdef CLOUD
             cres = vec4(cloudRender(shiftedRO, rdOut, bgCol, cloudHit, tr.d), 1.f);
