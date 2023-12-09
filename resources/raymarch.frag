@@ -56,7 +56,7 @@ const int MENGERSPONGE = 11;
 const int SIERPINSKI = 12;
 
 // CUSTOM SCENE
-const int CUSTOM = 100;
+const int CUSTOM = 13;
 
 // LIGHT TYPES
 const int POINT = 0;
@@ -141,6 +141,8 @@ struct SceneMin
     float minD;
     // Fractal Trap
     vec4 trap;
+    // Custom id
+    int customId;
 };
 
 struct RayMarchRes
@@ -153,6 +155,8 @@ struct RayMarchRes
     float d;
     // Fractal Trap
     vec4 trap;
+    // Custom id
+    int customId;
 };
 
 struct IntersectionInfo
@@ -243,7 +247,55 @@ uniform int numOctaves;
 uniform float terrainHeight = 0.f;
 uniform float terrainScale;
 
+// ============ CUSTOM SCENE CONFIG =================
+// Cannot think about a better way :(
+
+RayMarchObject customObjects[2];
+
 // ================== Utility =======================
+const vec3 mod3_  = vec3(.1031, .11369, .13787);
+
+vec3 hash3_3(vec3 p3) {
+    p3 = fract(p3 * mod3_);
+    p3 += dot(p3, p3.yxz + 19.19);
+    // random3 has range 0 to 1
+    vec3 random3 = fract(vec3((p3.x + p3.y) * p3.z, (p3.x+p3.z) * p3.y, (p3.y+p3.z) * p3.x));
+    return normalize(-1. + 2. * random3);
+}
+
+float perlin_noise3(vec3 p) {
+    vec3 pi = floor(p);
+    vec3 pf = p - pi;
+
+    // 5th order interpolant from Improved Perlin Noise
+    vec3 pf3 = pf * pf * pf;
+    vec3 pf4 = pf3 * pf;
+    vec3 pf5 = pf4 * pf;
+    vec3 w = 6. * pf5 - 15. * pf4 + 10. * pf3;
+
+    return mix(
+        mix(
+            mix(
+                dot(pf - vec3(0, 0, 0), hash3_3(pi + vec3(0, 0, 0))),
+                dot(pf - vec3(1, 0, 0), hash3_3(pi + vec3(1, 0, 0))),
+                w.x),
+            mix(
+                dot(pf - vec3(0, 0, 1), hash3_3(pi + vec3(0, 0, 1))),
+                dot(pf - vec3(1, 0, 1), hash3_3(pi + vec3(1, 0, 1))),
+                w.x),
+        w.z),
+        mix(
+            mix(
+                dot(pf - vec3(0, 1, 0), hash3_3(pi + vec3(0, 1, 0))),
+                dot(pf - vec3(1, 1, 0), hash3_3(pi + vec3(1, 1, 0))),
+                w.x),
+            mix(
+                dot(pf - vec3(0, 1, 1), hash3_3(pi + vec3(0, 1, 1))),
+                dot(pf - vec3(1, 1, 1), hash3_3(pi + vec3(1, 1, 1))),
+                w.x),
+        w.z),
+        w.y);
+}
 // Transforms p along axis by angle
 vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
     return mix(dot(axis, p)*axis, p, cos(angle)) + cross(axis,p)*sin(angle);
@@ -839,6 +891,10 @@ float sdPlane( vec3 p, vec3 n, float h )
   return dot(p,n) + h;
 }
 
+//const float NOISE_PROPORTION = 0.25;
+//const float NOISE_FREQUENCY = 20.;
+//const float NOISE_GRADIENT_MAGNITUDE = (1. * NOISE_FREQUENCY * 1.32);
+
 float sdColumn( vec3 p )
 {
     vec3 bp1 = p; vec3 bp2 = p; vec3 cp = p;
@@ -850,7 +906,11 @@ float sdColumn( vec3 p )
     float baseBox = sdBox(bp1, vec3(0.75, 0.50, 0.75)) / bp1_scale; // [-0.5, 0.5]
 
     // pillar core
+    //float noise = perlin_noise3(p * NOISE_FREQUENCY) / NOISE_GRADIENT_MAGNITUDE;
     float coreCyl = sdCylinder(cp + vec3(0, -3.5, 0), 3, 0.2); // [0.5, 6.5]
+//    coreCyl = mix(coreCyl / 3.f,
+//                  noise,
+//                  NOISE_PROPORTION);
     cp.xz *= rotate2D(cp.y);
     float bbcore = sdBox(cp + vec3(0, -3.5, 0), vec3(0.25, 2, 0.25));
     float pillarCore = sdSmoothUnion(coreCyl, bbcore, 0.9);
@@ -879,8 +939,10 @@ float sdBalls(vec3 p) {
     return balls;
 }
 
-float sdCUSTOM(vec3 p) {
-    float balls = sdBalls(p - vec3(0, 4.75f, 0));
+float sdCUSTOM(vec3 p, out int customId) {
+    // Custom ID needed for applying different material
+    float dt = sdBalls(p - vec3(0, 4.75f, 0));
+    customId = 0;
 
     float col_scale = 2.;
     p /= col_scale;
@@ -891,7 +953,12 @@ float sdCUSTOM(vec3 p) {
     float c5 = sdColumn(p + vec3(-5, 0, 0));
     float c6 = sdColumn(p + vec3(-3, 0, -5));
     float c = min(c1, min(c2, min(c3, min(c4, min(c5, c6)))));
-    return min(c, balls);
+
+    if (c < dt) {
+        customId = 1;
+        dt = c;
+    }
+    return dt;
 }
 
 float sdFlowerBall(vec3 p) {
@@ -916,7 +983,7 @@ float sdFlowerBall(vec3 p) {
 // Invoke the appropriate SDF function and return the distance
 // @param p Point in object space
 // @param type Type of the object
-float sdMatch(vec3 p, int type, int id, out vec4 trapCol)
+float sdMatch(vec3 p, int type, int id, out int customId, out vec4 trapCol)
 {
     if (type == CUBE) {
         return sdBox(p, vec3(0.5));
@@ -945,7 +1012,7 @@ float sdMatch(vec3 p, int type, int id, out vec4 trapCol)
     } else if (type == SIERPINSKI) {
         return sdSierpinski(p);
     } else if (type == CUSTOM) {
-        return sdCUSTOM(p);
+        return sdCUSTOM(p, customId);
     }
 }
 
@@ -1065,7 +1132,8 @@ vec2 uvMapSphere(vec3 p, float repeatU, float repeatV)
 // object
 SceneMin sdScene(vec3 p){
     float minD = 1000000.f;
-    int minObj = -1;
+    int minObj = -1; int minCId;
+    int customId;
     float currD;
     vec3 po;
     vec4 trapCol;
@@ -1078,17 +1146,19 @@ SceneMin sdScene(vec3 p){
         po = vec3(obj.invModelMatrix * vec4(p, 1.f));
 
         // Get the distance to the object
-        currD = sdMatch(po, obj.type, i, trapCol) * obj.scaleFactor;
+        currD = sdMatch(po, obj.type, i, customId, trapCol) * obj.scaleFactor;
         if (currD < minD) {
             // Update if we found a closer object
             minD = currD;
             minObj = i;
+            minCId = customId;
         }
     }
     // Populate the struct
     SceneMin res;
     res.minD = minD;
     res.minObjIdx = minObj;
+    res.customId = minCId;
     res.trap = trapCol;
     return res;
 }
@@ -1139,7 +1209,7 @@ RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
       // Bruh don't ask me why we need this.
       // Without this, normal calcuation somehow gets messed up
       res.d = rayDepth - closest.minD;
-      res.trap = closest.trap;
+      res.trap = closest.trap; res.customId = closest.customId;
   } else {
       // NO HIT
       res.intersectObj = -1;
@@ -1220,6 +1290,7 @@ RayMarchRes softshadow(vec3 ro, vec3 rd, float mint, float maxt, float k ) {
         // HIT
         r.intersectObj = closest.minObjIdx;
         r.d = res;
+        r.customId = closest.customId;
     } else {
         // NO HIT
         r.intersectObj = -1;
@@ -1246,30 +1317,43 @@ float calcAO(in vec3 pos, in vec3 nor) {
 // @param objId Id of the intersected object
 // @param p Intersection Point in world space
 // @param n Normal
-vec3 getDiffuse(int objId, vec3 p, vec3 n) {
-    RayMarchObject obj = objects[objId];
-    if (obj.texLoc == -1) {
+vec3 getDiffuse(vec3 p, vec3 n, bool custom, int type,
+                vec3 cD, int texLoc, mat4 invModel,
+                float rU, float rV, float blend) {
+    if (texLoc == -1) {
         // No texture used
-        return kd * obj.cDiffuse;
+        return kd * cD;
     }
     // Texture used -> find uv
     vec2 uv;
     // (Note) For global transformation
     // vec3 po = vec3(obj.invModelMatrix * vec4(Transform(p), 1.f));
-    vec3 po = vec3(obj.invModelMatrix * vec4(p, 1.f));
-    if (obj.type == CUBE) {
-        uv = uvMapCube(po, obj.repeatU, obj.repeatV);
-    } else if (obj.type == CONE) {
-        uv = uvMapCone(po, obj.repeatU, obj.repeatV);
-    } else if (obj.type == CYLINDER) {
-        uv = uvMapCylinder(po, obj.repeatU, obj.repeatV);
-    } else if (obj.type == SPHERE) {
-        uv = uvMapSphere(po, obj.repeatU, obj.repeatV);
+    vec3 po = vec3(invModel * vec4(p, 1.f));
+    if (type == CUBE) {
+        uv = uvMapCube(po, rU, rV);
+    } else if (type == CONE) {
+        uv = uvMapCone(po, rU, rV);
+    } else if (type == CYLINDER) {
+        uv = uvMapCylinder(po, rU, rV);
+    } else if (type == SPHERE) {
+        uv = uvMapSphere(po, rU, rV);
+    } else {
+        // Tri-planar
+        vec3 colXZ = texture(objTextures[texLoc], p.xz*.5 + .5).rgb;
+        vec3 colYZ = texture(objTextures[texLoc], p.yz*.5 + .5).rgb;
+        vec3 colXY = texture(objTextures[texLoc], p.xy*.5 + .5).rgb;
+
+        n = abs(n);
+        n *= pow(n, vec3(10));
+        n /= n.x + n.y + n.z;
+
+        vec3 col = colYZ * n.x + colXZ * n.y + colXY * n.z;
+        return (1.f - blend) * kd * cD + blend * col;
     }
     // Sample
-    vec4 texVal = texture(objTextures[obj.texLoc], uv);
+    vec4 texVal = texture(objTextures[texLoc], uv);
     // Linear interpolate
-    return (1.f - obj.blend) * kd * obj.cDiffuse + obj.blend * vec3(texVal);
+    return (1.f - blend) * kd * cD + blend * vec3(texVal);
 }
 
 // Gets the specular term (special case when shininess = 0)
@@ -1284,13 +1368,9 @@ vec3 getSpecular(float RdotV, vec3 cspec, float shi) {
 }
 
 // Get Area Light
-// @param N Normal
-// @param V View vector
-// @param P Intersection point
-// @param lightIdx Light index of the area light
-// @param objIdx Intersected object's index
-// @returns vec3 of area light's contribution
-vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, int objIdx) {
+vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, vec3 cD,
+                  vec3 cS, bool custom, int type, int texLoc, mat4 invModel,
+                  float rU, float rV, float blend) {
     float dotNV = clamp(dot(N, V), 0.0f, 1.0f);
     // use roughness and sqrt(1-cos_theta) to sample M_texture
     vec2 uv = vec2(0, sqrt(1.0f - dotNV));
@@ -1306,17 +1386,31 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, int objIdx) {
     );
 
     LightSource areaLight = lights[lightIdx];
-    RayMarchObject obj = objects[objIdx];
-    vec3 mDiffuse = obj.cDiffuse;
-    vec3 mSpecular = obj.cSpecular;
     // Evaluate LTC shading
     vec3 diffuse = LTC_Evaluate(N, V, P, mat3(1), areaLight.points, areaLight.twoSided);
     vec3 specular = LTC_Evaluate(N, V, P, Minv, areaLight.points, areaLight.twoSided);
     // GGX BRDF shadowing and Fresnel
-    specular *= mSpecular*t2.x + (areaLight.intensity - mSpecular) * t2.y;
+    specular *= cS*t2.x + (areaLight.intensity - cS) * t2.y;
     vec3 col = areaLight.lightColor * 1.0
-            * (specular + getDiffuse(objIdx, P, N) * diffuse);
+            * (specular + getDiffuse(P, N, custom, type, cD, texLoc, invModel, rU, rV, blend)
+               * diffuse);
     return col;
+}
+
+void setCustomMat(int customId, out vec3 a, out vec3 d, out vec3 s,
+                  out int texLoc, out float rU, out float rV, out float blend,
+                  out int type, out float shininess) {
+    if (customId == 0) {
+        // ball
+        a = vec3(0.3); d = vec3(1.0, 0.8, 0.6); s = vec3(0.3);
+        texLoc = 0; rU = 2.; rV = 2.;
+        type = CUSTOM; blend = 1.f; shininess = 0.4;
+    } else if (customId == 1) {
+        // pillar
+        a = vec3(0.1); d = vec3(0.5); s = vec3(0.);
+        texLoc = 0; rU = 2.; rV = 2.;
+        type = CUSTOM; blend = 1.f; shininess = 0.;
+    }
 }
 
 // Gets Phong Light
@@ -1325,14 +1419,22 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, int objIdx) {
 // @param p Intersection point
 // @param rd Ray direction
 // @returns phong color for that fragment
-vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far) {
-    vec3 total = vec3(0.f);
-    RayMarchObject obj = objects[intersectObj];
+vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far, bool custom) {
+    vec3 total = vec3(0.f); RayMarchObject obj = objects[intersectObj];
+    // Get material
+    vec3 cAmbient = obj.cAmbient,
+         cDiffuse = obj.cDiffuse,
+         cSpecular = obj.cSpecular;
+    float rU = obj.repeatU, rV = obj.repeatV; int texLoc = obj.texLoc; int type = obj.type;
+    mat4 invModel = obj.invModelMatrix; float blend = obj.blend; float shininess = obj.shininess;
+    if (custom) setCustomMat(intersectObj, cAmbient, cDiffuse, cSpecular,
+                             texLoc, rU, rV, blend,
+                             type, shininess);
 
     // Ambience
     float ao = 1.f;
     if (enableAmbientOcculusion) ao = calcAO(p, N);
-    total += obj.cAmbient * ka * ao;
+    total += cAmbient * ka * ao;
 
     // Loop Lights
     for (int i = 0; i < numLights; i++) {
@@ -1375,7 +1477,7 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far) {
                     if (objects[res.intersectObj].lightIdx != i) continue;
                 }
                 // calculate light contribution
-                areaColor += getAreaLight(N, V, p, i, intersectObj);
+                areaColor += getAreaLight(N, V, p, i, cDiffuse, cSpecular, custom, type, texLoc, invModel, rU, rV, blend);
             }
             currColor += areaColor / AREA_LIGHT_SAMPLES;
         } else {
@@ -1386,14 +1488,15 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far) {
             float NdotL = dot(N, L);
             if (NdotL <= 0.005f) continue; // pointing away
             NdotL = clamp(NdotL, 0.f, 1.f);
-            currColor +=  getDiffuse(intersectObj, p, N) * NdotL
+            currColor +=  getDiffuse(p, N, custom, type, cDiffuse, texLoc, invModel, rU, rV, blend)
+                    * NdotL
                     * li.lightColor;
                     // * getSunColor();
 
             // Specular
             vec3 R = reflect(-L, N);
             float RdotV = clamp(dot(R, V), 0.f, 1.f);
-            currColor += getSpecular(RdotV, obj.cSpecular, obj.shininess)
+            currColor += getSpecular(RdotV, cSpecular, shininess)
                     * li.lightColor;
                     // * getSunColor();
             // Add the light source's contribution
@@ -1665,26 +1768,24 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i,
         col = obj.color; ri.fragColor = vec4(col, 1.f); ri.isAL = true; return ri;
     }
 
-    if (obj.type == CUSTOM) {
-        // If custom object type
-    }
-
     ri.isAL = false;
 
-    if (obj.type == MANDELBULB) {
+    if (obj.type == CUSTOM) {
+        col = getPhong(pn, res.customId, p, ro, rd, maxT, true);
+    } else if (obj.type == MANDELBULB) {
         // Orbit Trap to color
         col = vec3(0.2);
         col = mix( col, vec3(0.10,0.20,0.30), clamp(res.trap.y,0.0,1.0) );
         col = mix( col, vec3(0.02,0.10,0.30), clamp(res.trap.z*res.trap.z,0.0,1.0) );
         col = mix( col, vec3(0.30,0.10,0.02), clamp(pow(res.trap.w,6.0),0.0,1.0) );
         col *= 0.5;
-        col *= getPhong(pn, res.intersectObj, p, ro, rd, maxT) * 8;
+        col *= getPhong(pn, res.intersectObj, p, ro, rd, maxT, false) * 8;
     } else if (obj.type == MENGERSPONGE) {
         // Orbit Trap to color
         col = 0.5 + 0.5*cos(vec3(0,1,2)+2.0*res.trap.z), 1.f;
-        col *= getPhong(pn, res.intersectObj, p, ro, rd, maxT);
+        col *= getPhong(pn, res.intersectObj, p, ro, rd, maxT, false);
     } else {
-        col = getPhong(pn, res.intersectObj, p, ro, rd, maxT);
+        col = getPhong(pn, res.intersectObj, p, ro, rd, maxT, false);
     }
     // set output variable
     i.p = p; i.n = pn; i.rd = rd; i.intersectObj = res.intersectObj;
@@ -1714,16 +1815,16 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
     ro.y += 8.;
 
     // == NO rotation ==
-    // rd = normalize(farC - ro);
+    rd = normalize(farC - ro);
 
     // == Smooth zoom in/out ==
 //    float disp = smoothstep(-1.,1., sin(iTime));
 //    ro.xz += disp;
     // == Rotation about the center ==
-    float rotationAngle = iTime / 5.;
-    ro = rotateAxis(ro, vec3(0.0, 1.0, 0.0), rotationAngle);
-    rd = normalize(farC - ro);
-    rd = rotateAxis(rd, vec3(0.0, 1.0, 0.0), rotationAngle);
+//    float rotationAngle = iTime / 5.;
+//    ro = rotateAxis(ro, vec3(0.0, 1.0, 0.0), rotationAngle);
+//    rd = normalize(farC - ro);
+//    rd = rotateAxis(rd, vec3(0.0, 1.0, 0.0), rotationAngle);
 
 #ifdef SKY_BACKGROUND
     bgCol = getSky(rd);

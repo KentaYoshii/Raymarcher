@@ -29,8 +29,7 @@ enum class PrimitiveType {
   MANDELBULB,
   MENGERSPONGE,
   SIERPINSKI,
-  TERRAIN,
-  CUSTOM = 100,
+  CUSTOM,
 };
 
 // Enum of the types of transformations that can be applied
