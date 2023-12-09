@@ -266,9 +266,7 @@ uniform float terrainHeight = 0.f;
 uniform float terrainScale;
 
 // ============ CUSTOM SCENE CONFIG =================
-// Cannot think about a better way :(
 
-RayMarchObject customObjects[2];
 
 // ================== Utility =======================
 vec3 tri(vec3 x) {
@@ -915,6 +913,17 @@ float sdPlane( vec3 p, vec3 n, float h )
   return dot(p,n) + h;
 }
 
+float sdBoxFrame( vec3 p, vec3 b, float e )
+{
+       p = abs(p  )-b;
+  vec3 q = abs(p+e)-e;
+  return min(min(
+      length(max(vec3(p.x,q.y,q.z),0.0))+min(max(p.x,max(q.y,q.z)),0.0),
+      length(max(vec3(q.x,p.y,q.z),0.0))+min(max(q.x,max(p.y,q.z)),0.0)),
+      length(max(vec3(q.x,q.y,p.z),0.0))+min(max(q.x,max(q.y,p.z)),0.0));
+}
+
+
 //const float NOISE_PROPORTION = 0.25;
 //const float NOISE_FREQUENCY = 20.;
 //const float NOISE_GRADIENT_MAGNITUDE = (1. * NOISE_FREQUENCY * 1.32);
@@ -959,11 +968,58 @@ float sdBalls(vec3 p) {
     return balls;
 }
 
+float sdLightHouse(vec3 p, out int customId) {
+    // Foundation (id = 0)
+    vec3 foundation = p; float F_MAX_SCALE = 20.f, F_MIN_SCALE = 15.f;
+    float f_scale = mix(F_MAX_SCALE, F_MIN_SCALE, smoothstep(-2.5, 2.5, p.y));
+    foundation.xz /= f_scale;
+    float dt = sdCylinder(foundation, 2.5, 0.5) * f_scale; // [-2.5, 2.5]
+    customId = 0;
+
+    // Light house core (id = 1)
+    vec3 core = p; float CORE_MAX_SCALE = 15.f, CORE_MIN_SCALE = 12.f;
+    float c_scale = mix(CORE_MAX_SCALE, CORE_MIN_SCALE, smoothstep(2.5, 26.5, p.y));
+    core.xz /= c_scale;
+    float ct = sdCylinder(core + vec3(0, -14.5, 0), 12, 0.5) * c_scale; // [2.5, 26.5]
+    if (ct < dt) {
+        customId = 1;
+        dt = sdSmoothUnion(ct, dt, 0.4);
+    }
+
+    // Upside-down observation deck (id = 2)
+    vec3 obs = p; float OBS_MIN_SCALE = 12.f, OBS_MAX_SCALE = 14.f;
+    float o_scale = mix(OBS_MIN_SCALE, OBS_MAX_SCALE, smoothstep(26.5, 30.5, p.y));
+    obs.xz /= o_scale;
+    float ot = sdCylinder(obs + vec3(0, -29.5, 0), 3., 0.5) * o_scale; // [26.5, 32.5]
+    if (ot < dt) {
+        customId = 2;
+        dt = sdSmoothUnion(dt, ot, 0.4);
+    }
+
+    // Top Box Frame (id = 3)
+    vec3 bf = p;
+    float bt = sdBoxFrame(bf + vec3(0, -35.5, 0), vec3(3.), 0.5); // [32.5, 38.5]
+    if (bt < dt) {
+        customId = 3;
+        dt = bt;
+    }
+
+    // Top Hat (id = 4)
+    vec3 th = p;
+    float tht = sdCone(p + vec3(0, -41.5, 0), 7.5, 3.);
+    if (tht < dt) {
+        customId = 4;
+        dt = tht;
+    }
+
+    return dt;
+}
+
 float sdCUSTOM(vec3 p, out int customId) {
     // Custom ID needed for applying different material
-    float dt = 0.f;
-    float bb = sdBox(p, vec3(5.));
-    return bb;
+
+    return sdLightHouse(p, customId);
+
 // === BALL & PILLAR Scene ===
 //    float dt = sdBalls(p - vec3(0, 4.75f, 0));
 //    customId = 0;
@@ -983,7 +1039,7 @@ float sdCUSTOM(vec3 p, out int customId) {
 //        dt = c;
 //    }
 
-    return dt;
+//    return dt;
 }
 
 float sdFlowerBall(vec3 p) {
@@ -1342,7 +1398,7 @@ float calcAO(in vec3 pos, in vec3 nor) {
 // @param objId Id of the intersected object
 // @param p Intersection Point in world space
 // @param n Normal
-vec3 getDiffuse(vec3 p, vec3 n, bool custom, int type,
+vec3 getDiffuse(vec3 p, vec3 n, int type,
                 vec3 cD, int texLoc, mat4 invModel,
                 float rU, float rV, float blend) {
     if (texLoc == -1) {
@@ -1394,7 +1450,7 @@ vec3 getSpecular(float RdotV, vec3 cspec, float shi) {
 
 // Get Area Light
 vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, vec3 cD,
-                  vec3 cS, bool custom, int type, int texLoc, mat4 invModel,
+                  vec3 cS, int type, int texLoc, mat4 invModel,
                   float rU, float rV, float blend) {
     float dotNV = clamp(dot(N, V), 0.0f, 1.0f);
     // use roughness and sqrt(1-cos_theta) to sample M_texture
@@ -1417,7 +1473,7 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, vec3 cD,
     // GGX BRDF shadowing and Fresnel
     specular *= cS*t2.x + (areaLight.intensity - cS) * t2.y;
     vec3 col = areaLight.lightColor * 1.0
-            * (specular + getDiffuse(P, N, custom, type, cD, texLoc, invModel, rU, rV, blend)
+            * (specular + getDiffuse(P, N, type, cD, texLoc, invModel, rU, rV, blend)
                * diffuse);
     return col;
 }
@@ -1425,6 +1481,36 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, vec3 cD,
 void setCustomMat(int customId, out vec3 a, out vec3 d, out vec3 s,
                   out int texLoc, out float rU, out float rV, out float blend,
                   out int type, out float shininess) {
+
+// Light house
+    if (customId == 0) {
+        // Foundation
+        a = vec3(0.2);  d = vec3(136/255.,140/255.,141/255.); s = vec3(0.1);
+        texLoc = -1;
+        type = CUSTOM;
+    } else if (customId == 1) {
+        // Core
+        a = vec3(0.2); d = vec3(1.f); s = vec3(0.2);
+        texLoc = -1;
+        type = CUSTOM;
+    } else if (customId == 2) {
+        // Obs deck
+        a = vec3(0.f); d = vec3(0.f); s = vec3(0.2);
+        texLoc = -1;
+        type = CUSTOM;
+    } else if (customId == 3) {
+        // box frame
+        a = vec3(0.f); d = vec3(0.f); s = vec3(0.1);
+        texLoc = -1;
+        type = CUSTOM;
+    } else if (customId == 4) {
+        // Top hat
+        a = vec3(0.4, 0.1, 0.1); d = vec3(0.8f, 0.15f, 0.12f); s = vec3(0.15);
+        texLoc = -1;
+        type = CUSTOM;
+    }
+
+    rU = 2.; rV = 2.; blend = 1.f; shininess = 0.4;
 
 // BALL & Pillar Scene Material
 //    if (customId == 0) {
@@ -1504,7 +1590,7 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far, boo
                     if (objects[res.intersectObj].lightIdx != i) continue;
                 }
                 // calculate light contribution
-                areaColor += getAreaLight(N, V, p, i, cDiffuse, cSpecular, custom, type, texLoc, invModel, rU, rV, blend);
+                areaColor += getAreaLight(N, V, p, i, cDiffuse, cSpecular, type, texLoc, invModel, rU, rV, blend);
             }
             currColor += areaColor / AREA_LIGHT_SAMPLES;
         } else {
@@ -1515,11 +1601,10 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far, boo
             float NdotL = dot(N, L);
             if (NdotL <= 0.005f) continue; // pointing away
             NdotL = clamp(NdotL, 0.f, 1.f);
-            currColor +=  getDiffuse(p, N, custom, type, cDiffuse, texLoc, invModel, rU, rV, blend)
+            currColor +=  getDiffuse(p, N, type, cDiffuse, texLoc, invModel, rU, rV, blend)
                     * NdotL
                     // * li.lightColor;
                     * getSunColor();
-
             // Specular
             vec3 R = reflect(-L, N);
             float RdotV = clamp(dot(R, V), 0.f, 1.f);
@@ -2056,7 +2141,7 @@ void main() {
 #endif
 
     // === Case when main render did not hit a real object ===
-    if (ri.isEnv && !cloudHit && !terrainHit &&!seaHit) {
+    if (ri.isEnv && !cloudHit && !terrainHit && !seaHit) {
         // NO HIT
         if (ri.isAL) {
            // If hit area lights
