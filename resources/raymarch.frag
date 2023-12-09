@@ -249,6 +249,12 @@ vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
     return mix(dot(axis, p)*axis, p, cos(angle)) + cross(axis,p)*sin(angle);
 }
 
+mat2 rotate2D(float a) {
+  float s = sin(a);
+  float c = cos(a);
+  return mat2(c, -s, s, c);
+}
+
 // Applies transformation
 vec3 Transform(in vec3 p)
 {
@@ -581,6 +587,11 @@ float sdSmoothUnion( float d1, float d2, float k )
     return mix( d2, d1, h ) - k*h*(1.0-h);
 }
 
+float sdOnion( in float d, in float h )
+{
+    return abs(d)-h;
+}
+
 // polynomial smooth min (k = 0.1);
 float smin( float a, float b, float k )
 {
@@ -828,8 +839,34 @@ float sdPlane( vec3 p, vec3 n, float h )
   return dot(p,n) + h;
 }
 
-float sdCUSTOM(vec3 p) {
-    float ballRadius = 1.0;
+float sdColumn( vec3 p )
+{
+    vec3 bp1 = p; vec3 bp2 = p; vec3 cp = p;
+    float bp1_scale = mix(1.5, 2.5, smoothstep(0, 0.5, p.y));
+    float bp2_scale = mix(2.5, 1.5, smoothstep(6.5, 7., p.y));
+
+    // pillar base
+    bp1.xz *= bp1_scale;
+    float baseBox = sdBox(bp1, vec3(0.75, 0.50, 0.75)) / bp1_scale; // [-0.5, 0.5]
+
+    // pillar core
+    float coreCyl = sdCylinder(cp + vec3(0, -3.5, 0), 3, 0.2); // [0.5, 6.5]
+    cp.xz *= rotate2D(cp.y);
+    float bbcore = sdBox(cp + vec3(0, -3.5, 0), vec3(0.25, 2, 0.25));
+    float pillarCore = sdSmoothUnion(coreCyl, bbcore, 0.9);
+
+
+    // pillar top
+    bp2.xz *= bp2_scale;
+    float topBox = sdBox(bp2 + vec3(0, -7, 0), vec3(0.75, 0.50, 0.75)) / bp2_scale; // [6.5, 7.5]
+
+    float dt = sdSmoothUnion(baseBox, pillarCore, 0.4);
+    dt = sdSmoothUnion(dt, topBox, 0.4);
+    return dt;
+}
+
+float sdBalls(vec3 p) {
+    float ballRadius = 1;
     const float MAX_DIST = 100.0;
     float t = iTime / 3.0 + 10500.0;
     float balls = MAX_DIST;
@@ -839,8 +876,22 @@ float sdCUSTOM(vec3 p) {
         balls = smin(balls, sdSphere(p + vec3(sin(t * i) * j, cost * i, cost * j), ballRadius), 0.7);
       }
     }
-
     return balls;
+}
+
+float sdCUSTOM(vec3 p) {
+    float balls = sdBalls(p - vec3(0, 4.75f, 0));
+
+    float col_scale = 2.;
+    p /= col_scale;
+    float c1 = sdColumn(p + vec3(3, 0, -5));
+    float c2 = sdColumn(p + vec3(5, 0, 0));
+    float c3 = sdColumn(p + vec3(3, 0, 5));
+    float c4 = sdColumn(p + vec3(-3, 0, 5));
+    float c5 = sdColumn(p + vec3(-5, 0, 0));
+    float c6 = sdColumn(p + vec3(-3, 0, -5));
+    float c = min(c1, min(c2, min(c3, min(c4, min(c5, c6)))));
+    return min(c, balls);
 }
 
 float sdFlowerBall(vec3 p) {
@@ -1660,19 +1711,19 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
     ro.y += 100.f;
 #endif
 
-    ro.y += 3.;
+    ro.y += 8.;
 
     // == NO rotation ==
-    rd = normalize(farC - ro);
+    // rd = normalize(farC - ro);
 
     // == Smooth zoom in/out ==
 //    float disp = smoothstep(-1.,1., sin(iTime));
 //    ro.xz += disp;
     // == Rotation about the center ==
-//    float rotationAngle = iTime / 5.;
-//    ro = rotateAxis(ro, vec3(0.0, 1.0, 0.0), rotationAngle);
-//    rd = normalize(farC - ro);
-//    rd = rotateAxis(rd, vec3(0.0, 1.0, 0.0), rotationAngle);
+    float rotationAngle = iTime / 5.;
+    ro = rotateAxis(ro, vec3(0.0, 1.0, 0.0), rotationAngle);
+    rd = normalize(farC - ro);
+    rd = rotateAxis(rd, vec3(0.0, 1.0, 0.0), rotationAngle);
 
 #ifdef SKY_BACKGROUND
     bgCol = getSky(rd);
