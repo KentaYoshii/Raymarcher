@@ -1,35 +1,47 @@
 {
-    "name": "root",
-    "globalData": {
-      "ambientCoeff": 0.5,
-      "diffuseCoeff": 0.5,
-      "specularCoeff": 0.5,
-      "transparentCoeff": 0
+  "name": "root",
+  "globalData": {
+    "ambientCoeff": 0.5,
+    "diffuseCoeff": 0.5,
+    "specularCoeff": 0.5,
+    "transparentCoeff": 0
+  },
+  "cameraData": {
+    "position": [0, 1, 4.0],
+    "up": [0.0, 1.0, 0.0],
+    "focus": [0, 0, 0],
+    "heightAngle": 30.0
+  },
+  "groups": [
+    {
+      "lights": [
+        {
+          "type": "directional",
+          "color": [1.0, 1.0, 1.0],
+          "direction": [0.0, -1.0, 0.0]
+        }
+      ]
     },
-    "cameraData": {
-      "position": [0, 0, 4.0],
-      "up": [0.0, 1.0, 0.0],
-      "focus": [0, 0, 0],
-      "heightAngle": 30.0
-    },
-    "groups": [
-      {
-        "groups": [
-          {
-            "primitives": [
-              {
-                "type": "sphere",
-                "ambient": [0.3,0.3,0.3],
-                "diffuse": [1, 1, 1],
-                "specular": [1, 1, 1],
-                "shininess": 100.0,
-                "reflective": [1, 1, 1],
-                "transparent": [1, 1, 1]
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  }
-  
+    {
+      "groups": [
+        {
+          "primitives": [
+            {
+              "type": "custom"
+            }
+          ]
+        },
+        {
+          "translate": [0, -4, 0],
+          "scale": [20, 1, 20],
+          "primitives": [
+            {
+              "type": "cube",
+              "ambient": [0.3, 0.3, 0.3]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

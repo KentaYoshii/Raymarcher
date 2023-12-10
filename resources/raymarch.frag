@@ -2,10 +2,10 @@
 // ==== Preprocessor Directives ====
 
 // == DAY and NIGHT ==
-#define SKY_BACKGROUND
+// #define SKY_BACKGROUND
 // #define NIGHTSKY_BACKGROUND
 // == MONOTONE ==
-// #define DARK_BACKGROUND
+#define DARK_BACKGROUND
 // #define WHITE_BACKGROUND
 
 // ENVIRONMENT
@@ -833,6 +833,97 @@ float sdTorus(vec3 p, vec2 t)
     return length(q)-t.y;
 }
 
+float sphere2(vec2 p, float r) {
+        return length(p) - r;
+}
+float ellipse2(vec2 p, vec2 r) {
+    float k0 = length(p / r);
+    float k1 = length(p / (r * r));
+    return k0
+            * (k0 - 1.0) / k1;
+}
+
+float box2(vec2 p, vec2 r) {
+    vec2 d = abs(p) - r;
+    return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
+}
+
+float blend(float d1, float d2, float k) {
+    float h = clamp(0.5 + 0.5 * (d2 - d1) / k, 0.0, 1.0);
+    return mix(d2, d1, h) - k * h * (1.0 - h);
+}
+
+float sdPawn(vec3 p)
+{
+    vec2 p2 = vec2(length(p.xz), p.y);
+    float dt = sphere2(vec2(0, 1) - p2, 1.0);
+    float dn = ellipse2(vec2(0, -0.15) - p2, vec2(1.0, 0.3));
+    float dw0 = ellipse2(vec2(0, 0) - p2, vec2(0.5, 0.8));
+    float dw1 = ellipse2(vec2(0, -2.3) - p2, vec2(0.9, 0.3));
+    float dw2 = ellipse2(vec2(0, -2.1) - p2, vec2(1.4, 0.3));
+    float db0 = ellipse2(vec2(0, -2.3) - p2, vec2(1.2, 0.6));
+    float db1 = ellipse2(vec2(0, -3.3) - p2, vec2(2.0, 0.6));
+    float db2 = ellipse2(vec2(0, -3.8) - p2, vec2(2.1, 0.5));
+    float r = blend(dt, dn, 0.3);
+    r = min(r, blend(dw0, dw1, 3.0));
+    r = min(r, dw2);
+    r = min(r, blend(blend(db0, db1, 1.2), db2, 0.3));
+    return r;
+}
+
+float base(vec3 p, float rad) {
+    vec2 p2 = vec2(length(p.xz), p.y);
+    float dn = ellipse2(vec2(0, -1.0) - p2, vec2(1.3 * rad, 1.0));
+    float db0 = ellipse2(vec2(0, -2.3) - p2, vec2(1.6 * rad, 0.6));
+    float db1 = ellipse2(vec2(0, -3.3) - p2, vec2(2.5 * rad, 0.6));
+    float db2 = ellipse2(vec2(0, -3.8) - p2, vec2(2.6 * rad, 0.5));
+    float dw = ellipse2(vec2(0, -2.1) - p2, vec2(1.8 * rad, 0.3));
+    float r = blend(blend(db0, db1, 1.0), db2, 0.3);
+    r = min(r, dw);
+    return r;
+}
+
+
+float base2(vec3 p) {
+    float r = base(p, 1.2);
+    vec2 p2 = vec2(length(p.xz), p.y);
+    float dn = ellipse2(vec2(0, -1.4) - p2, vec2(1.15, 2.7));
+    float dc = ellipse2(vec2(0, 2.0) - p2, vec2(1.6, 0.3));
+    float dc1 = ellipse2(vec2(0, 2.2) - p2, vec2(1.5, 0.2));
+    float dc2 = ellipse2(vec2(0, 2.8) - p2, vec2(1.2, 0.2));
+    float ds = ellipse2(vec2(0, 5.9) - p2, vec2(1.9, 2.8));
+    float dcut = box2(vec2(0, 7.2) - p2, vec2(3.0, 2.5));
+    r = blend(r, dn, 1.8);
+    r = blend(r, dc, 1.8);
+    r = min(r, dc1);
+    r = blend(r, dc2, 0.55);
+    r = blend(r, ds, 1.1);
+    return max(r, -dcut);
+}
+
+float king(vec3 p, float base) {
+    vec2 p2 = vec2(length(p.xz), p.y);
+    float dh = ellipse2(vec2(0, 4.6) - p2, vec2(1.8, 0.4));
+    float dt1 = sdBox(vec3(0, 5.2, 0) - p, vec3(0.3, 1.5, 0.25));
+    float dt2 = sdBox(vec3(0, 5.8, 0) - p, vec3(1.0, 0.3, 0.25));
+    float r = min(base, dh);
+    r = min(r, dt1);
+    return min(r, dt2);
+}
+
+float queen(vec3 p, float base) {
+    vec2 p2 = vec2(length(p.xz), p.y);
+    float dh = ellipse2(vec2(0, 4.0) - p2, vec2(1.3, 1.5));
+    float dhcut = box2(vec2(0, 2.0) - p2, vec2(3.0, 2.0));
+    float dt = ellipse2(vec2(0, 5.6) - p2, vec2(0.5, 0.5));
+    vec3 pc = vec3(abs(p.x), p.y, abs(p.z));
+    if (pc.x > pc.z)
+        pc = pc.zyx;
+    float dccut = sdSphere(vec3(1.0, 4.7, 2.2) - pc, 1.1);
+    float r = min(base, max(dh, -dhcut));
+    return max(min(r, dt), -dccut);
+}
+
 // Capsule Signed Distance Field
 // @param p Point in object space
 // @param h half height
@@ -848,26 +939,6 @@ float sdCapsule( vec3 p, vec3 a, vec3 b, float r )
   vec3 pa = p - a, ba = b - a;
   float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
   return length( pa - ba*h ) - r;
-}
-
-float sdRock(in vec3 p) {
-    float d = length(p.xy-vec2(-4.,0.))-2.;
-    d = smin(d, sdCapsule(p, vec3(-5.,0.,7.), vec3(0.,2.,7.), 1.), 1.7);
-    d = smin(d, p.y-.1+smoothstep(-3.1,5.,p.x)*2., 0.1);
-
-    // Add detail only if we are closed of the surface
-    if (d < 1.) {
-        // Inspired by many shaders of Shane, the master of the rock.
-        float z = 1.;
-        for(int i = 0; i < 6; i++)
-        {
-            d -= dot(tri(p*.5 + tri(p.yzx*.375)), vec3(.4*z));
-            z *= -0.55;
-            p = p*mt;
-        }
-    }
-
-    return d;
 }
 
 // Deathstar Signed Distance Field
@@ -1030,7 +1101,11 @@ float sdLightHouse(vec3 p, out int customId) {
 
 float sdCUSTOM(vec3 p, out int customId) {
     // Custom ID needed for applying different material
-    return 0.f;
+    customId = 0;
+    float dt = sdPawn(p);
+    float dt2 = king(p + vec3(-5, 0, 0), base2(p + vec3(-5, 0, 0)));
+    float dt3 = queen(p + vec3(5, 0, 0), base2(p + vec3(5, 0, 0)));
+    return min(dt, min(dt2, dt3));
 
 // === SEA & LIGHT HOUSE ===
 //    return sdLightHouse(p, customId);
@@ -1273,40 +1348,6 @@ vec3 getNormal(in vec3 p) {
                 );
 }
 
-const float tile = 0.85;
-const int iterations = 17;
-const float formuparam = 0.53;
-const float darkmatter = 0.3;
-const float brightness = 0.0015;
-const float distfading = 0.73;
-const float stepsize = 0.1;
-const float saturation = 0.85;
-
-vec4 raymarchVolumetric(vec3 from, vec3 dir)
-{
-    float s=0.1,fade=1.;
-    vec3 v=vec3(0.);
-    for (int r=0; r<20; r++) {
-            vec3 p=from+s*dir*.5;
-            p = abs(vec3(tile)-mod(p,vec3(tile*2.))); // tiling fold
-            float pa,a=pa=0.;
-            for (int i=0; i<iterations; i++) {
-                    p=abs(p)/dot(p,p)-formuparam; // the magic formula
-                    a+=abs(length(p)-pa); // absolute sum of average change
-                    pa=length(p);
-            }
-            float dm=max(0.,darkmatter-a*a*.001); //dark matter
-            a*=a*a; // add contrast
-            if (r>6) fade*=1.-dm; // dark matter, don't render near
-            //v+=vec3(dm,dm*.5,0.);
-            v+=fade;
-            v+=vec3(s,s*s,s*s*s*s)*a*brightness*fade; // coloring based on distance
-            fade*=distfading; // distance fading
-            s+=stepsize;
-    }
-    return vec4(v, saturation);
-}
-
 // Performs raymarching
 // @param ro Ray origin
 // @param rd Ray direction
@@ -1542,6 +1583,13 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, vec3 cD,
 void setCustomMat(int customId, out vec3 a, out vec3 d, out vec3 s,
                   out int texLoc, out float rU, out float rV, out float blend,
                   out int type, out float shininess) {
+// Mini Chess
+    if (customId == 0) {
+        a = vec3(0.3, 0.22, 0.08); d = vec3(.1,.1,.05); s = vec3(0.1);
+        texLoc = -1;
+        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
+    }
+
 
 // Light house
 //    if (customId == 0) {
