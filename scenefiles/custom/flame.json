@@ -7,18 +7,19 @@
     "transparentCoeff": 0
   },
   "cameraData": {
-    "position": [0, 1, 4.0],
+    "position": [0, 2, 30.0],
     "up": [0.0, 1.0, 0.0],
     "focus": [0, 0, 0],
-    "heightAngle": 30.0
+    "heightAngle": 50.0
   },
   "groups": [
     {
+      "translate": [0, 6, 0],
       "lights": [
         {
-          "type": "directional",
-          "color": [1.0, 1.0, 1.0],
-          "direction": [0.0, -1.0, 0.0]
+          "type": "point",
+          "color": [2.0, 2.0, 2.0],
+          "attenuationCoeff": [0.2, 0.1, 0]
         }
       ]
     },
@@ -33,11 +34,14 @@
         },
         {
           "translate": [0, -4, 0],
-          "scale": [20, 1, 20],
+          "scale": [50, 1, 50],
           "primitives": [
             {
               "type": "cube",
-              "ambient": [0.3, 0.3, 0.3]
+              "blend": 1,
+              "textureFile": "texture_store/blackmarble.png",
+              "textureU": 3.0,
+              "textureV": 3.0
             }
           ]
         }

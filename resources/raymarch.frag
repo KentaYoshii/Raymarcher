@@ -280,9 +280,30 @@ uniform float terrainScale;
 
 
 // ================== Utility =======================
-vec3 tri(vec3 x) {
-    return abs(x-floor(x)-.5);
+float tri(float x) {
+    return abs(fract(x) - 0.5);
 }
+
+vec3 tri3(vec3 p) {
+   return abs(fract(p.zzy + abs(fract(p.yxx) - 0.5)) - 0.5);
+}
+
+float triNoise3D(in vec3 p, float spd) {
+    float z = 1.4;
+        float rz = 0.0;
+    vec3 bp = p;
+        for (float i = 0.0; i <= 3.0; i++) {
+        vec3 dg = tri3(bp * 2.0);
+        p += (dg + iTime * .3 * spd);
+        bp *= 1.8;
+                z *= 1.5;
+                p *= 1.2;
+        rz += tri(p.z + tri(p.x + tri(p.y))) / z;
+        bp += 0.14;
+        }
+        return rz;
+}
+
 
 // Transforms p along axis by angle
 vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
@@ -657,6 +678,21 @@ float smin( float a, float b, float k )
 {
   float h = clamp( 0.5+0.5*(b-a)/k, 0.0, 1.0 );
   return mix( b, a, h ) - k*h*(1.0-h);
+}
+
+vec2 boxIntersect(vec3 ro, vec3 rd, vec3 rad)  {
+    vec3 m = 1.0 / rd;
+    vec3 n = m * ro;
+    vec3 k = abs(m) * rad;
+    vec3 t1 = -n - k;
+    vec3 t2 = -n + k;
+
+    float tN = max(max(t1.x, t1.y), t1.z);
+    float tF = min(min(t2.x, t2.y), t2.z);
+
+    if(tN > tF || tF < 0.0)
+        return vec2(-1.0); // no intersection
+    return vec2(tN, tF);
 }
 
 // ============ Signed Distance Fields ==============
@@ -1099,13 +1135,28 @@ float sdLightHouse(vec3 p, out int customId) {
     return dt;
 }
 
+float sdChessTrio(vec3 p, bool side) {
+    float dt = sdPawn(p); float dt2, dt3;
+    if (side) {
+        dt2 = king(p + vec3(5, 0, 0), base2(p + vec3(5, 0, 0)));
+        dt3 = queen(p + vec3(-5, 0, 0), base2(p + vec3(-5, 0, 0)));
+    } else {
+        dt2 = king(p + vec3(-5, 0, 0), base2(p + vec3(-5, 0, 0)));
+        dt3 = queen(p + vec3(5, 0, 0), base2(p + vec3(5, 0, 0)));
+    }
+    return min(dt, min(dt2, dt3));
+}
+
 float sdCUSTOM(vec3 p, out int customId) {
     // Custom ID needed for applying different material
-    customId = 0;
-    float dt = sdPawn(p);
-    float dt2 = king(p + vec3(-5, 0, 0), base2(p + vec3(-5, 0, 0)));
-    float dt3 = queen(p + vec3(5, 0, 0), base2(p + vec3(5, 0, 0)));
-    return min(dt, min(dt2, dt3));
+    float dt; customId = 0;
+    dt = sdChessTrio(p + vec3(0, 0, -4), false);
+    float black = sdChessTrio(p + vec3(0, 0, 4), true);
+    if (black < dt) {
+        customId = 1;
+        dt = black;
+    }
+    return dt;
 
 // === SEA & LIGHT HOUSE ===
 //    return sdLightHouse(p, customId);
@@ -1388,6 +1439,40 @@ RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
   return res;
 }
 
+// ====== MIST ======
+float fogDensity(vec3 p) {
+    const vec3 fdir = normalize(vec3(10,0,-7));
+    float f = clamp(1.0 - 0.5 * abs(p.y - -4.0), 0.0, 1.0);
+    f *= max(0.0, 1.0 - length(max(vec2(0.0), abs(p.xz) - 28.0)) / 7.0);
+    p += 4.0 * fdir * iTime;
+    float d = triNoise3D(p * 0.007, 0.2) * f;
+    return d * d;
+}
+
+float integrateFog(vec3 a, vec3 b) {
+
+    vec3 d = normalize(b - a);
+    float l = length(b - a);
+    vec2 trange = boxIntersect(a - vec3(0.0, -4.0, 0.0), d, vec3(30.0, 1.0, 30.0));
+    if (trange.x < 0.0)
+    return 0.0;
+    trange = min(trange, vec2(l));
+    const float MIN_DIS = 0.2;
+    const float MAX_DIS = 2.0;
+    const float MIN_SAMPLES = 3.0;
+    float tdiff = trange.y - trange.x;
+    float samples = max(MIN_SAMPLES, tdiff / MAX_DIS);
+    float dis = clamp(tdiff / samples, MIN_DIS, MAX_DIS);
+    samples = ceil(tdiff / dis);
+    dis = tdiff / (samples + 1.0);
+    float visibility = 1.0;
+    for (float t = trange.x + 0.5; t < trange.y; t += dis) {
+        float density = fogDensity(a + t * d);
+        visibility *= pow(3.0, -1.0 * density * dis);
+    }
+        return 1.0 - visibility;
+}
+
 // =============== SUN & SKY & MOON =================
 
 // [0, 1]
@@ -1585,7 +1670,13 @@ void setCustomMat(int customId, out vec3 a, out vec3 d, out vec3 s,
                   out int type, out float shininess) {
 // Mini Chess
     if (customId == 0) {
-        a = vec3(0.3, 0.22, 0.08); d = vec3(.1,.1,.05); s = vec3(0.1);
+        // white
+        a = vec3(0.1); d = vec3(0.3, 0.22, 0.08); s = vec3(0.1);
+        texLoc = -1;
+        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
+    } else if (customId == 1) {
+        // black
+        a = vec3(0.1); d = vec3(0.02, 0.02, 0.01); s = vec3(0.1);
         texLoc = -1;
         type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
     }
@@ -2129,6 +2220,10 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i,
     // Raymarching
     RayMarchRes res = raymarch(ro, rd, maxT, side);
     if (res.intersectObj == -1) {
+        // mist
+        float fog = integrateFog(ro, ro + maxT * rd);
+        const vec3 FOG_COLOR = vec3(1.5, 1.1, 0.9);
+        bgCol = mix(bgCol, FOG_COLOR, clamp(fog, 0.0, 1.0));
         // NO HIT
         ri.fragColor = vec4(bgCol, 1.f);
         // If no hit but sky box is used, sample
@@ -2168,6 +2263,12 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i,
     // set output variable
     i.p = p; i.n = pn; i.rd = rd; i.intersectObj = res.intersectObj;
     // set return
+
+    // Mist
+    float fog = integrateFog(ro, p);
+    const vec3 FOG_COLOR = vec3(1.5, 1.1, 0.9);
+    col = mix(col, FOG_COLOR, clamp(fog, 0.0, 1.0));
+
     ri.fragColor = vec4(col, 1.f); ri.customId = res.customId;
     return ri;
 }
@@ -2198,8 +2299,9 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
     // ro.y += 34.;
 #endif
 
+    ro.y += 5.;
     // == NO rotation ==
-    rd = normalize(farC - ro);
+    // rd = normalize(farC - ro);
 
     // == Smooth zoom in/out ==
 //    float disp = smoothstep(-1.,1., sin(iTime)) * 2;
@@ -2207,10 +2309,10 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
 
 
     // == Rotation about the center ==
-//    float rotationAngle = iTime / 5.;
-//    ro = rotateAxis(ro, vec3(0.0, 1.0, 0.0), rotationAngle);
-//    rd = normalize(farC - ro);
-//    rd = rotateAxis(rd, vec3(0.0, 1.0, 0.0), rotationAngle);
+    float rotationAngle = iTime / 5.;
+    ro = rotateAxis(ro, vec3(0.0, 1.0, 0.0), rotationAngle);
+    rd = normalize(farC - ro);
+    rd = rotateAxis(rd, vec3(0.0, 1.0, 0.0), rotationAngle);
 
 #ifdef SKY_BACKGROUND
     bgCol = getSky(rd);
@@ -2228,6 +2330,18 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
 
 #ifdef DARK_BACKGROUND
     bgCol = vec3(0.f);
+//    const vec3 C1 = vec3(0.12, 0.08, 0.08);
+//    const vec3 C2 = vec3(0.04, 0.03, 0.06) * 2.0;
+//    float y = rd.y + 0.2 * triNoise3D(rd * 2.0, 1.0);
+//    bgCol = mix(C1, C2, smoothstep(-0.35, 0.0, y));
+//    float disp = triNoise3D(rd * 0.9, 0.08);
+//    bgCol += vec3(1.0) * (pow(disp, 5.0) * 3.47);
+
+//    // Fade to black
+//    float h = dot(rd - 0.08 * triNoise3D(rd * 0.3, 0.0), vec3(0.02, 1.0, -0.01));
+//    float hstart = -0.2;
+//    float hend = -0.5;
+//    bgCol = mix(bgCol, vec3(0.0), smoothstep(hstart, hend, h));
 #endif
 
     // === Set far plane ===
