@@ -69,7 +69,7 @@ void Realtime::initializeGL() {
 
   m_devicePixelRatio = this->devicePixelRatio();
 
-  m_timer = startTimer(1000 / 40);
+  m_timer = startTimer(1000 / 30);
   m_elapsedTimer.start();
 
   glewExperimental = GL_TRUE;

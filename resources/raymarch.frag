@@ -11,7 +11,7 @@
 // ENVIRONMENT
 // #define CLOUD
 // #define TERRAIN
-#define SEA
+// #define SEA
 
 // =============== Out =============
 layout (location = 0) out vec4 fragColor;
@@ -1273,6 +1273,40 @@ vec3 getNormal(in vec3 p) {
                 );
 }
 
+const float tile = 0.85;
+const int iterations = 17;
+const float formuparam = 0.53;
+const float darkmatter = 0.3;
+const float brightness = 0.0015;
+const float distfading = 0.73;
+const float stepsize = 0.1;
+const float saturation = 0.85;
+
+vec4 raymarchVolumetric(vec3 from, vec3 dir)
+{
+    float s=0.1,fade=1.;
+    vec3 v=vec3(0.);
+    for (int r=0; r<20; r++) {
+            vec3 p=from+s*dir*.5;
+            p = abs(vec3(tile)-mod(p,vec3(tile*2.))); // tiling fold
+            float pa,a=pa=0.;
+            for (int i=0; i<iterations; i++) {
+                    p=abs(p)/dot(p,p)-formuparam; // the magic formula
+                    a+=abs(length(p)-pa); // absolute sum of average change
+                    pa=length(p);
+            }
+            float dm=max(0.,darkmatter-a*a*.001); //dark matter
+            a*=a*a; // add contrast
+            if (r>6) fade*=1.-dm; // dark matter, don't render near
+            //v+=vec3(dm,dm*.5,0.);
+            v+=fade;
+            v+=vec3(s,s*s,s*s*s*s)*a*brightness*fade; // coloring based on distance
+            fade*=distfading; // distance fading
+            s+=stepsize;
+    }
+    return vec4(v, saturation);
+}
+
 // Performs raymarching
 // @param ro Ray origin
 // @param rd Ray direction
@@ -1499,7 +1533,7 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, vec3 cD,
     vec3 specular = LTC_Evaluate(N, V, P, Minv, areaLight.points, areaLight.twoSided);
     // GGX BRDF shadowing and Fresnel
     specular *= cS*t2.x + (areaLight.intensity - cS) * t2.y;
-    vec3 col = areaLight.lightColor * 1.0 * (abs(sin(iTime / 2.)))
+    vec3 col = areaLight.lightColor * 1.0
             * (specular + getDiffuse(P, N, type, cD, texLoc, invModel, rU, rV, blend)
                * diffuse);
     return col;
@@ -2061,7 +2095,7 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i,
     RayMarchObject obj = objects[res.intersectObj];
     if (obj.isEmissive) {
         // Area Light
-        col = obj.color; ri.fragColor = vec4(col * (abs(sin(iTime / 2.))), 1.f); ri.isAL = true; return ri;
+        col = obj.color; ri.fragColor = vec4(col, 1.f); ri.isAL = true; return ri;
     }
 
     ri.isAL = false;
@@ -2115,18 +2149,20 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
     // SCENE #3
     // ro.y += 34.;
 #endif
+
     // == NO rotation ==
     rd = normalize(farC - ro);
 
     // == Smooth zoom in/out ==
-    float disp = smoothstep(-1.,1., sin(iTime)) * 2;
-    ro.xz += disp;
+//    float disp = smoothstep(-1.,1., sin(iTime)) * 2;
+//    ro.xz += disp;
+
 
     // == Rotation about the center ==
-    float rotationAngle = iTime / 5.;
-    ro = rotateAxis(ro, vec3(0.0, 1.0, 0.0), rotationAngle);
-    rd = normalize(farC - ro);
-    rd = rotateAxis(rd, vec3(0.0, 1.0, 0.0), rotationAngle);
+//    float rotationAngle = iTime / 5.;
+//    ro = rotateAxis(ro, vec3(0.0, 1.0, 0.0), rotationAngle);
+//    rd = normalize(farC - ro);
+//    rd = rotateAxis(rd, vec3(0.0, 1.0, 0.0), rotationAngle);
 
 #ifdef SKY_BACKGROUND
     bgCol = getSky(rd);
@@ -2162,6 +2198,9 @@ void main() {
     vec3 ro, rd, bgCol; float far;
     setScene(ro, rd, bgCol, far);
 
+    // =========
+
+    // =========
     vec4 phong, refl = vec4(0.f), refr = vec4(0.f), cres;
     bool cloudHit = false, terrainHit = false, seaHit = false;
     IntersectionInfo info, oi;
