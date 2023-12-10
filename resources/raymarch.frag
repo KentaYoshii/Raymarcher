@@ -1,8 +1,14 @@
 #version 330 core
 // ==== Preprocessor Directives ====
-#define SKY_BACKGROUND
+
+// == DAY and NIGHT ==
+// #define SKY_BACKGROUND
+#define NIGHTSKY_BACKGROUND
+// == MONOTONE ==
 // #define DARK_BACKGROUND
 // #define WHITE_BACKGROUND
+
+// ENVIRONMENT
 // #define CLOUD
 // #define TERRAIN
 #define SEA
@@ -93,6 +99,9 @@ const float SEA_FREQ = 0.16;
 const vec3 SEA_BASE = vec3(0.1, 0.19, 0.22);
 const vec3 SEA_WATER_COLOR = vec3(0.8,0.9,0.6);
 const mat2 octave_m = mat2(1.6, 1.2, -1.2, 1.6);
+
+// MOON
+const vec3 MOON = normalize(vec3(-0.4, 0.4, 0.3));
 
 // For noise
 const mat3 mt = mat3(0.33338, 0.56034, -0.71817,
@@ -244,7 +253,7 @@ uniform RayMarchObject objects[30];
 uniform int numObjects;
 
 // Textures
-uniform sampler2D objTextures[10];
+uniform sampler2D objTextures[5];
 uniform sampler2D customTextures[3];
 uniform samplerCube skybox;
 uniform sampler2D LTC1;
@@ -438,6 +447,7 @@ float hash1( vec2 p )
     return fract( p.x*p.y*(p.x+p.y) );
 }
 
+
 // Used in fbm_9
 float noiseT( in vec2 x )
 {
@@ -508,6 +518,7 @@ vec4 noised( in vec3 x )
                                       k2 + k5*u.z + k4*u.x + k7*u.z*u.x,
                                       k3 + k6*u.x + k5*u.y + k7*u.x*u.y ) );
 }
+
 
 // Used in fbmd_9
 // Derivative based noise
@@ -1300,7 +1311,7 @@ RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
   return res;
 }
 
-// =============== SUN & SKY =================
+// =============== SUN & SKY & MOON =================
 
 // [0, 1]
 float timeOfDay = mod(iTime, 24.) / 24.0;
@@ -1336,6 +1347,18 @@ vec3 getSunColor() {
     return sunColor;
 }
 
+vec3 getMoonColor(vec3 rd) {
+    vec3 col = vec3(0.f);
+    float ms = noiseV(rd*20.0);
+    vec3 mCol = vec3(0.5, 0.5, 0.3) - 0.1*ms*ms*ms;
+    float moonDot = dot(MOON, rd);
+    float moonA = smoothstep(0.9985, 0.999, moonDot);
+    col += (moonA)*mCol;
+    col += vec3(0.15) * smoothstep(0.91, 0.9985, moonDot);
+    float star = smoothstep(0.99, 0.999, noiseV(floor(rd*202.0 - 6. * sin(iTime / 2.))));
+    col += clamp(star, 0.0, 1.0) * vec3(0.4);
+    return col;
+}
 // Get the background color
 vec3 getSky(vec3 rd) {
     vec3 col  = getSkyColor()*(0.6+0.4*rd.y);
@@ -1562,7 +1585,7 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far, boo
             maxT = length(li.lightPos - p);
         } else if (li.type == DIRECTIONAL) {
             L = normalize(-li.lightDir);
-            L = getSunDir();
+            // L = getSunDir();
             maxT = far;
         } else if (li.type == SPOT) {
             L = normalize(li.lightPos - p);
@@ -1606,13 +1629,15 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far, boo
             currColor +=  getDiffuse(p, N, type, cDiffuse, texLoc, invModel, rU, rV, blend)
                     * NdotL
                     // * li.lightColor;
-                    * getSunColor();
+                    // * getSunColor();
+                    * getMoonColor(rd);
             // Specular
             vec3 R = reflect(-L, N);
             float RdotV = clamp(dot(R, V), 0.f, 1.f);
             currColor += getSpecular(RdotV, cSpecular, shininess)
-                    //* li.lightColor;
-                    * getSunColor();
+                    // * li.lightColor;
+                    // * getSunColor();
+                    * getMoonColor(rd);
             // Add the light source's contribution
             currColor *= fAtt * aFall;
             if (enableSoftShadow) currColor *= res.d;
@@ -1868,7 +1893,8 @@ vec3 getSeaColor(vec3 p, vec3 n, vec3 l, vec3 eye, vec3 dist)
     float fresnel = clamp(1.0 - dot(n, -eye), 0.0, 1.0);
     fresnel = pow(fresnel, 3.0) * 0.65;
 
-    vec3 reflected = getSky(reflect(eye, n));
+    //vec3 reflected = getSky(reflect(eye, n));
+    vec3 reflected = getMoonColor(reflect(eye, n));
     vec3 refracted = SEA_BASE +
             pow(dot(n, l) * 0.4 + 0.6, 80) *
             SEA_WATER_COLOR * 0.12;
@@ -1994,10 +2020,13 @@ RenderInfo seaRender(in vec3 ro, in vec3 rd, inout bool hit, in float maxT, in v
     vec3 n = getSeaNormal(p, dot(d, d) * 0.1 / screenDimensions.x);
 
     // Get Sky
-    vec3 s = getSky(rd);
-    vec3 sc = getSeaColor(p, n, getSunDir(), rd, d);
+    // vec3 s = getSky(rd);
+    // vec3 sc = getSeaColor(p, n, getSunDir(), rd, d);
+    vec3 s = bgCol;
+    vec3 sc = getSeaColor(p, n, MOON, rd, d);
     float t2 = pow(smoothstep(0.0, -0.05, rd.y), 0.3);
     vec3 color = mix(s, sc, t2);
+    color = fog(color, t);
     ri.fragColor = vec4(color, 1.);
     return ri;
 }
@@ -2096,15 +2125,22 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
 
 #ifdef SKY_BACKGROUND
     bgCol = getSky(rd);
-#else
+#endif
+
+#ifdef NIGHTSKY_BACKGROUND
+    bgCol = getMoonColor(rd);
+#endif
+
 #ifdef WHITE_BACKGROUND
     bgCol = vec3(1.f);
     // SCENE #2
     // bgCol = vec3(texture(objTextures[1], rd.xy * 6)).rgb;
-#else
+#endif
+
+#ifdef DARK_BACKGROUND
     bgCol = vec3(0.f);
 #endif
-#endif
+
     // === Set far plane ===
 #ifdef CLOUD
     far = 2000.f;
