@@ -16,12 +16,14 @@
 
 #define MAX_NUM_LIGHTS 10
 #define MAX_NUM_TEXTURES 10
+#define MAX_NUM_CUSTOM_TEXTURES 3
 #define MAX_NUM_SHAPES 30
 #define SKYBOX_TEX_UNIT_OFF 10
 #define LTC1_TEX_UNIT_OFF 11
 #define LTC2_TEX_UNIT_OFF 12
 #define NOISE_TEX_UNIT_OFF 13
 #define BLUE_NOISE_TEX_UNIT_OFF 14
+#define CUSTOM_TEX_UNIT_OFF 15
 #define BLOOM_BLUR_COUNT 10
 
 class Realtime : public QOpenGLWidget {
@@ -102,6 +104,8 @@ private:
   GLuint m_noiseTexture;
   // - blue noise texture
   GLuint m_blueNoiseTexture;
+  // - custom textures
+  GLuint m_customTextures[3];
 
   // FBO
   // - application window FBO
@@ -200,6 +204,8 @@ private:
   void initFullScreenQuad();
   // Initializes each and every material texture used in the scene
   void initShapesTextures();
+  // Initializes textures for custom scene
+  void initCustomTextures();
   // Initializes our custom FBO for offline rendering
   void initCustomFBO();
   // Initializes our cube map

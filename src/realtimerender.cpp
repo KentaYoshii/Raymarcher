@@ -303,6 +303,37 @@ void Realtime::initShapesTextures() {
 }
 
 /**
+ * @brief Initializes textures to be used in our custom scene
+ */
+void Realtime::initCustomTextures() {
+  std::filesystem::path basepath = std::filesystem::current_path();
+  std::vector<std::string> seaScene{
+      "scenefiles/texture_store/stone.png",
+      "scenefiles/texture_store/stripe.png",
+  };
+  for (int i = 0; i < seaScene.size(); i++) {
+    glGenTextures(1, &m_customTextures[i]);
+    glActiveTexture(GL_TEXTURE0 + CUSTOM_TEX_UNIT_OFF + i);
+    glBindTexture(GL_TEXTURE_2D, m_customTextures[i]);
+    QImage myImage;
+    std::filesystem::path fileRelativePath(seaScene[i]);
+    QString str((basepath / fileRelativePath).string().data());
+    if (!myImage.load(str)) {
+      std::cout << "Failed to load in image" << std::endl;
+      return;
+    }
+    myImage = myImage.convertToFormat(QImage::Format_RGBA8888).mirrored();
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, myImage.width(), myImage.height(),
+                 0, GL_RGBA, GL_UNSIGNED_BYTE, myImage.bits());
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glActiveTexture(0);
+  }
+}
+
+/**
  * @brief Initializes default variables
  */
 void Realtime::initDefaults() {
@@ -349,7 +380,6 @@ void Realtime::initDefaults() {
   std::filesystem::path fileRelativePath(
       "scenefiles/texture_store/noise_texture_1.png");
   QString str((basepath / fileRelativePath).string().data());
-  std::cout << (basepath / fileRelativePath).string() << std::endl;
   if (!myImage.load(str)) {
     std::cout << "Failed to load in image" << std::endl;
     return;
@@ -394,6 +424,13 @@ void Realtime::initShader() {
     glActiveTexture(GL_TEXTURE0 + i);
     glBindTexture(GL_TEXTURE_2D, m_defaultShapeTexture);
     glUniform1i(texsLoc + i, i);
+  }
+  // Set custom scene textures
+  GLuint cusTexsLoc = glGetUniformLocation(m_rayMarchShader, "customTextures");
+  for (int i = 0; i < MAX_NUM_CUSTOM_TEXTURES; i++) {
+    glActiveTexture(GL_TEXTURE0 + CUSTOM_TEX_UNIT_OFF + i);
+    glBindTexture(GL_TEXTURE_2D, m_customTextures[i]);
+    glUniform1i(cusTexsLoc + i, CUSTOM_TEX_UNIT_OFF + i);
   }
   // Set the skybox tex unit to the next available
   setIntUniform(m_rayMarchShader, "skybox", SKYBOX_TEX_UNIT_OFF);

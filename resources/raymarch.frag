@@ -59,6 +59,7 @@ const int SIERPINSKI = 12;
 
 // CUSTOM SCENE
 const int CUSTOM = 13;
+const int CUSTOM_TEX_OFF = 15;
 
 // LIGHT TYPES
 const int POINT = 0;
@@ -244,6 +245,7 @@ uniform int numObjects;
 
 // Textures
 uniform sampler2D objTextures[10];
+uniform sampler2D customTextures[3];
 uniform samplerCube skybox;
 uniform sampler2D LTC1;
 uniform sampler2D LTC2;
@@ -1420,9 +1422,9 @@ vec3 getDiffuse(vec3 p, vec3 n, int type,
         uv = uvMapSphere(po, rU, rV);
     } else {
         // Tri-planar
-        vec3 colXZ = texture(objTextures[texLoc], p.xz*.5 + .5).rgb;
-        vec3 colYZ = texture(objTextures[texLoc], p.yz*.5 + .5).rgb;
-        vec3 colXY = texture(objTextures[texLoc], p.xy*.5 + .5).rgb;
+        vec3 colXZ = texture(customTextures[texLoc - 15], p.xz*.5 + .5).rgb;
+        vec3 colYZ = texture(customTextures[texLoc - 15], p.yz*.5 + .5).rgb;
+        vec3 colXY = texture(customTextures[texLoc - 15], p.xy*.5 + .5).rgb;
 
         n = abs(n);
         n *= pow(n, vec3(10));
@@ -1486,13 +1488,13 @@ void setCustomMat(int customId, out vec3 a, out vec3 d, out vec3 s,
     if (customId == 0) {
         // Foundation
         a = vec3(0.2);  d = vec3(136/255.,140/255.,141/255.); s = vec3(0.1);
-        texLoc = -1;
-        type = CUSTOM;
+        texLoc = CUSTOM_TEX_OFF;
+        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f;
     } else if (customId == 1) {
         // Core
         a = vec3(0.2); d = vec3(1.f); s = vec3(0.2);
-        texLoc = -1;
-        type = CUSTOM;
+        texLoc = CUSTOM_TEX_OFF + 1;
+        type = CUSTOM; rU = 1.; rV = 1.; blend = 0.5f;
     } else if (customId == 2) {
         // Obs deck
         a = vec3(0.f); d = vec3(0.f); s = vec3(0.2);
@@ -1510,7 +1512,7 @@ void setCustomMat(int customId, out vec3 a, out vec3 d, out vec3 s,
         type = CUSTOM;
     }
 
-    rU = 2.; rV = 2.; blend = 1.f; shininess = 0.4;
+    shininess = 0.4;
 
 // BALL & Pillar Scene Material
 //    if (customId == 0) {

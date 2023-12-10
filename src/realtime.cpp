@@ -113,6 +113,8 @@ void Realtime::initializeGL() {
   // Area Light Textures
   loadMTexture();
   loadLTUTexture();
+  // Initialize Custom Textures
+  initCustomTextures();
   // Initialize the shader
   initShader();
 }
