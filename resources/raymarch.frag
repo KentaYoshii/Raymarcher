@@ -1030,8 +1030,10 @@ float sdLightHouse(vec3 p, out int customId) {
 
 float sdCUSTOM(vec3 p, out int customId) {
     // Custom ID needed for applying different material
+    return 0.f;
 
-    return sdLightHouse(p, customId);
+// === SEA & LIGHT HOUSE ===
+//    return sdLightHouse(p, customId);
 
 // === BALL & PILLAR Scene ===
 //    float dt = sdBalls(p - vec3(0, 4.75f, 0));
@@ -1508,34 +1510,34 @@ void setCustomMat(int customId, out vec3 a, out vec3 d, out vec3 s,
                   out int type, out float shininess) {
 
 // Light house
-    if (customId == 0) {
-        // Foundation
-        a = vec3(0.2);  d = vec3(136/255.,140/255.,141/255.); s = vec3(0.1);
-        texLoc = CUSTOM_TEX_OFF;
-        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f;
-    } else if (customId == 1) {
-        // Core
-        d = vec3(1.f); s = vec3(0.2);
-        texLoc = CUSTOM_TEX_OFF + 1;
-        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f;
-    } else if (customId == 2) {
-        // Obs deck
-        a = vec3(0.f); d = vec3(0.f); s = vec3(0.2);
-        texLoc = -1;
-        type = CUSTOM;
-    } else if (customId == 3) {
-        // box frame
-        a = vec3(0.f); d = vec3(0.f); s = vec3(0.1);
-        texLoc = -1;
-        type = CUSTOM;
-    } else if (customId == 4) {
-        // Top hat
-        a = vec3(0.4, 0.1, 0.1); d = vec3(0.8f, 0.15f, 0.12f); s = vec3(0.15);
-        texLoc = -1;
-        type = CUSTOM;
-    }
+//    if (customId == 0) {
+//        // Foundation
+//        a = vec3(0.2);  d = vec3(136/255.,140/255.,141/255.); s = vec3(0.1);
+//        texLoc = CUSTOM_TEX_OFF;
+//        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f;
+//    } else if (customId == 1) {
+//        // Core
+//        d = vec3(1.f); s = vec3(0.2);
+//        texLoc = CUSTOM_TEX_OFF + 1;
+//        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f;
+//    } else if (customId == 2) {
+//        // Obs deck
+//        a = vec3(0.f); d = vec3(0.f); s = vec3(0.2);
+//        texLoc = -1;
+//        type = CUSTOM;
+//    } else if (customId == 3) {
+//        // box frame
+//        a = vec3(0.f); d = vec3(0.f); s = vec3(0.1);
+//        texLoc = -1;
+//        type = CUSTOM;
+//    } else if (customId == 4) {
+//        // Top hat
+//        a = vec3(0.4, 0.1, 0.1); d = vec3(0.8f, 0.15f, 0.12f); s = vec3(0.15);
+//        texLoc = -1;
+//        type = CUSTOM;
+//    }
 
-    shininess = 0.4;
+//    shininess = 0.4;
 
 // BALL & Pillar Scene Material
 //    if (customId == 0) {
@@ -1948,7 +1950,6 @@ float seaMapD(vec3 p) {
 
     float d, h = 0.0;
 
-    // ITER_FRAGMENT = 5
     for (int i = 0; i < ITER_FRAGMENT; i++) {
         d = sea_octave((uv + SEA_TIME) * freq, choppy);
         d += sea_octave((uv - SEA_TIME) * freq, choppy);
