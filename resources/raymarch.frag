@@ -2,8 +2,8 @@
 // ==== Preprocessor Directives ====
 
 // == DAY and NIGHT ==
-// #define SKY_BACKGROUND
-#define NIGHTSKY_BACKGROUND
+#define SKY_BACKGROUND
+// #define NIGHTSKY_BACKGROUND
 // == MONOTONE ==
 // #define DARK_BACKGROUND
 // #define WHITE_BACKGROUND
@@ -92,10 +92,10 @@ const float CLOUD_HIGH = 1200.f;
 // SEA
 const int ITER_GEOMETRY = 3;
 const int ITER_FRAGMENT = 5;
-const float SEA_HEIGHT = 0.6;
-const float SEA_CHOPPY = 4.0;
-const float SEA_SPEED = 0.8;
-const float SEA_FREQ = 0.16;
+const float SEA_HEIGHT = 0.8;
+const float SEA_CHOPPY = 8.0;
+const float SEA_SPEED = 2.8;
+const float SEA_FREQ = 0.26;
 const vec3 SEA_BASE = vec3(0.1, 0.19, 0.22);
 const vec3 SEA_WATER_COLOR = vec3(0.8,0.9,0.6);
 const mat2 octave_m = mat2(1.6, 1.2, -1.2, 1.6);
@@ -253,8 +253,8 @@ uniform RayMarchObject objects[30];
 uniform int numObjects;
 
 // Textures
-uniform sampler2D objTextures[5];
-uniform sampler2D customTextures[3];
+uniform sampler2D objTextures[10];
+uniform sampler2D customTextures[2];
 uniform samplerCube skybox;
 uniform sampler2D LTC1;
 uniform sampler2D LTC2;
@@ -1497,7 +1497,7 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, vec3 cD,
     vec3 specular = LTC_Evaluate(N, V, P, Minv, areaLight.points, areaLight.twoSided);
     // GGX BRDF shadowing and Fresnel
     specular *= cS*t2.x + (areaLight.intensity - cS) * t2.y;
-    vec3 col = areaLight.lightColor * 1.0
+    vec3 col = areaLight.lightColor * 1.0 * (abs(sin(iTime / 2.)))
             * (specular + getDiffuse(P, N, type, cD, texLoc, invModel, rU, rV, blend)
                * diffuse);
     return col;
@@ -1515,9 +1515,9 @@ void setCustomMat(int customId, out vec3 a, out vec3 d, out vec3 s,
         type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f;
     } else if (customId == 1) {
         // Core
-        a = vec3(0.2); d = vec3(1.f); s = vec3(0.2);
+        d = vec3(1.f); s = vec3(0.2);
         texLoc = CUSTOM_TEX_OFF + 1;
-        type = CUSTOM; rU = 1.; rV = 1.; blend = 0.5f;
+        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f;
     } else if (customId == 2) {
         // Obs deck
         a = vec3(0.f); d = vec3(0.f); s = vec3(0.2);
@@ -1628,16 +1628,16 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far, boo
             NdotL = clamp(NdotL, 0.f, 1.f);
             currColor +=  getDiffuse(p, N, type, cDiffuse, texLoc, invModel, rU, rV, blend)
                     * NdotL
-                    // * li.lightColor;
+                    * li.lightColor;
                     // * getSunColor();
-                    * getMoonColor(rd);
+                    // * getMoonColor(rd);
             // Specular
             vec3 R = reflect(-L, N);
             float RdotV = clamp(dot(R, V), 0.f, 1.f);
             currColor += getSpecular(RdotV, cSpecular, shininess)
-                    // * li.lightColor;
+                    * li.lightColor;
                     // * getSunColor();
-                    * getMoonColor(rd);
+                    // * getMoonColor(rd);
             // Add the light source's contribution
             currColor *= fAtt * aFall;
             if (enableSoftShadow) currColor *= res.d;
@@ -2020,10 +2020,12 @@ RenderInfo seaRender(in vec3 ro, in vec3 rd, inout bool hit, in float maxT, in v
     vec3 n = getSeaNormal(p, dot(d, d) * 0.1 / screenDimensions.x);
 
     // Get Sky
-    // vec3 s = getSky(rd);
-    // vec3 sc = getSeaColor(p, n, getSunDir(), rd, d);
-    vec3 s = bgCol;
-    vec3 sc = getSeaColor(p, n, MOON, rd, d);
+     vec3 s = getSky(rd);
+     vec3 sc = getSeaColor(p, n, getSunDir(), rd, d);
+
+//  Night
+//    vec3 s = bgCol;
+//    vec3 sc = getSeaColor(p, n, MOON, rd, d);
     float t2 = pow(smoothstep(0.0, -0.05, rd.y), 0.3);
     vec3 color = mix(s, sc, t2);
     color = fog(color, t);
@@ -2058,7 +2060,7 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i,
     RayMarchObject obj = objects[res.intersectObj];
     if (obj.isEmissive) {
         // Area Light
-        col = obj.color; ri.fragColor = vec4(col, 1.f); ri.isAL = true; return ri;
+        col = obj.color; ri.fragColor = vec4(col * (abs(sin(iTime / 2.))), 1.f); ri.isAL = true; return ri;
     }
 
     ri.isAL = false;
@@ -2109,19 +2111,21 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
     // ro.y += 8.;
 
 #ifdef SEA
-    ro.y += 5;
+    // SCENE #3
+    // ro.y += 34.;
 #endif
     // == NO rotation ==
     rd = normalize(farC - ro);
 
     // == Smooth zoom in/out ==
-//    float disp = smoothstep(-1.,1., sin(iTime));
-//    ro.xz += disp;
+    float disp = smoothstep(-1.,1., sin(iTime)) * 2;
+    ro.xz += disp;
+
     // == Rotation about the center ==
-//    float rotationAngle = iTime / 7.;
-//    ro = rotateAxis(ro, vec3(0.0, 1.0, 0.0), rotationAngle);
-//    rd = normalize(farC - ro);
-//    rd = rotateAxis(rd, vec3(0.0, 1.0, 0.0), rotationAngle);
+    float rotationAngle = iTime / 5.;
+    ro = rotateAxis(ro, vec3(0.0, 1.0, 0.0), rotationAngle);
+    rd = normalize(farC - ro);
+    rd = rotateAxis(rd, vec3(0.0, 1.0, 0.0), rotationAngle);
 
 #ifdef SKY_BACKGROUND
     bgCol = getSky(rd);

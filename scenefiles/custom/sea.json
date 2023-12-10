@@ -7,18 +7,32 @@
     "transparentCoeff": 0
   },
   "cameraData": {
-    "position": [0, 0, 15.0],
+    "position": [0, 0, 25.0],
     "up": [0.0, 1.0, 0.0],
     "focus": [0, 0, 0],
-    "heightAngle": 80.0
+    "heightAngle": 100.0
   },
   "groups": [
     {
       "lights": [
         {
           "type": "directional",
-          "color": [1.0, 1.0, 1.0],
-          "direction": [0.0, -1.0, 0.0]
+          "color": [0.25, 0.25, 0.25],
+          "direction": [0.4, -0.4, -0.3]
+        }
+      ]
+    },
+    {
+      "translate": [0, 35.5, 0],
+      "scale": [2, 2, 2],
+      "lights": [
+        {
+          "type": "area",
+          "color": [4.0, 4.0, 4.0],
+          "width": 2,
+          "height": 2,
+          "intensity": 1,
+          "attenuationCoeff": [0.8, 0.05, 0.0]
         }
       ]
     },
