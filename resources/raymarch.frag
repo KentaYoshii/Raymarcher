@@ -1150,13 +1150,16 @@ float sdChessTrio(vec3 p, bool side) {
 float sdCUSTOM(vec3 p, out int customId) {
     // Custom ID needed for applying different material
     float dt; customId = 0;
-    dt = sdChessTrio(p + vec3(0, 0, -4), false);
-    float black = sdChessTrio(p + vec3(0, 0, 4), true);
-    if (black < dt) {
-        customId = 1;
-        dt = black;
-    }
+
     return dt;
+// === Chess ===
+//    dt = sdChessTrio(p + vec3(0, 0, -4), false);
+//    float black = sdChessTrio(p + vec3(0, 0, 4), true);
+//    if (black < dt) {
+//        customId = 1;
+//        dt = black;
+//    }
+//    return dt;
 
 // === SEA & LIGHT HOUSE ===
 //    return sdLightHouse(p, customId);
@@ -1669,17 +1672,17 @@ void setCustomMat(int customId, out vec3 a, out vec3 d, out vec3 s,
                   out int texLoc, out float rU, out float rV, out float blend,
                   out int type, out float shininess) {
 // Mini Chess
-    if (customId == 0) {
-        // white
-        a = vec3(0.1); d = vec3(0.3, 0.22, 0.08); s = vec3(0.1);
-        texLoc = -1;
-        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
-    } else if (customId == 1) {
-        // black
-        a = vec3(0.1); d = vec3(0.02, 0.02, 0.01); s = vec3(0.1);
-        texLoc = -1;
-        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
-    }
+//    if (customId == 0) {
+//        // white
+//        a = vec3(0.1); d = vec3(0.3, 0.22, 0.08); s = vec3(0.1);
+//        texLoc = -1;
+//        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
+//    } else if (customId == 1) {
+//        // black
+//        a = vec3(0.1); d = vec3(0.02, 0.02, 0.01); s = vec3(0.1);
+//        texLoc = -1;
+//        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
+//    }
 
 
 // Light house
@@ -2221,9 +2224,9 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i,
     RayMarchRes res = raymarch(ro, rd, maxT, side);
     if (res.intersectObj == -1) {
         // mist
-        float fog = integrateFog(ro, ro + maxT * rd);
-        const vec3 FOG_COLOR = vec3(1.5, 1.1, 0.9);
-        bgCol = mix(bgCol, FOG_COLOR, clamp(fog, 0.0, 1.0));
+//        float fog = integrateFog(ro, ro + maxT * rd);
+//        const vec3 FOG_COLOR = vec3(1.5, 1.1, 0.9);
+//        bgCol = mix(bgCol, FOG_COLOR, clamp(fog, 0.0, 1.0));
         // NO HIT
         ri.fragColor = vec4(bgCol, 1.f);
         // If no hit but sky box is used, sample
@@ -2265,9 +2268,9 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i,
     // set return
 
     // Mist
-    float fog = integrateFog(ro, p);
-    const vec3 FOG_COLOR = vec3(1.5, 1.1, 0.9);
-    col = mix(col, FOG_COLOR, clamp(fog, 0.0, 1.0));
+//    float fog = integrateFog(ro, p);
+//    const vec3 FOG_COLOR = vec3(1.5, 1.1, 0.9);
+//    col = mix(col, FOG_COLOR, clamp(fog, 0.0, 1.0));
 
     ri.fragColor = vec4(col, 1.f); ri.customId = res.customId;
     return ri;
@@ -2298,10 +2301,10 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
     // SCENE #3
     // ro.y += 34.;
 #endif
-
-    ro.y += 5.;
+    // Chess Scene
+    // ro.y += 5.;
     // == NO rotation ==
-    // rd = normalize(farC - ro);
+    rd = normalize(farC - ro);
 
     // == Smooth zoom in/out ==
 //    float disp = smoothstep(-1.,1., sin(iTime)) * 2;
@@ -2309,10 +2312,10 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
 
 
     // == Rotation about the center ==
-    float rotationAngle = iTime / 5.;
-    ro = rotateAxis(ro, vec3(0.0, 1.0, 0.0), rotationAngle);
-    rd = normalize(farC - ro);
-    rd = rotateAxis(rd, vec3(0.0, 1.0, 0.0), rotationAngle);
+//    float rotationAngle = iTime / 5.;
+//    ro = rotateAxis(ro, vec3(0.0, 1.0, 0.0), rotationAngle);
+//    rd = normalize(farC - ro);
+//    rd = rotateAxis(rd, vec3(0.0, 1.0, 0.0), rotationAngle);
 
 #ifdef SKY_BACKGROUND
     bgCol = getSky(rd);
@@ -2351,6 +2354,7 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
     far = initialFar;
 #endif
 }
+
 
 void main() {
     // === 2D Render ===
