@@ -1094,7 +1094,7 @@ float sdMengerSponge(vec3 p, out vec4 res)
 
   vec2 res2 = vec2(d,1.0);
 
-  d = length(w-vec3(0.22,0.35,0.4)) - 0.09;
+  d = length(w-vec3(0.22,0.1,0.4)) - 0.09;
   if( d<res2.x ) {
       res2=vec2(d,2.0);
   }
@@ -2559,6 +2559,7 @@ vec3 render2D(vec2 pos) {
     return pow( vec3(scol), vec3(0.9,1.1,1.4) );
 }
 
+bool go = true;
 // Set up our scene based on preprocessor directives
 void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
     // === Update Globals ===
@@ -2582,7 +2583,9 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
     // Chess Scene
     // ro.y += 5.;
     ro.x += 0.1;
-    ro.z += 2;
+    float mvFactor = mix(0., 3., smoothstep(0, 1, (1 + sin(iTime / 3.)) / 2.));
+    ro.z += -mvFactor;
+
     // == NO rotation ==
     rd = normalize(farC - ro);
 
