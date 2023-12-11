@@ -11,7 +11,7 @@
 // ENVIRONMENT
 // #define CLOUD
 // #define TERRAIN
-// #define SEA
+#define SEA
 
 // =============== Out =============
 layout (location = 0) out vec4 fragColor;
@@ -92,11 +92,12 @@ const float CLOUD_HIGH = 1200.f;
 // SEA
 const int ITER_GEOMETRY = 3;
 const int ITER_FRAGMENT = 5;
-const float SEA_HEIGHT = 0.8;
-const float SEA_CHOPPY = 8.0;
-const float SEA_SPEED = 2.8;
-const float SEA_FREQ = 0.26;
-const vec3 SEA_BASE = vec3(0.1, 0.19, 0.22);
+const float SEA_HEIGHT = 0.2;
+const float SEA_CHOPPY = 1.0;
+const float SEA_SPEED = 0.5;
+const float SEA_FREQ = 0.16;
+// const vec3 SEA_BASE = vec3(0.1, 0.19, 0.22);
+const vec3 SEA_BASE = vec3(0.4,0.49,0.48);
 const vec3 SEA_WATER_COLOR = vec3(0.8,0.9,0.6);
 const mat2 octave_m = mat2(1.6, 1.2, -1.2, 1.6);
 
@@ -1046,43 +1047,44 @@ const mat3 ma = mat3( 0.60, 0.00,  0.80,
 float sdMengerSponge(vec3 p, out vec4 res)
 {
 
-//    float d = sdBox(p,vec3(1));
-//    res = vec4( d, 1.0, 0.0, 0.0 );
-//    float ani = smoothstep( -0.2, 0.2, -cos(0.5*iTime) );
-//    float off = 1.5*sin( 0.01*iTime );
-//    float s = 1.0;
-
-//    for(int m=0; m<4; m++) {
-//        p = mix( p, ma*(p+off), ani );
-//        vec3 a = mod( p*s, 2.0 )-1.0;
-//        s *= 3.0;
-//        vec3 r = abs(1.0 - 3.0*abs(a));
-//        float da = max(r.x,r.y);
-//        float db = max(r.y,r.z);
-//        float dc = max(r.z,r.x);
-//        float c = (min(da,min(db,dc))-1.0)/s;
-//        if(c > d) {
-//            d = c;
-//            res = vec4( d, min(res.y,0.2*da*db*dc), (1.0+float(m))/4.0, 0.0 );
-//        }
-//    }
-//    return d;
-
-    mat3 r = rot(vec3(2.));
-    vec3 q = p;
-    float m = 1.;
     float d = sdBox(p,vec3(1));
-    for (int i=0; i<7; i++) {
-        p = clamp(p,-1.,1.) * 2. - p;
-        float h = clamp(.25/dot(p, p), .25, 1.);
-        p *= h;
-        m *= h;
-        if (i<2) p *= r;
-        p = p*9. + q;
-        m = m*9.+1.;
+    res = vec4( d, 1.0, 0.0, 0.0 );
+    float ani = smoothstep( -0.2, 0.2, -cos(0.5*iTime) );
+    float off = 1.5*sin( 0.01*iTime );
+    float s = 1.0;
+
+    for(int m=0; m<4; m++) {
+        p = mix( p, ma*(p+off), ani );
+        vec3 a = mod( p*s, 2.0 )-1.0;
+        s *= 3.0;
+        vec3 r = abs(1.0 - 3.0*abs(a));
+        float da = max(r.x,r.y);
+        float db = max(r.y,r.z);
+        float dc = max(r.z,r.x);
+        float c = (min(da,min(db,dc))-1.0)/s;
+        if(c > d) {
+            d = c;
+            res = vec4( d, min(res.y,0.2*da*db*dc), (1.0+float(m))/4.0, 0.0 );
+        }
     }
-    q = abs(p);
-    return (max(q.x,max(q.y,q.z))-3.) / m;
+    return d;
+
+    // Ruin
+//    mat3 r = rot(vec3(2.));
+//    vec3 q = p;
+//    float m = 1.;
+//    float d = sdBox(p,vec3(1));
+//    for (int i=0; i<7; i++) {
+//        p = clamp(p,-1.,1.) * 2. - p;
+//        float h = clamp(.25/dot(p, p), .25, 1.);
+//        p *= h;
+//        m *= h;
+//        if (i<2) p *= r;
+//        p = p*9. + q;
+//        m = m*9.+1.;
+//    }
+//    q = abs(p);
+//    return (max(q.x,max(q.y,q.z))-3.) / m;
 }
 
 float sdPlane( vec3 p, vec3 n, float h )
@@ -1100,11 +1102,6 @@ float sdBoxFrame( vec3 p, vec3 b, float e )
       length(max(vec3(q.x,p.y,q.z),0.0))+min(max(q.x,max(p.y,q.z)),0.0)),
       length(max(vec3(q.x,q.y,p.z),0.0))+min(max(q.x,max(q.y,p.z)),0.0));
 }
-
-
-//const float NOISE_PROPORTION = 0.25;
-//const float NOISE_FREQUENCY = 20.;
-//const float NOISE_GRADIENT_MAGNITUDE = (1. * NOISE_FREQUENCY * 1.32);
 
 float sdColumn( vec3 p )
 {
@@ -1220,9 +1217,106 @@ float fbm(vec2 p) {
 mat3 rotY(float a){float c=cos(a),s=sin(a);return mat3(c,0,-s,0,1,0,s,0,c);}
 mat3 rotX(float a){float c=cos(a),s=sin(a);return mat3(1,0,0,0,c,-s,0,s,c);}
 
+float mod1(inout float p, float size) {
+    float halfsize = size*0.5;
+    float c = floor((p + halfsize)/size);
+    p = mod(p + halfsize, size) - halfsize;
+    return c;
+}
+
+vec2 modMirror2(inout vec2 p, vec2 size) {
+    vec2 halfsize = size*0.5;
+    vec2 c = floor((p + halfsize)/size);
+    p = mod(p + halfsize, size) - halfsize;
+    p *= mod(c,vec2(2))*2.0 - vec2(1.0);
+    return c;
+}
+
+void rot(inout vec2 p, float a) {
+  float c = cos(a);
+  float s = sin(a);
+  p = vec2(c*p.x + s*p.y, -s*p.x + c*p.y);
+}
+
+
+float apollian(vec3 p, int id) {
+  vec3 op = p; float s;
+  s = 1.3 + smoothstep(0.15, 1.5, p.y)* mix(0.1, 0.95, smoothstep(0, 11, id));
+
+  float scale = 1.0;
+
+  float r = 0.2;
+  vec3 o = vec3(0.22, 0.0, 0.0);
+
+  float d = 10000.0;
+
+  const int rep = 7;
+
+  for( int i=0; i<rep ;i++ ) {
+    mod1(p.y, 2.0);
+    modMirror2(p.xz, vec2(2.0));
+    rot(p.xz, PI/5.5);
+
+    float r2 = dot(p,p) + 0.0;
+    float k = s/r2;
+    float r = 0.5;
+    p *= k;
+    scale *= k;
+  }
+
+  d = sdBox(p - 0.1, 1.0*vec3(1.0, 2.0, 1.0)) - 0.5;
+  d = abs(d) - 0.01;
+  return 0.25*d/scale;
+}
+
+float singleApollian(vec3 p, int id, out int customId) {
+    float dt = apollian(p, id);
+    if (p.y >= 1.1) {
+        customId = 0;
+    } else if (p.y >= 0.1) {
+        customId = 1;
+    }
+    float db = sdBox(p - vec3(0.0, 0.5, 0.0), vec3(0.75,1.0, 0.75)) - 0.5;
+    float dt2 = max(dt, db);
+    float dp = sdBox(p + vec3(0, 0.1, 0), vec3(1., 0.1, 1.));
+    if (dp < dt2) {
+        dt2 = dp;
+        customId = 2;
+    }
+    return dt2;
+}
+
+vec2 opRepRectangle( in vec2 p, in ivec2 size, in float spacing )
+{
+    p = abs(p/spacing) - (vec2(size)*0.5-0.5);
+    p = (p.x<p.y) ? p.yx : p.xy;
+    p.y -= min(0.0, round(p.y));
+    return p*spacing;
+}
+
+
 float sdCUSTOM(vec3 p, out int customId, out vec4 trap) {
     // Custom ID needed for applying different material
     float dt; customId = 0;
+
+    float sp = 6.283185/float(2);
+    float an = atan(p.y,p.x);
+    float id = floor(an/sp);
+
+    float a1 = sp*(id+0.0);
+    float a2 = sp*(id+1.0);
+
+    vec2 r1 = mat2(cos(a1),-sin(a1),sin(a1),cos(a1))*p.xz;
+    vec2 r2 = mat2(cos(a2),-sin(a2),sin(a2),cos(a2))*p.xz;
+
+
+    dt = min(singleApollian(vec3(r1.x, p.y, r1.y), 11, customId), singleApollian(vec3(r2.x, p.y, r2.y), 11, customId));
+
+    // rectangle
+    p.xz = opRepRectangle(p.xz, ivec2(5,5), 3.5);
+    float dt2 = singleApollian(p, 4, customId);
+
+    return min(dt, dt2);
 
  // === Ruin ===
 //    // dunes
@@ -1245,7 +1339,7 @@ float sdCUSTOM(vec3 p, out int customId, out vec4 trap) {
 //        dt = min(dt, dt3);
 //        customId = 2;
 //    }
-    return dt;
+//    return dt;
 // === Chess ===
 //    dt = sdChessTrio(p + vec3(0, 0, -4), false);
 //    float black = sdChessTrio(p + vec3(0, 0, 4), true);
@@ -1505,7 +1599,7 @@ vec3 getNormal(in vec3 p) {
 // @returns structs that contains the result of raymarching
 RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
   // Start from eye pos
-  float rayDepth = 0.0;
+  float rayDepth = 0.0; float iter;
   SceneMin closest;
   closest.minD = 1000000;
   // Start the march
@@ -1516,6 +1610,7 @@ RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
     closest = sdScene(p);
     if (abs(closest.minD) < SURFACE_DIST || rayDepth > end) {
         // If hit or exceed the far plane, break
+        iter = int(i);
         break;
     }
     // March the ray
@@ -1529,6 +1624,7 @@ RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
       // Without this, normal calcuation somehow gets messed up
       res.d = rayDepth - closest.minD;
       res.trap = closest.trap; res.customId = closest.customId;
+      res.trap.w = iter;
   } else {
       // NO HIT
       res.intersectObj = -1;
@@ -1569,14 +1665,17 @@ float integrateFog(vec3 a, vec3 b) {
         return 1.0 - visibility;
 }
 
-float fog(float t) {
-    return 1.-exp(-t*t*t*.000005); // beer's law
+vec3 fog( in vec3 col, float t )
+{
+    vec3 ext = exp2(-t*0.00025*vec3(1,1.5,4));
+    return col*ext + (1.0-ext)*vec3(0.55,0.55,0.58); // 0.55
 }
 
 // =============== SUN & SKY & MOON =================
 
 // [0, 1]
-float timeOfDay = mod(iTime, 24.) / 24.0;
+//float timeOfDay = mod(iTime, 24.) / 24.0;
+float timeOfDay = 0.1;
 float sunriseStart = 0.2;
 float sunsetStart = 0.8;
 
@@ -1768,6 +1867,20 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, vec3 cD,
 void setCustomMat(int customId, out vec3 a, out vec3 d, out vec3 s,
                   out int texLoc, out float rU, out float rV, out float blend,
                   out int type, out float shininess) {
+// Tree
+        if (customId == 0) {
+            a = vec3(0.2, 0.35, 0.02); d = vec3(58/255., 95/255., 11/255.); s = vec3(0.);
+            texLoc = -1;
+            type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
+        } else if (customId == 1) {
+            a = vec3(0.4, 0.3, 0.2); d = vec3(105/255.,75/255.,55/255.); s = vec3(0.);
+            texLoc = -1;
+            type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
+        } else if (customId == 2) {
+            a = vec3(0.18, 0.15, 0.1); d = vec3(62/255.,49/255.,23/255.); s = vec3(0.);
+            texLoc = -1;
+            type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
+        }
 // Ruin
 //      if (customId == 0) {
 //          a = vec3(0.); d = vec3(.8,.6,.4); s = vec3(0.);
@@ -1918,7 +2031,8 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far, boo
             NdotL = clamp(NdotL, 0.f, 1.f);
             currColor +=  getDiffuse(p, N, type, cDiffuse, texLoc, invModel, rU, rV, blend)
                     * NdotL
-                    // * li.lightColor;
+                    //* li.lightColor;
+                    //
                     * getSunColor();
                     // * getMoonColor(rd);
             // Specular
@@ -1951,11 +2065,6 @@ void setBrightness(vec3 color) {
 }
 
 // ============== CLOUDS ================
-
-vec3 fog( in vec3 col, float t ) {
-    vec3 ext = exp2(-t*0.00025*vec3(1,1.5,4));
-    return col*ext + (1.0-ext)*vec3(0.55,0.55,0.58); // 0.55
-}
 
 vec4 cloudsFbm( in vec3 pos ) {
     return fbmd_8(pos*0.0015+vec3(2.0,1.1,1.0)+0.07*vec3(iTime,0.5*iTime,-0.15*iTime));
@@ -2380,9 +2489,6 @@ RenderInfo render(in vec3 ro, in vec3 rd, out IntersectionInfo i,
     // set output variable
     i.p = p; i.n = pn; i.rd = rd; i.intersectObj = res.intersectObj;
     // set return
-
-    // Mist
-    col = mix(col, bgCol, fog(res.d)); // fog
 
     ri.fragColor = vec4(col, 1.f); ri.customId = res.customId;
     return ri;
