@@ -2,16 +2,16 @@
 // ==== Preprocessor Directives ====
 
 // == DAY and NIGHT ==
-#define SKY_BACKGROUND
+// #define SKY_BACKGROUND
 // #define NIGHTSKY_BACKGROUND
 // == MONOTONE ==
-// #define DARK_BACKGROUND
+#define DARK_BACKGROUND
 // #define WHITE_BACKGROUND
 
 // ENVIRONMENT
 // #define CLOUD
 // #define TERRAIN
-#define SEA
+// #define SEA
 
 // =============== Out =============
 layout (location = 0) out vec4 fragColor;
@@ -1047,27 +1047,65 @@ const mat3 ma = mat3( 0.60, 0.00,  0.80,
 float sdMengerSponge(vec3 p, out vec4 res)
 {
 
-    float d = sdBox(p,vec3(1));
-    res = vec4( d, 1.0, 0.0, 0.0 );
-    float ani = smoothstep( -0.2, 0.2, -cos(0.5*iTime) );
-    float off = 1.5*sin( 0.01*iTime );
-    float s = 1.0;
+//    float d = sdBox(p,vec3(1));
+//    res = vec4( d, 1.0, 0.0, 0.0 );
+//    float ani = smoothstep( -0.2, 0.2, -cos(0.5*iTime) );
+//    float off = 1.5*sin( 0.01*iTime );
+//    float s = 1.0;
 
-    for(int m=0; m<4; m++) {
-        p = mix( p, ma*(p+off), ani );
-        vec3 a = mod( p*s, 2.0 )-1.0;
-        s *= 3.0;
-        vec3 r = abs(1.0 - 3.0*abs(a));
-        float da = max(r.x,r.y);
-        float db = max(r.y,r.z);
-        float dc = max(r.z,r.x);
-        float c = (min(da,min(db,dc))-1.0)/s;
-        if(c > d) {
-            d = c;
-            res = vec4( d, min(res.y,0.2*da*db*dc), (1.0+float(m))/4.0, 0.0 );
-        }
-    }
-    return d;
+//    for(int m=0; m<4; m++) {
+//        p = mix( p, ma*(p+off), ani );
+//        vec3 a = mod( p*s, 2.0 )-1.0;
+//        s *= 3.0;
+//        vec3 r = abs(1.0 - 3.0*abs(a));
+//        float da = max(r.x,r.y);
+//        float db = max(r.y,r.z);
+//        float dc = max(r.z,r.x);
+//        float c = (min(da,min(db,dc))-1.0)/s;
+//        if(c > d) {
+//            d = c;
+//            res = vec4( d, min(res.y,0.2*da*db*dc), (1.0+float(m))/4.0, 0.0 );
+//        }
+//    }
+//    return d;
+   vec3 w = p;
+   vec3 q = p;
+
+   q.xz = mod( q.xz+1.0, 2.0 ) -1.0;
+
+   float d = sdBox(q,vec3(1.0));
+   float s = 1.0;
+   for(int m=0; m<6; m++) {
+       float h = float(m)/6.0;
+
+       p =  q - 0.5*sin( abs(p.y) + float(m)*3.0+vec3(0.0,3.0,1.0));
+
+       vec3 a = mod( p*s, 2.0 )-1.0;
+       s *= 3.0;
+       vec3 r = abs(1.0 - 3.0*abs(a));
+
+       float da = max(r.x,r.y);
+       float db = max(r.y,r.z);
+       float dc = max(r.z,r.x);
+       float c = (min(da,min(db,dc))-1.0)/s;
+
+       d = max( c, d );
+  }
+
+  vec2 res2 = vec2(d,1.0);
+
+  d = length(w-vec3(0.22,0.35,0.4)) - 0.09;
+  if( d<res2.x ) {
+      res2=vec2(d,2.0);
+  }
+
+  d = w.y + 0.22;
+  if( d<res2.x ) {
+      res2=vec2(d,3.0);
+  }
+
+  res.w = res2.y;
+  return res2.x;
 
     // Ruin
 //    mat3 r = rot(vec3(2.));
@@ -1298,27 +1336,33 @@ vec2 opRepRectangle( in vec2 p, in ivec2 size, in float spacing )
 float sdCUSTOM(vec3 p, out int customId, out vec4 trap) {
     // Custom ID needed for applying different material
     float dt; customId = 0;
+    dt = sdMengerSponge(p, trap); customId = int(trap.w);
+    if (p.y <= -0.2) {
+        customId = 0;
+    }
+    return dt;
 
-    float sp = 6.283185/float(2);
-    float an = atan(p.y,p.x);
-    float id = floor(an/sp);
+// === GOON ===
+//    float sp = 6.283185/float(2);
+//    float an = atan(p.y,p.x);
+//    float id = floor(an/sp);
 
-    float a1 = sp*(id+0.0);
-    float a2 = sp*(id+1.0);
+//    float a1 = sp*(id+0.0);
+//    float a2 = sp*(id+1.0);
 
-    vec2 r1 = mat2(cos(a1),-sin(a1),sin(a1),cos(a1))*p.xz;
-    vec2 r2 = mat2(cos(a2),-sin(a2),sin(a2),cos(a2))*p.xz;
+//    vec2 r1 = mat2(cos(a1),-sin(a1),sin(a1),cos(a1))*p.xz;
+//    vec2 r2 = mat2(cos(a2),-sin(a2),sin(a2),cos(a2))*p.xz;
 
 
-    dt = min(singleApollian(vec3(r1.x, p.y, r1.y), 11, customId), singleApollian(vec3(r2.x, p.y, r2.y), 11, customId));
+//    dt = min(singleApollian(vec3(r1.x, p.y, r1.y), 11, customId), singleApollian(vec3(r2.x, p.y, r2.y), 11, customId));
 
-    // rectangle
-    p.xz = opRepRectangle(p.xz, ivec2(5,5), 3.5);
-    float dt2 = singleApollian(p, 4, customId);
+//    // rectangle
+//    p.xz = opRepRectangle(p.xz, ivec2(5,5), 3.5);
+//    float dt2 = singleApollian(p, 4, customId);
 
-    return min(dt, dt2);
+//    return min(dt, dt2);
 
- // === Ruin ===
+// === Ruin ===
 //    // dunes
 //    dt = p.y-3.+.05*fbm(p.xz*7.+.4*sin(35.*p.x+.5*sin(p.z*28.)))-.06*noiseD(2.5*p.xz);
 //    // ruins
@@ -1806,9 +1850,9 @@ vec3 getDiffuse(vec3 p, vec3 n, int type,
         uv = uvMapSphere(po, rU, rV);
     } else {
         // Tri-planar
-        vec3 colXZ = texture(customTextures[texLoc - 15], p.xz*.5 + .5).rgb;
-        vec3 colYZ = texture(customTextures[texLoc - 15], p.yz*.5 + .5).rgb;
-        vec3 colXY = texture(customTextures[texLoc - 15], p.xy*.5 + .5).rgb;
+        vec3 colXZ = texture(customTextures[texLoc - 15], fract(p.xz* 2 + .55)).rgb;
+        vec3 colYZ = texture(customTextures[texLoc - 15], fract(p.yz* 2+ .55)).rgb;
+        vec3 colXY = texture(customTextures[texLoc - 15], fract(p.xy*.2 + .55)).rgb;
 
         n = abs(n);
         n *= pow(n, vec3(10));
@@ -1867,20 +1911,33 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, vec3 cD,
 void setCustomMat(int customId, out vec3 a, out vec3 d, out vec3 s,
                   out int texLoc, out float rU, out float rV, out float blend,
                   out int type, out float shininess) {
+    if (customId == 0) {
+        a = vec3(1.f); d = vec3(0.38)*vec3(1.2,0.8,0.6); s = vec3(0.);
+        texLoc = CUSTOM_TEX_OFF;
+        type = CUSTOM; rU = 3.; rV = 3.; blend = 1.f; shininess = 0.4;
+    } else if (customId == 1) {
+        a = vec3(1.2,0.8,0.6); d = vec3(1.2,0.8,0.6); s = vec3(0.);
+        texLoc = -1;
+        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
+    } else if (customId == 2) {
+        a = vec3(0.9,0.8,0.5); d = vec3(0.9,0.8,0.5); s = vec3(0.4);
+        texLoc = -1;
+        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 200;
+    }
 // Tree
-        if (customId == 0) {
-            a = vec3(0.2, 0.35, 0.02); d = vec3(58/255., 95/255., 11/255.); s = vec3(0.);
-            texLoc = -1;
-            type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
-        } else if (customId == 1) {
-            a = vec3(0.4, 0.3, 0.2); d = vec3(105/255.,75/255.,55/255.); s = vec3(0.);
-            texLoc = -1;
-            type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
-        } else if (customId == 2) {
-            a = vec3(0.18, 0.15, 0.1); d = vec3(62/255.,49/255.,23/255.); s = vec3(0.);
-            texLoc = -1;
-            type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
-        }
+//        if (customId == 0) {
+//            a = vec3(0.2, 0.35, 0.02); d = vec3(58/255., 95/255., 11/255.); s = vec3(0.);
+//            texLoc = -1;
+//            type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
+//        } else if (customId == 1) {
+//            a = vec3(0.4, 0.3, 0.2); d = vec3(105/255.,75/255.,55/255.); s = vec3(0.);
+//            texLoc = -1;
+//            type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
+//        } else if (customId == 2) {
+//            a = vec3(0.18, 0.15, 0.1); d = vec3(62/255.,49/255.,23/255.); s = vec3(0.);
+//            texLoc = -1;
+//            type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
+//        }
 // Ruin
 //      if (customId == 0) {
 //          a = vec3(0.); d = vec3(.8,.6,.4); s = vec3(0.);
@@ -1974,6 +2031,9 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far, boo
 
     // Ambience
     float ao = 1.f;
+    if (custom && intersectObj == 0) {
+        cAmbient = getDiffuse(p, N, type, cDiffuse, texLoc, invModel, rU, rV, blend);
+    }
     if (enableAmbientOcculusion) ao = calcAO(p, N);
     total += cAmbient * ka * ao;
 
@@ -1988,7 +2048,7 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far, boo
             maxT = length(li.lightPos - p);
         } else if (li.type == DIRECTIONAL) {
             L = normalize(-li.lightDir);
-            L = getSunDir();
+            //L = getSunDir();
             maxT = far;
         } else if (li.type == SPOT) {
             L = normalize(li.lightPos - p);
@@ -2031,16 +2091,16 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far, boo
             NdotL = clamp(NdotL, 0.f, 1.f);
             currColor +=  getDiffuse(p, N, type, cDiffuse, texLoc, invModel, rU, rV, blend)
                     * NdotL
-                    //* li.lightColor;
+                    * li.lightColor;
                     //
-                    * getSunColor();
+                   // * getSunColor();
                     // * getMoonColor(rd);
             // Specular
             vec3 R = reflect(-L, N);
             float RdotV = clamp(dot(R, V), 0.f, 1.f);
             currColor += getSpecular(RdotV, cSpecular, shininess)
-                    //* li.lightColor;
-                    * getSunColor();
+                    * li.lightColor;
+                    //* getSunColor();
                     // * getMoonColor(rd);
             // Add the light source's contribution
             currColor *= fAtt * aFall;
@@ -2521,8 +2581,8 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
 #endif
     // Chess Scene
     // ro.y += 5.;
-
-    //ro.y += 3.5;
+    ro.x += 0.1;
+    ro.z += 2;
     // == NO rotation ==
     rd = normalize(farC - ro);
 
@@ -2638,8 +2698,8 @@ void main() {
     vec3 cRefl = obj.cReflective, cRefr = obj.cTransparent;
     if (obj.type == CUSTOM) {
         // Change accordingly
-        if (ri.customId == 0) {
-            cRefl = vec3(0.3);
+        if (ri.customId == 2) {
+            cRefl = vec3(0.8);
         }
     }
     if (enableReflection && length(cRefl) != 0) {

@@ -311,15 +311,18 @@ void Realtime::initCustomTextures() {
       "scenefiles/texture_store/stone.png",
       "scenefiles/texture_store/stripe.png",
   };
-  for (int i = 0; i < seaScene.size(); i++) {
+  std::vector<std::string> corridorScene{
+      "scenefiles/texture_store/ctile.png",
+  };
+  for (int i = 0; i < corridorScene.size(); i++) {
     glGenTextures(1, &m_customTextures[i]);
     glActiveTexture(GL_TEXTURE0 + CUSTOM_TEX_UNIT_OFF + i);
     glBindTexture(GL_TEXTURE_2D, m_customTextures[i]);
     QImage myImage;
-    std::filesystem::path fileRelativePath(seaScene[i]);
+    std::filesystem::path fileRelativePath(corridorScene[i]);
     QString str((basepath / fileRelativePath).string().data());
     if (!myImage.load(str)) {
-      std::cout << "Failed to load in image" << std::endl;
+      std::cout << "Failed to load in image:" << str.toStdString() << std::endl;
       return;
     }
     myImage = myImage.convertToFormat(QImage::Format_RGBA8888).mirrored();
