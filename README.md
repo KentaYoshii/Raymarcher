@@ -1,5 +1,22 @@
 # Raymarcher
 
+# Final Scenes
+
+<p align="center">
+  <img src="./output/final/corridor.png">
+</p>
+<p align="center">
+  <em> Fractal Corridor</em>
+</p>
+
+<p align="center">
+  <img src="./output/final/desert_ruin.png">
+</p>
+<p align="center">
+  <em> Desert Ruin </em>
+</p>
+
+
 <p align="center">
   <img src="./output/fractals/top.png" width="49%" />
   <img src="./output/fractals/top2.png" width="49%"/>
@@ -7,6 +24,8 @@
 <p align="center">
   <em> Fractals</em>
 </p>
+
+
 
 <p align="center">
   <img src="./output/procedural/top3.png">
@@ -23,12 +42,6 @@
   <em> Clouds </em>
 </p>
 
-<p align="center">
-  <img src="./output/procedural/top6.png">
-</p>
-<p align="center">
-  <em> Clouds + Terrain</em>
-</p>
 
 - [Getting Started](#getting-started)
   - [Raymarching Algorithm](#raymarching-algorithm)
