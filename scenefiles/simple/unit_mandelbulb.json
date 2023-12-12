@@ -7,7 +7,7 @@
     "transparentCoeff": 0.5
   },
   "cameraData": {
-    "position": [0, 0, 4],
+    "position": [0, 0, 4.5],
     "up": [0.0, 1.0, 0.0],
     "heightAngle": 30.0,
     "focus": [0.0, 0.0, 0.0]
@@ -17,11 +17,8 @@
       "lights": [
         {
           "type": "directional",
-          "color": [0.25, 0.2, 0.15],
-          "direction": [-0.707, 0.0, 0.707],
-          "angle": 20.0,
-          "penumbra": 10.0,
-          "attenuationCoeff": [0.8, 0.05, 0.0]
+          "color": [1, 1, 1],
+          "direction": [0.0, 0.0, 1.0]
         }
       ]
     },

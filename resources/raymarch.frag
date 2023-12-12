@@ -5,8 +5,8 @@
 // #define SKY_BACKGROUND
 // #define NIGHTSKY_BACKGROUND
 // == MONOTONE ==
-#define DARK_BACKGROUND
-// #define WHITE_BACKGROUND
+// #define DARK_BACKGROUND
+#define WHITE_BACKGROUND
 
 // ENVIRONMENT
 // #define CLOUD
@@ -1047,65 +1047,66 @@ const mat3 ma = mat3( 0.60, 0.00,  0.80,
 float sdMengerSponge(vec3 p, out vec4 res)
 {
 
-//    float d = sdBox(p,vec3(1));
-//    res = vec4( d, 1.0, 0.0, 0.0 );
-//    float ani = smoothstep( -0.2, 0.2, -cos(0.5*iTime) );
-//    float off = 1.5*sin( 0.01*iTime );
-//    float s = 1.0;
+    float d = sdBox(p,vec3(1));
+    res = vec4( d, 1.0, 0.0, 0.0 );
+    float ani = smoothstep( -0.2, 0.2, -cos(0.5*iTime) );
+    float off = 1.5*sin( 0.01*iTime );
+    float s = 1.0;
 
-//    for(int m=0; m<4; m++) {
-//        p = mix( p, ma*(p+off), ani );
-//        vec3 a = mod( p*s, 2.0 )-1.0;
-//        s *= 3.0;
-//        vec3 r = abs(1.0 - 3.0*abs(a));
-//        float da = max(r.x,r.y);
-//        float db = max(r.y,r.z);
-//        float dc = max(r.z,r.x);
-//        float c = (min(da,min(db,dc))-1.0)/s;
-//        if(c > d) {
-//            d = c;
-//            res = vec4( d, min(res.y,0.2*da*db*dc), (1.0+float(m))/4.0, 0.0 );
-//        }
-//    }
-//    return d;
-   vec3 w = p;
-   vec3 q = p;
+    for(int m=0; m<4; m++) {
+        p = mix( p, ma*(p+off), ani );
+        vec3 a = mod( p*s, 2.0 )-1.0;
+        s *= 3.0;
+        vec3 r = abs(1.0 - 3.0*abs(a));
+        float da = max(r.x,r.y);
+        float db = max(r.y,r.z);
+        float dc = max(r.z,r.x);
+        float c = (min(da,min(db,dc))-1.0)/s;
+        if(c > d) {
+            d = c;
+            res = vec4( d, min(res.y,0.2*da*db*dc), (1.0+float(m))/4.0, 0.0 );
+        }
+    }
+    return d;
+    // Corridor
+//   vec3 w = p;
+//   vec3 q = p;
 
-   q.xz = mod( q.xz+1.0, 2.0 ) -1.0;
+//   q.xz = mod( q.xz+1.0, 2.0 ) -1.0;
 
-   float d = sdBox(q,vec3(1.0));
-   float s = 1.0;
-   for(int m=0; m<6; m++) {
-       float h = float(m)/6.0;
+//   float d = sdBox(q,vec3(1.0));
+//   float s = 1.0;
+//   for(int m=0; m<6; m++) {
+//       float h = float(m)/6.0;
 
-       p =  q - 0.5*sin( abs(p.y) + float(m)*3.0+vec3(0.0,3.0,1.0));
+//       p =  q - 0.5*sin( abs(p.y) + float(m)*3.0+vec3(0.0,3.0,1.0));
 
-       vec3 a = mod( p*s, 2.0 )-1.0;
-       s *= 3.0;
-       vec3 r = abs(1.0 - 3.0*abs(a));
+//       vec3 a = mod( p*s, 2.0 )-1.0;
+//       s *= 3.0;
+//       vec3 r = abs(1.0 - 3.0*abs(a));
 
-       float da = max(r.x,r.y);
-       float db = max(r.y,r.z);
-       float dc = max(r.z,r.x);
-       float c = (min(da,min(db,dc))-1.0)/s;
+//       float da = max(r.x,r.y);
+//       float db = max(r.y,r.z);
+//       float dc = max(r.z,r.x);
+//       float c = (min(da,min(db,dc))-1.0)/s;
 
-       d = max( c, d );
-  }
+//       d = max( c, d );
+//  }
 
-  vec2 res2 = vec2(d,1.0);
+//  vec2 res2 = vec2(d,1.0);
 
-  d = length(w-vec3(0.22,0.1,0.4)) - 0.09;
-  if( d<res2.x ) {
-      res2=vec2(d,2.0);
-  }
+//  d = length(w-vec3(0.22,0.1,0.4)) - 0.09;
+//  if( d<res2.x ) {
+//      res2=vec2(d,2.0);
+//  }
 
-  d = w.y + 0.22;
-  if( d<res2.x ) {
-      res2=vec2(d,3.0);
-  }
+//  d = w.y + 0.22;
+//  if( d<res2.x ) {
+//      res2=vec2(d,3.0);
+//  }
 
-  res.w = res2.y;
-  return res2.x;
+//  res.w = res2.y;
+//  return res2.x;
 
     // Ruin
 //    mat3 r = rot(vec3(2.));
@@ -1336,13 +1337,15 @@ vec2 opRepRectangle( in vec2 p, in ivec2 size, in float spacing )
 float sdCUSTOM(vec3 p, out int customId, out vec4 trap) {
     // Custom ID needed for applying different material
     float dt; customId = 0;
-    dt = sdMengerSponge(p, trap); customId = int(trap.w);
-    if (p.y <= -0.2) {
-        customId = 0;
-    }
     return dt;
+// === CORRIDOR ===
+//    dt = sdMengerSponge(p, trap); customId = int(trap.w);
+//    if (p.y <= -0.2) {
+//        customId = 0;
+//    }
+//    return dt;
 
-// === GOON ===
+// === TIDELAND ===
 //    float sp = 6.283185/float(2);
 //    float an = atan(p.y,p.x);
 //    float id = floor(an/sp);
@@ -1668,7 +1671,7 @@ RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
       // Without this, normal calcuation somehow gets messed up
       res.d = rayDepth - closest.minD;
       res.trap = closest.trap; res.customId = closest.customId;
-      res.trap.w = iter;
+      //res.trap.w = iter;
   } else {
       // NO HIT
       res.intersectObj = -1;
@@ -1850,9 +1853,9 @@ vec3 getDiffuse(vec3 p, vec3 n, int type,
         uv = uvMapSphere(po, rU, rV);
     } else {
         // Tri-planar
-        vec3 colXZ = texture(customTextures[texLoc - 15], fract(p.xz* 2 + .55)).rgb;
-        vec3 colYZ = texture(customTextures[texLoc - 15], fract(p.yz* 2+ .55)).rgb;
-        vec3 colXY = texture(customTextures[texLoc - 15], fract(p.xy*.2 + .55)).rgb;
+        vec3 colXZ = texture(customTextures[texLoc - 15], fract(p.xz* .5 + .5)).rgb;
+        vec3 colYZ = texture(customTextures[texLoc - 15], fract(p.yz* .5+ .5)).rgb;
+        vec3 colXY = texture(customTextures[texLoc - 15], fract(p.xy*.5 + .5)).rgb;
 
         n = abs(n);
         n *= pow(n, vec3(10));
@@ -1911,19 +1914,20 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, vec3 cD,
 void setCustomMat(int customId, out vec3 a, out vec3 d, out vec3 s,
                   out int texLoc, out float rU, out float rV, out float blend,
                   out int type, out float shininess) {
-    if (customId == 0) {
-        a = vec3(1.f); d = vec3(0.38)*vec3(1.2,0.8,0.6); s = vec3(0.);
-        texLoc = CUSTOM_TEX_OFF;
-        type = CUSTOM; rU = 3.; rV = 3.; blend = 1.f; shininess = 0.4;
-    } else if (customId == 1) {
-        a = vec3(1.2,0.8,0.6); d = vec3(1.2,0.8,0.6); s = vec3(0.);
-        texLoc = -1;
-        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
-    } else if (customId == 2) {
-        a = vec3(0.9,0.8,0.5); d = vec3(0.9,0.8,0.5); s = vec3(0.4);
-        texLoc = -1;
-        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 200;
-    }
+// Corridor
+//    if (customId == 0) {
+//        a = vec3(1.f); d = vec3(0.38)*vec3(1.2,0.8,0.6); s = vec3(0.);
+//        texLoc = CUSTOM_TEX_OFF;
+//        type = CUSTOM; rU = 3.; rV = 3.; blend = 1.f; shininess = 0.4;
+//    } else if (customId == 1) {
+//        a = vec3(1.2,0.8,0.6); d = vec3(1.2,0.8,0.6); s = vec3(0.);
+//        texLoc = -1;
+//        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
+//    } else if (customId == 2) {
+//        a = vec3(0.9,0.8,0.5); d = vec3(0.9,0.8,0.5); s = vec3(0.4);
+//        texLoc = -1;
+//        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 200;
+//    }
 // Tree
 //        if (customId == 0) {
 //            a = vec3(0.2, 0.35, 0.02); d = vec3(58/255., 95/255., 11/255.); s = vec3(0.);
@@ -2092,7 +2096,6 @@ vec3 getPhong(vec3 N, int intersectObj, vec3 p, vec3 ro, vec3 rd, float far, boo
             currColor +=  getDiffuse(p, N, type, cDiffuse, texLoc, invModel, rU, rV, blend)
                     * NdotL
                     * li.lightColor;
-                    //
                    // * getSunColor();
                     // * getMoonColor(rd);
             // Specular
@@ -2491,7 +2494,6 @@ RenderInfo seaRender(in vec3 ro, in vec3 rd, inout bool hit, in float maxT, in v
     return ri;
 }
 
-
 // =============================================================
 // Given ray origin and ray direction, performs a raymarching
 // @param ro Ray origin
@@ -2559,7 +2561,6 @@ vec3 render2D(vec2 pos) {
     return pow( vec3(scol), vec3(0.9,1.1,1.4) );
 }
 
-bool go = true;
 // Set up our scene based on preprocessor directives
 void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
     // === Update Globals ===
@@ -2582,12 +2583,12 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
 #endif
     // Chess Scene
     // ro.y += 5.;
-    ro.x += 0.1;
-    float mvFactor = mix(0., 3., smoothstep(0, 1, (1 + sin(iTime / 3.)) / 2.));
-    ro.z += -mvFactor;
+//    ro.x += 0.1;
+//    float mvFactor = mix(0., 3., smoothstep(0, 1, (1 + sin(iTime / 3.)) / 2.));
+//    ro.z += -mvFactor;
 
     // == NO rotation ==
-    rd = normalize(farC - ro);
+//    rd = normalize(farC - ro);
 
     // == Smooth zoom in/out ==
 //    float disp = smoothstep(-1.,1., sin(iTime)) * 2;
@@ -2595,10 +2596,10 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
 
 
     // == Rotation about the center ==
-//    float rotationAngle = iTime / 5.;
-//    ro = rotateAxis(ro, vec3(0.0, 1.0, 0.0), rotationAngle);
-//    rd = normalize(farC - ro);
-//    rd = rotateAxis(rd, vec3(0.0, 1.0, 0.0), rotationAngle);
+    float rotationAngle = iTime / 5.;
+    ro = rotateAxis(ro, vec3(0.0, 1.0, 0.0), rotationAngle);
+    rd = normalize(farC - ro);
+    rd = rotateAxis(rd, vec3(0.0, 1.0, 0.0), rotationAngle);
 
 #ifdef SKY_BACKGROUND
     bgCol = getSky(rd);
