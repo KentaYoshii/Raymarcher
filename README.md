@@ -39,6 +39,7 @@
   - [Ambient Occulusion](#ambient-occulusion)
   - [Fast Approximate Anti-Aliasing](#fast-approximate-anti-aliasing)
   - [Sky Box](#sky-box)
+  - [Bump Map](#bump-map)
   - [Area Lights](#area-lights)
   - [High Dynamic Range](#high-dynamic-range-hdr)
   - [Bloom](#bloom)
@@ -142,6 +143,15 @@
 |            Beach             |            Island             | Night Sky                       |
 | :--------------------------: | :---------------------------: | :------------------------------ |
 | ![](./output/misc/beach.png) | ![](./output/misc/island.png) | ![](./output/misc/nightsky.png) |
+
+## Bump Map
+- Bump mapping is a technique used to simulate the appearance of surface details without actually modifying the underlying geometry.
+- We achieve this by perturbing the surface normals of the model based on Perlin noise. 
+- The altered normals then affect the way light interacts with the surface, creating the illusion of small bumps and dents
+
+<p align="center">
+    <img src="./output/misc/bump.png">
+</p>
 
 ## Area Lights
 

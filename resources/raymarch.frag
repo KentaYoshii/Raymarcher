@@ -12,7 +12,7 @@
 // #define CLOUD
 // #define TERRAIN
 // #define SEA
-// #define PERLIN_BUMP
+#define PERLIN_BUMP
 
 // =============== Out =============
 layout (location = 0) out vec4 fragColor;
@@ -125,8 +125,8 @@ const mat3 ma = mat3( 0.60, 0.00,  0.80,
                       0.00, 1.00,  0.00,
                      -0.80, 0.00,  0.60 );
 
-const float BUMP_SCALE = 100.0;
-const float BUMP_INTENSITY = 200.0;
+const float BUMP_SCALE = 10.0;
+const float BUMP_INTENSITY = 2.0;
 
 int FRAME;
 float SPEED;
