@@ -102,6 +102,7 @@ const vec3 SEA_BASE = vec3(0.4,0.49,0.48);
 const vec3 SEA_WATER_COLOR = vec3(0.8,0.9,0.6);
 const mat2 octave_m = mat2(1.6, 1.2, -1.2, 1.6);
 
+
 // MOON
 const vec3 MOON = normalize(vec3(-0.4, 0.4, 0.3));
 
@@ -120,6 +121,10 @@ const mat3 m3  = mat3( 0.00,  0.80,  0.60,
 const mat3 m3i = mat3( 0.00, -0.80, -0.60,
                        0.80,  0.36, -0.48,
                        0.60, -0.48,  0.64 );
+const mat3 ma = mat3( 0.60, 0.00,  0.80,
+                      0.00, 1.00,  0.00,
+                     -0.80, 0.00,  0.60 );
+
 const float BUMP_SCALE = 100.0;
 const float BUMP_INTENSITY = 200.0;
 
@@ -280,9 +285,6 @@ uniform int numOctaves;
 uniform float terrainHeight = 0.f;
 uniform float terrainScale;
 
-// ============ CUSTOM SCENE CONFIG =================
-
-
 // ================== Utility =======================
 float tri(float x) {
     return abs(fract(x) - 0.5);
@@ -293,19 +295,16 @@ vec3 tri3(vec3 p) {
 }
 
 float triNoise3D(in vec3 p, float spd) {
-    float z = 1.4;
-        float rz = 0.0;
+    float z = 1.4; float rz = 0.0;
     vec3 bp = p;
-        for (float i = 0.0; i <= 3.0; i++) {
+    for (float i = 0.0; i <= 3.0; i++) {
         vec3 dg = tri3(bp * 2.0);
         p += (dg + iTime * .3 * spd);
-        bp *= 1.8;
-                z *= 1.5;
-                p *= 1.2;
+        bp *= 1.8; z *= 1.5; p *= 1.2;
         rz += tri(p.z + tri(p.x + tri(p.y))) / z;
         bp += 0.14;
-        }
-        return rz;
+    }
+    return rz;
 }
 
 
@@ -314,24 +313,41 @@ vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
     return mix(dot(axis, p)*axis, p, cos(angle)) + cross(axis,p)*sin(angle);
 }
 
+// Gets a 2D rotation matrix to rotate angle given by "a"
 mat2 rotate2D(float a) {
   float s = sin(a);
   float c = cos(a);
   return mat2(c, -s, s, c);
 }
 
-// Applies transformation
-vec3 Transform(in vec3 p)
-{
-    return p;
+mat3 rotY(float a){float c=cos(a),s=sin(a);return mat3(c,0,-s,0,1,0,s,0,c);}
+mat3 rotX(float a){float c=cos(a),s=sin(a);return mat3(1,0,0,0,c,-s,0,s,c);}
+
+float mod1(inout float p, float size) {
+    float halfsize = size*0.5;
+    float c = floor((p + halfsize)/size);
+    p = mod(p + halfsize, size) - halfsize;
+    return c;
 }
+
+vec2 modMirror2(inout vec2 p, vec2 size) {
+    vec2 halfsize = size*0.5;
+    vec2 c = floor((p + halfsize)/size);
+    p = mod(p + halfsize, size) - halfsize;
+    p *= mod(c,vec2(2))*2.0 - vec2(1.0);
+    return c;
+}
+
+void rot(inout vec2 p, float a) {
+  float c = cos(a);
+  float s = sin(a);
+  p = vec2(c*p.x + s*p.y, -s*p.x + c*p.y);
+}
+
 
 // Vector form without project to the plane (dot with the normal)
 // Use for proxy sphere clipping
-vec3 IntegrateEdgeVec(vec3 v1, vec3 v2)
-{
-    // Using built-in acos() function will result flaws
-    // Using fitting result for calculating acos()
+vec3 IntegrateEdgeVec(vec3 v1, vec3 v2) {
     float x = dot(v1, v2);
     float y = abs(x);
 
@@ -344,14 +360,12 @@ vec3 IntegrateEdgeVec(vec3 v1, vec3 v2)
     return cross(v1, v2)*theta_sintheta;
 }
 
-float IntegrateEdge(vec3 v1, vec3 v2)
-{
+float IntegrateEdge(vec3 v1, vec3 v2) {
     return IntegrateEdgeVec(v1, v2).z;
 }
 
 // P is fragPos in world space (LTC distribution)
-vec3 LTC_Evaluate(vec3 N, vec3 V, vec3 P, mat3 Minv, vec3 points[4], bool twoSided)
-{
+vec3 LTC_Evaluate(vec3 N, vec3 V, vec3 P, mat3 Minv, vec3 points[4], bool twoSided) {
     // construct orthonormal basis around N
     vec3 T1, T2;
     T1 = normalize(V - N * dot(V, N));
@@ -409,16 +423,6 @@ vec3 LTC_Evaluate(vec3 N, vec3 V, vec3 P, mat3 Minv, vec3 points[4], bool twoSid
     return Lo_i;
 }
 
-// Simple hash function
-float hash(vec2 p) {
-    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
-}
-
-// Function to generate a random 2D vector based on a seed
-vec2 random2(vec2 seed) {
-    return vec2(hash(seed), hash(seed + vec2(1.0)));
-}
-
 // For Shadow effects with area lights
 vec3 samplePointOnRectangleAreaLight(vec3 lightPos1, vec3 lightPos2, vec3 lightPos3, vec3 lightPos4, vec2 randomUV) {
     // Calculate vectors defining the rectangle
@@ -453,30 +457,40 @@ float angularFalloff(vec3 L, int i) {
     } else {
         return 1.f -
                 angularFalloffFactor(acos(cosalpha), inner, lights[i].lightAngle);
-     }
+    }
 }
 
 
 // ============ NOISE =============
 
 // Used in noised (vec3)
-float hash1( float n )
-{
+float hash1( float n ) {
     return fract( n*17.0*fract( n*0.3183099 ) );
 }
 
 // Used in noiseT
-float hash1( vec2 p )
-{
+float hash1( vec2 p ) {
     p  = 50.0*fract( p*0.3183099 );
     return fract( p.x*p.y*(p.x+p.y) );
 }
 
-float hash(float n) {return fract(sin(n)*43758.5453123);}
+// Bump map
+float hash(float n) {
+    return fract(sin(n)*43758.5453123);
+}
+
+// Simple hash function
+float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+// Function to generate a random 2D vector based on a seed
+vec2 random2(vec2 seed) {
+    return vec2(hash(seed), hash(seed + vec2(1.0)));
+}
 
 // Used in fbm_9
-float noiseT( in vec2 x )
-{
+float noiseT( in vec2 x ) {
     vec2 p = floor(x);
     vec2 w = fract(x);
     vec2 u = w*w*w*(w*(w*6.0-15.0)+10.0);
@@ -487,8 +501,7 @@ float noiseT( in vec2 x )
     return -1.0+2.0*(a + (b-a)*u.x + (c-a)*u.y + (a - b - c + d)*u.x*u.y);
 }
 
-float noiseW(in vec2 p)
-{
+float noiseW(in vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);
 
@@ -509,7 +522,7 @@ float noiseW(in vec2 p)
 float noiseD(vec2 x) {
     vec2 p = floor(x);
     vec2 f = fract(x);
-    f = f*f*(3.-2.*f); // S curve
+    f = f*f*(3.-2.*f);
 
     float n = p.x + p.y*138.;
 
@@ -520,17 +533,12 @@ float noiseD(vec2 x) {
 
 // Used in fbmd_8
 // value noise, and its analytical derivatives
-vec4 noised( in vec3 x )
-{
+vec4 noised( in vec3 x ) {
     vec3 p = floor(x);
     vec3 w = fract(x);
-    #if 1
     vec3 u = w*w*w*(w*(w*6.0-15.0)+10.0);
     vec3 du = 30.0*w*w*(w*(w-2.0)+1.0);
-    #else
-    vec3 u = w*w*(3.0-2.0*w);
-    vec3 du = 6.0*w*(1.0-w);
-    #endif
+
 
     float n = p.x + 317.0*p.y + 157.0*p.z;
 
@@ -589,10 +597,21 @@ float noiseV(vec3 x ) {
   return mix( rg.x, rg.y, f.z )*2.0-1.0;
 }
 
+// 2d fractal noise used in sand dune
+float fbm(vec2 p) {
+    float f = 0.0;
+    float s = 0.5;
+    for( int i=0; i<4; i++ ) {
+        f += s*noiseD(p);
+        s *= 0.5;
+        p *= 2.0;
+    }
+    return f;
+}
+
 // Taken from Inigo Quilez's Rainforest ShaderToy:
 // https://www.shadertoy.com/view/4ttSWf
-float fbm_4( in vec3 x )
-{
+float fbm_4( in vec3 x ) {
     float f = 2.0;
     float s = 0.5;
     float a = 0.0;
@@ -608,8 +627,7 @@ float fbm_4( in vec3 x )
 }
 
 // Used in sdTerrain to get noise
-float fbm_9( in vec2 x )
-{
+float fbm_9( in vec2 x ) {
     float f = 1.9;
     float s = 0.55;
     float a = 0.0;
@@ -626,8 +644,7 @@ float fbm_9( in vec2 x )
 }
 
 // Used in cloudFbm
-vec4 fbmd_8( in vec3 x )
-{
+vec4 fbmd_8( in vec3 x ) {
     float f = 2.0;
     float s = 0.65;
     float a = 0.0;
@@ -639,9 +656,9 @@ vec4 fbmd_8( in vec3 x )
     for( int i=0; i<8; i++ )
     {
         vec4 n = noised(x);
-        a += b*n.x;          // accumulate values
+        a += b*n.x;
         if( i<4 )
-        d += b*m*n.yzw;      // accumulate derivatives
+        d += b*m*n.yzw;
         b *= s;
         x = f*m3*x;
         m = f*m3i*m;
@@ -650,8 +667,7 @@ vec4 fbmd_8( in vec3 x )
 }
 
 // Used in terrainMapD
-vec3 fbmd_9( in vec2 x )
-{
+vec3 fbmd_9( in vec2 x ) {
     float f = 1.9;
     float s = 0.55;
     float a = 0.0;
@@ -671,8 +687,7 @@ vec3 fbmd_9( in vec2 x )
 }
 
 // return smoothstep and its derivative
-vec2 smoothstepd( float a, float b, float x)
-{
+vec2 smoothstepd( float a, float b, float x) {
     if( x<a ) return vec2( 0.0, 0.0 );
     if( x>b ) return vec2( 1.0, 0.0 );
     float ir = 1.0/(b-a);
@@ -680,22 +695,23 @@ vec2 smoothstepd( float a, float b, float x)
     return vec2( x*x*(3.0-2.0*x), 6.0*x*(1.0-x)*ir );
 }
 // ================ SDF Combo Functs ====================
-float sdSmoothUnion( float d1, float d2, float k )
-{
+float sdSmoothUnion( float d1, float d2, float k ) {
     float h = clamp( 0.5 + 0.5*(d2-d1)/k, 0.0, 1.0 );
     return mix( d2, d1, h ) - k*h*(1.0-h);
 }
 
-float sdOnion( in float d, in float h )
-{
-    return abs(d)-h;
+// polynomial smooth min (k = 0.1);
+float smin( float a, float b, float k ) {
+    float h = clamp( 0.5+0.5*(b-a)/k, 0.0, 1.0 );
+    return mix( b, a, h ) - k*h*(1.0-h);
 }
 
-// polynomial smooth min (k = 0.1);
-float smin( float a, float b, float k )
+vec2 opRepRectangle( in vec2 p, in ivec2 size, in float spacing )
 {
-  float h = clamp( 0.5+0.5*(b-a)/k, 0.0, 1.0 );
-  return mix( b, a, h ) - k*h*(1.0-h);
+    p = abs(p/spacing) - (vec2(size)*0.5-0.5);
+    p = (p.x<p.y) ? p.yx : p.xy;
+    p.y -= min(0.0, round(p.y));
+    return p*spacing;
 }
 
 vec2 boxIntersect(vec3 ro, vec3 rd, vec3 rad)  {
@@ -708,8 +724,9 @@ vec2 boxIntersect(vec3 ro, vec3 rd, vec3 rad)  {
     float tN = max(max(t1.x, t1.y), t1.z);
     float tF = min(min(t2.x, t2.y), t2.z);
 
-    if(tN > tF || tF < 0.0)
-        return vec2(-1.0); // no intersection
+    if (tN > tF || tF < 0.0) {
+        return vec2(-1.0);
+    }
     return vec2(tN, tF);
 }
 
@@ -717,8 +734,7 @@ vec2 boxIntersect(vec3 ro, vec3 rd, vec3 rad)  {
 // Define SDF for different shapes here
 // - Based on https://iquilezles.org/articles/distfunctions/
 
-vec2 sdTerrain(vec2 p)
-{
+vec2 sdTerrain(vec2 p) {
     float e = fbm_9( p/2000.0 + vec2(1.0,-2.0) );
     float a = 1.0-smoothstep( 0.12, 0.13, abs(e+0.12) ); // flag high-slope areas (-0.25, 0.0)
     e = 600.0*e + 600.0;
@@ -732,8 +748,7 @@ vec2 sdTerrain(vec2 p)
 // Mandelbrot Set Signed Distance Field
 // ref: https://www.shadertoy.com/view/Mss3R8
 // @param point in 2D space
-float sdMandelBrot(in vec2 p)
-{
+float sdMandelBrot(in vec2 p) {
     float ltime = 0.5-0.5*cos(iTime*0.06);
     float zoom = pow( 0.9, 50.0*ltime );
     vec2  cen = vec2( 0.2655,0.301 ) + zoom*0.8*cos(4.0+2.0*ltime);
@@ -757,8 +772,7 @@ float sdMandelBrot(in vec2 p)
 // Great ref: https://www.youtube.com/watch?v=6IWXkV82oyY&t=1502s
 // @param p Point in object space
 // @param power (typically 8)
-float sdMandelBulb(vec3 pos, out vec4 resColor)
-{
+float sdMandelBulb(vec3 pos, out vec4 resColor) {
     vec3 w = pos;
     float m = dot(w,w);
     vec4 trap = vec4(abs(w),m);
@@ -781,8 +795,7 @@ float sdMandelBulb(vec3 pos, out vec4 resColor)
         trap = min(trap, vec4(abs(w),m));
 
         m = dot(w,w);
-        if( m > FRACTALS_BAILOUT )
-            break;
+        if (m > FRACTALS_BAILOUT) break;
     }
     resColor = vec4(m,trap.yzw);
     // distance estimation (through the Hubbard-Douady potential)
@@ -792,8 +805,7 @@ float sdMandelBulb(vec3 pos, out vec4 resColor)
 // Sierpinski Signed Distance Field
 // @param p Point in object space
 // @param power (typically 8)
-float sdSierpinski(vec3 p)
-{
+float sdSierpinski(vec3 p) {
     const int Iterations = 14;
     const float Scale = 1.85;
     const float Offset = 2.0;
@@ -817,8 +829,7 @@ float sdSierpinski(vec3 p)
 // Sphere Signed Distance Field
 // @param p Point in object space
 // @param r Radius
-float sdSphere(vec3 p, float r)
-{
+float sdSphere(vec3 p, float r) {
   return length(p)-r;
 }
 
@@ -829,8 +840,7 @@ float sdSine(vec3 p) {
 // Box Signed Distance Field
 // @param p Point in object space
 // @param b half-length dimensions of the box (x,y,z)
-float sdBox(vec3 p, vec3 b)
-{
+float sdBox(vec3 p, vec3 b) {
   vec3 q = abs(p) - b;
   return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
 }
@@ -839,8 +849,7 @@ float sdBox(vec3 p, vec3 b)
 // @param p Point in object space
 // @param r Radius of the base
 // @param h Half height of the cone
-float sdCone(vec3 p, float r, float h)
-{
+float sdCone(vec3 p, float r, float h) {
     vec2 po = vec2(length(p.xz) - r, p.y + h);
     vec2 e = vec2(-r, 2.0 * h);
     vec2 q = po - e * clamp(dot(po, e) / dot(e, e), 0.0, 1.0);
@@ -855,8 +864,7 @@ float sdCone(vec3 p, float r, float h)
 // @param p Point in object space
 // @param h Half height of the cone
 // @param r Radius of the base
-float sdCylinder(vec3 p, float h, float r)
-{
+float sdCylinder(vec3 p, float h, float r) {
   vec2 d = abs(vec2(length(p.xz),p.y)) - vec2(r,h);
   return min(max(d.x,d.y),0.0) + length(max(d,0.0));
 }
@@ -864,8 +872,7 @@ float sdCylinder(vec3 p, float h, float r)
 // Octahedron Signed Distance Field
 // @param p Point in object space
 // @param s radius s
-float sdOctahedron(vec3 p, float s)
-{
+float sdOctahedron(vec3 p, float s) {
     p = abs(p);
     float m = p.x + p.y + p.z - s;
     vec3 r = 3.0*p - m;
@@ -881,8 +888,7 @@ float sdOctahedron(vec3 p, float s)
 // Torus Signed Distance Field
 // @param p Point in object space
 // @param t play around but 1:4 ratio works well
-float sdTorus(vec3 p, vec2 t)
-{
+float sdTorus(vec3 p, vec2 t) {
     vec2 q = vec2(length(p.xz)-t.x,p.y);
     return length(q)-t.y;
 }
@@ -890,6 +896,7 @@ float sdTorus(vec3 p, vec2 t)
 float sphere2(vec2 p, float r) {
         return length(p) - r;
 }
+
 float ellipse2(vec2 p, vec2 r) {
     float k0 = length(p / r);
     float k1 = length(p / (r * r));
@@ -907,8 +914,7 @@ float blend(float d1, float d2, float k) {
     return mix(d2, d1, h) - k * h * (1.0 - h);
 }
 
-float sdPawn(vec3 p)
-{
+float sdPawn(vec3 p) {
     vec2 p2 = vec2(length(p.xz), p.y);
     float dt = sphere2(vec2(0, 1) - p2, 1.0);
     float dn = ellipse2(vec2(0, -0.15) - p2, vec2(1.0, 0.3));
@@ -982,14 +988,12 @@ float queen(vec3 p, float base) {
 // @param p Point in object space
 // @param h half height
 // @param r corenr radius of capsule
-float sdCapsule(vec3 p, float h, float r)
-{
+float sdCapsule(vec3 p, float h, float r) {
   p.y -= clamp(p.y, 0.0, h);
   return length(p) - r;
 }
 
-float sdCapsule( vec3 p, vec3 a, vec3 b, float r )
-{
+float sdCapsule( vec3 p, vec3 a, vec3 b, float r ) {
   vec3 pa = p - a, ba = b - a;
   float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
   return length( pa - ba*h ) - r;
@@ -998,8 +1002,7 @@ float sdCapsule( vec3 p, vec3 a, vec3 b, float r )
 // Deathstar Signed Distance Field
 // @param p2 Point in object space
 // @param ra,rb,d play around
-float sdDeathStar( in vec3 p2, in float ra, float rb, in float d )
-{
+float sdDeathStar( in vec3 p2, in float ra, float rb, in float d ) {
     vec2 p = vec2( p2.x, length(p2.yz) );
 
     float a = (ra*ra - rb*rb + d*d)/(2.0*d);
@@ -1033,8 +1036,7 @@ float plength(vec3 v,float e)
     return pow(v.x+v.y+v.z,1./e);
 }
 
-float sdLine(vec3 p, vec3 a, vec3 b, float r)
-{
+float sdLine(vec3 p, vec3 a, vec3 b, float r) {
     vec3 ab = b-a, ap = p-a;
     return plength(ap-ab*clamp(dot(ap,ab)/dot(ab,ab),0.,1.),4.0)-r;
 }
@@ -1044,12 +1046,7 @@ float sdLine(vec3 p, vec3 a, vec3 b, float r)
 // Great ref: https://www.youtube.com/watch?v=6IWXkV82oyY&t=1502s
 // @param p Point in object space
 // @param power (typically 8)
-const mat3 ma = mat3( 0.60, 0.00,  0.80,
-                      0.00, 1.00,  0.00,
-                     -0.80, 0.00,  0.60 );
-float sdMengerSponge(vec3 p, out vec4 res)
-{
-
+float sdMengerSponge(vec3 p, out vec4 res) {
     float d = sdBox(p,vec3(1));
     res = vec4( d, 1.0, 0.0, 0.0 );
     float ani = smoothstep( -0.2, 0.2, -cos(0.5*iTime) );
@@ -1071,72 +1068,14 @@ float sdMengerSponge(vec3 p, out vec4 res)
         }
     }
     return d;
-    // Corridor
-//   vec3 w = p;
-//   vec3 q = p;
-
-//   q.xz = mod( q.xz+1.0, 2.0 ) -1.0;
-
-//   float d = sdBox(q,vec3(1.0));
-//   float s = 1.0;
-//   for(int m=0; m<6; m++) {
-//       float h = float(m)/6.0;
-
-//       p =  q - 0.5*sin( abs(p.y) + float(m)*3.0+vec3(0.0,3.0,1.0));
-
-//       vec3 a = mod( p*s, 2.0 )-1.0;
-//       s *= 3.0;
-//       vec3 r = abs(1.0 - 3.0*abs(a));
-
-//       float da = max(r.x,r.y);
-//       float db = max(r.y,r.z);
-//       float dc = max(r.z,r.x);
-//       float c = (min(da,min(db,dc))-1.0)/s;
-
-//       d = max( c, d );
-//  }
-
-//  vec2 res2 = vec2(d,1.0);
-
-//  d = length(w-vec3(0.22,0.1,0.4)) - 0.09;
-//  if( d<res2.x ) {
-//      res2=vec2(d,2.0);
-//  }
-
-//  d = w.y + 0.22;
-//  if( d<res2.x ) {
-//      res2=vec2(d,3.0);
-//  }
-
-//  res.w = res2.y;
-//  return res2.x;
-
-    // Ruin
-//    mat3 r = rot(vec3(2.));
-//    vec3 q = p;
-//    float m = 1.;
-//    float d = sdBox(p,vec3(1));
-//    for (int i=0; i<7; i++) {
-//        p = clamp(p,-1.,1.) * 2. - p;
-//        float h = clamp(.25/dot(p, p), .25, 1.);
-//        p *= h;
-//        m *= h;
-//        if (i<2) p *= r;
-//        p = p*9. + q;
-//        m = m*9.+1.;
-//    }
-//    q = abs(p);
-//    return (max(q.x,max(q.y,q.z))-3.) / m;
 }
 
-float sdPlane( vec3 p, vec3 n, float h )
-{
+float sdPlane( vec3 p, vec3 n, float h ) {
   // n must be normalized
   return dot(p,n) + h;
 }
 
-float sdBoxFrame( vec3 p, vec3 b, float e )
-{
+float sdBoxFrame( vec3 p, vec3 b, float e ) {
        p = abs(p  )-b;
   vec3 q = abs(p+e)-e;
   return min(min(
@@ -1145,8 +1084,7 @@ float sdBoxFrame( vec3 p, vec3 b, float e )
       length(max(vec3(q.x,q.y,p.z),0.0))+min(max(q.x,max(q.y,p.z)),0.0));
 }
 
-float sdColumn( vec3 p )
-{
+float sdColumn( vec3 p ) {
     vec3 bp1 = p; vec3 bp2 = p; vec3 cp = p;
     float bp1_scale = mix(1.5, 2.5, smoothstep(0, 0.5, p.y));
     float bp2_scale = mix(2.5, 1.5, smoothstep(6.5, 7., p.y));
@@ -1244,44 +1182,7 @@ float sdChessTrio(vec3 p, bool side) {
     return min(dt, min(dt2, dt3));
 }
 
-// 2d fractal noise used in sand dune
-float fbm(vec2 p) {
-    float f = 0.0;
-    float s = 0.5;
-    for( int i=0; i<4; i++ ) {
-        f += s*noiseD(p);
-        s *= 0.5;
-        p *= 2.0;
-    }
-    return f;
-}
-
-mat3 rotY(float a){float c=cos(a),s=sin(a);return mat3(c,0,-s,0,1,0,s,0,c);}
-mat3 rotX(float a){float c=cos(a),s=sin(a);return mat3(1,0,0,0,c,-s,0,s,c);}
-
-float mod1(inout float p, float size) {
-    float halfsize = size*0.5;
-    float c = floor((p + halfsize)/size);
-    p = mod(p + halfsize, size) - halfsize;
-    return c;
-}
-
-vec2 modMirror2(inout vec2 p, vec2 size) {
-    vec2 halfsize = size*0.5;
-    vec2 c = floor((p + halfsize)/size);
-    p = mod(p + halfsize, size) - halfsize;
-    p *= mod(c,vec2(2))*2.0 - vec2(1.0);
-    return c;
-}
-
-void rot(inout vec2 p, float a) {
-  float c = cos(a);
-  float s = sin(a);
-  p = vec2(c*p.x + s*p.y, -s*p.x + c*p.y);
-}
-
-
-float apollian(vec3 p, int id) {
+float sdApollian(vec3 p, int id) {
   vec3 op = p; float s;
   s = 1.3 + smoothstep(0.15, 1.5, p.y)* mix(0.1, 0.95, smoothstep(0, 11, id));
 
@@ -1312,7 +1213,7 @@ float apollian(vec3 p, int id) {
 }
 
 float singleApollian(vec3 p, int id, out int customId) {
-    float dt = apollian(p, id);
+    float dt = sdApollian(p, id);
     if (p.y >= 1.1) {
         customId = 0;
     } else if (p.y >= 0.1) {
@@ -1326,102 +1227,6 @@ float singleApollian(vec3 p, int id, out int customId) {
         customId = 2;
     }
     return dt2;
-}
-
-vec2 opRepRectangle( in vec2 p, in ivec2 size, in float spacing )
-{
-    p = abs(p/spacing) - (vec2(size)*0.5-0.5);
-    p = (p.x<p.y) ? p.yx : p.xy;
-    p.y -= min(0.0, round(p.y));
-    return p*spacing;
-}
-
-
-float sdCUSTOM(vec3 p, out int customId, out vec4 trap) {
-    // Custom ID needed for applying different material
-    float dt; customId = 0;
-    return dt;
-// === CORRIDOR ===
-//    dt = sdMengerSponge(p, trap); customId = int(trap.w);
-//    if (p.y <= -0.2) {
-//        customId = 0;
-//    }
-//    return dt;
-
-// === TIDELAND ===
-//    float sp = 6.283185/float(2);
-//    float an = atan(p.y,p.x);
-//    float id = floor(an/sp);
-
-//    float a1 = sp*(id+0.0);
-//    float a2 = sp*(id+1.0);
-
-//    vec2 r1 = mat2(cos(a1),-sin(a1),sin(a1),cos(a1))*p.xz;
-//    vec2 r2 = mat2(cos(a2),-sin(a2),sin(a2),cos(a2))*p.xz;
-
-
-//    dt = min(singleApollian(vec3(r1.x, p.y, r1.y), 11, customId), singleApollian(vec3(r2.x, p.y, r2.y), 11, customId));
-
-//    // rectangle
-//    p.xz = opRepRectangle(p.xz, ivec2(5,5), 3.5);
-//    float dt2 = singleApollian(p, 4, customId);
-
-//    return min(dt, dt2);
-
-// === Ruin ===
-//    // dunes
-//    dt = p.y-3.+.05*fbm(p.xz*7.+.4*sin(35.*p.x+.5*sin(p.z*28.)))-.06*noiseD(2.5*p.xz);
-//    // ruins
-//    vec3 rp = p;
-//    rp.xz *= rotate2D(PI * 1.5);
-//    float dt2 = sdMengerSponge(rp + vec3(-2, -1.5, -2), trap);
-//    if (dt2 < dt) {
-//        dt = dt2;
-//        customId = 1;
-//    }
-//    // shell
-//    float s = 0.25;
-//    p *= rotX(0.5);
-//    p += vec3(2.5, -5, 2.5);
-//    float dt3 = sdLine((p * rotY(p.y / s * TAU) / s),vec3(0,0,0),vec3(0,1,0), 0.5*(1.-p.y / s)) * s;
-//    // float dt3 = sdSphere(p + vec3(-2, -1.5, -2), 0.5) * 2;
-//    if (dt3 < dt) {
-//        dt = min(dt, dt3);
-//        customId = 2;
-//    }
-//    return dt;
-// === Chess ===
-//    dt = sdChessTrio(p + vec3(0, 0, -4), false);
-//    float black = sdChessTrio(p + vec3(0, 0, 4), true);
-//    if (black < dt) {
-//        customId = 1;
-//        dt = black;
-//    }
-//    return dt;
-
-// === SEA & LIGHT HOUSE ===
-//    return sdLightHouse(p, customId);
-
-// === BALL & PILLAR Scene ===
-//    float dt = sdBalls(p - vec3(0, 4.75f, 0));
-//    customId = 0;
-
-//    float col_scale = 2.;
-//    p /= col_scale;
-//    float c1 = sdColumn(p + vec3(3, 0, -5));
-//    float c2 = sdColumn(p + vec3(5, 0, 0));
-//    float c3 = sdColumn(p + vec3(3, 0, 5));
-//    float c4 = sdColumn(p + vec3(-3, 0, 5));
-//    float c5 = sdColumn(p + vec3(-5, 0, 0));
-//    float c6 = sdColumn(p + vec3(-3, 0, -5));
-//    float c = min(c1, min(c2, min(c3, min(c4, min(c5, c6)))));
-
-//    if (c < dt) {
-//        customId = 1;
-//        dt = c;
-//    }
-
-//    return dt;
 }
 
 float sdFlowerBall(vec3 p) {
@@ -1441,6 +1246,14 @@ float sdFlowerBall(vec3 p) {
 
     return max(s4, min(min(s, s2), s3));
 }
+
+
+float sdCUSTOM(vec3 p, out int customId, out vec4 trap) {
+    // Custom ID needed for applying different material
+    float dt; customId = 0;
+    return dt;
+}
+
 
 // Given a point in object space and type of the SDF
 // Invoke the appropriate SDF function and return the distance
@@ -1519,8 +1332,7 @@ vec2 uvMapCube(vec3 p, float repeatU, float repeatV)
 }
 
 // uvMapping for Cone
-vec2 uvMapCone(vec3 p, float repeatU, float repeatV)
-{
+vec2 uvMapCone(vec3 p, float repeatU, float repeatV) {
     // Along the y-axis
     float y = p[1];
     float u, v;
@@ -1542,8 +1354,7 @@ vec2 uvMapCone(vec3 p, float repeatU, float repeatV)
 }
 
 // uvMapping for Cylinder
-vec2 uvMapCylinder(vec3 p, float repeatU, float repeatV)
-{
+vec2 uvMapCylinder(vec3 p, float repeatU, float repeatV) {
     // Along the y-axis
     float y = p[1];
     float u, v;
@@ -1567,8 +1378,7 @@ vec2 uvMapCylinder(vec3 p, float repeatU, float repeatV)
 }
 
 // uvMapping for Sphere
-vec2 uvMapSphere(vec3 p, float repeatU, float repeatV)
-{
+vec2 uvMapSphere(vec3 p, float repeatU, float repeatV) {
     float u, v;
     // Compute U
     float theta = atan(p[2], p[0]);
@@ -1593,7 +1403,7 @@ vec2 uvMapSphere(vec3 p, float repeatU, float repeatV)
 // find the distance
 // @returns SceneMin struct with closest distance and closest
 // object
-SceneMin sdScene(vec3 p){
+SceneMin sdScene(vec3 p) {
     float minD = 1000000.f;
     int minObj = -1; int minCId;
     int customId;
@@ -1604,25 +1414,18 @@ SceneMin sdScene(vec3 p){
         // Get current obj
         RayMarchObject obj = objects[i];
         // Conv to Object space
-        // - (Note) for global transformation
-        // po = vec3(obj.invModelMatrix * vec4(Transform(p), 1.f));
         po = vec3(obj.invModelMatrix * vec4(p, 1.f));
-
         // Get the distance to the object
         currD = sdMatch(po, obj.type, i, customId, trapCol) * obj.scaleFactor;
         if (currD < minD) {
             // Update if we found a closer object
-            minD = currD;
-            minObj = i;
-            minCId = customId;
+            minD = currD; minObj = i; minCId = customId;
         }
     }
     // Populate the struct
     SceneMin res;
-    res.minD = minD;
-    res.minObjIdx = minObj;
-    res.customId = minCId;
-    res.trap = trapCol;
+    res.minD = minD; res.minObjIdx = minObj;
+    res.customId = minCId; res.trap = trapCol;
     return res;
 }
 
@@ -1649,7 +1452,7 @@ vec3 getNormal(in vec3 p) {
 // @returns structs that contains the result of raymarching
 RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
   // Start from eye pos
-  float rayDepth = 0.0; float iter;
+  float rayDepth = 0.0;
   SceneMin closest;
   closest.minD = 1000000;
   // Start the march
@@ -1660,7 +1463,6 @@ RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
     closest = sdScene(p);
     if (abs(closest.minD) < SURFACE_DIST || rayDepth > end) {
         // If hit or exceed the far plane, break
-        iter = int(i);
         break;
     }
     // March the ray
@@ -1674,7 +1476,6 @@ RayMarchRes raymarch(vec3 ro, vec3 rd, float end, float side) {
       // Without this, normal calcuation somehow gets messed up
       res.d = rayDepth - closest.minD;
       res.trap = closest.trap; res.customId = closest.customId;
-      //res.trap.w = iter;
   } else {
       // NO HIT
       res.intersectObj = -1;
@@ -1770,6 +1571,7 @@ vec3 getMoonColor(vec3 rd) {
     col += clamp(star, 0.0, 1.0) * vec3(0.4);
     return col;
 }
+
 // Get the background color
 vec3 getSky(vec3 rd) {
     vec3 col  = getSkyColor()*(0.6+0.4*rd.y);
@@ -1950,8 +1752,6 @@ vec3 getDiffuse(vec3 p, vec3 n, int type,
     }
     // Texture used -> find uv
     vec2 uv;
-    // (Note) For global transformation
-    // vec3 po = vec3(obj.invModelMatrix * vec4(Transform(p), 1.f));
     vec3 po = vec3(invModel * vec4(p, 1.f));
     if (type == CUBE) {
         uv = uvMapCube(po, rU, rV);
@@ -2021,108 +1821,16 @@ vec3 getAreaLight(vec3 N, vec3 V, vec3 P, int lightIdx, vec3 cD,
     return col;
 }
 
+// If build custom scene, don't forget to define the materials here
 void setCustomMat(int customId, out vec3 a, out vec3 d, out vec3 s,
                   out int texLoc, out float rU, out float rV, out float blend,
                   out int type, out float shininess) {
-// Corridor
-//    if (customId == 0) {
-//        a = vec3(1.f); d = vec3(0.38)*vec3(1.2,0.8,0.6); s = vec3(0.);
-//        texLoc = CUSTOM_TEX_OFF;
-//        type = CUSTOM; rU = 3.; rV = 3.; blend = 1.f; shininess = 0.4;
-//    } else if (customId == 1) {
-//        a = vec3(1.2,0.8,0.6); d = vec3(1.2,0.8,0.6); s = vec3(0.);
-//        texLoc = -1;
-//        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
-//    } else if (customId == 2) {
-//        a = vec3(0.9,0.8,0.5); d = vec3(0.9,0.8,0.5); s = vec3(0.4);
-//        texLoc = -1;
-//        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 200;
-//    }
-// Tree
-//        if (customId == 0) {
-//            a = vec3(0.2, 0.35, 0.02); d = vec3(58/255., 95/255., 11/255.); s = vec3(0.);
-//            texLoc = -1;
-//            type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
-//        } else if (customId == 1) {
-//            a = vec3(0.4, 0.3, 0.2); d = vec3(105/255.,75/255.,55/255.); s = vec3(0.);
-//            texLoc = -1;
-//            type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
-//        } else if (customId == 2) {
-//            a = vec3(0.18, 0.15, 0.1); d = vec3(62/255.,49/255.,23/255.); s = vec3(0.);
-//            texLoc = -1;
-//            type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
-//        }
-// Ruin
-//      if (customId == 0) {
-//          a = vec3(0.); d = vec3(.8,.6,.4); s = vec3(0.);
-//          texLoc = -1;
-//          type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
-//      } else if (customId == 1 ) {
-//          a = vec3(0.); d = vec3(.8,.6,.4); s = vec3(0.);
-//          texLoc = -1;
-//          type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0;
-//      } else if (customId == 2) {
-//          a = vec3(0.2); d = vec3(1,1,1); s = vec3(0.3);
-//          texLoc = -1;
-//          type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
-//      }
-
-// Mini Chess
-//    if (customId == 0) {
-//        // white
-//        a = vec3(0.1); d = vec3(0.3, 0.22, 0.08); s = vec3(0.1);
-//        texLoc = -1;
-//        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
-//    } else if (customId == 1) {
-//        // black
-//        a = vec3(0.1); d = vec3(0.02, 0.02, 0.01); s = vec3(0.1);
-//        texLoc = -1;
-//        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f; shininess = 0.4;
-//    }
-
-
-// Light house
-//    if (customId == 0) {
-//        // Foundation
-//        a = vec3(0.2);  d = vec3(136/255.,140/255.,141/255.); s = vec3(0.1);
-//        texLoc = CUSTOM_TEX_OFF;
-//        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f;
-//    } else if (customId == 1) {
-//        // Core
-//        d = vec3(1.f); s = vec3(0.2);
-//        texLoc = CUSTOM_TEX_OFF + 1;
-//        type = CUSTOM; rU = 1.; rV = 1.; blend = 1.f;
-//    } else if (customId == 2) {
-//        // Obs deck
-//        a = vec3(0.f); d = vec3(0.f); s = vec3(0.2);
-//        texLoc = -1;
-//        type = CUSTOM;
-//    } else if (customId == 3) {
-//        // box frame
-//        a = vec3(0.f); d = vec3(0.f); s = vec3(0.1);
-//        texLoc = -1;
-//        type = CUSTOM;
-//    } else if (customId == 4) {
-//        // Top hat
-//        a = vec3(0.4, 0.1, 0.1); d = vec3(0.8f, 0.15f, 0.12f); s = vec3(0.15);
-//        texLoc = -1;
-//        type = CUSTOM;
-//    }
-
-//    shininess = 0.4;
-
-// BALL & Pillar Scene Material
-//    if (customId == 0) {
-//        // ball
-//        a = vec3(0.3); d = vec3(1.0, 0.8, 0.6); s = vec3(0.3);
-//        texLoc = -1; rU = 2.; rV = 2.;
-//        type = CUSTOM; blend = 1.f; shininess = 0.4;
-//    } else if (customId == 1) {
-//        // pillar
-//        a = vec3(0.1); d = vec3(0.5); s = vec3(0.);
-//        texLoc = 0; rU = 2.; rV = 2.;
-//        type = CUSTOM; blend = 0.6f; shininess = 0.;
-//    }
+    // (e.g.)
+    //    if (customId == 0) {
+    //        a = vec3(1.f); d = vec3(0.38)*vec3(1.2,0.8,0.6); s = vec3(0.);
+    //        texLoc = CUSTOM_TEX_OFF;
+    //        type = CUSTOM; rU = 3.; rV = 3.; blend = 1.f; shininess = 0.4;
+    //    }
 }
 
 // Gets Phong Light
@@ -2451,8 +2159,7 @@ RenderInfo terrainRender(in vec3 ro, in vec3 rd, inout bool hit, in float maxT, 
 
 // =========================== SEA =============================
 // Get sea wave octave.
-float sea_octave(vec2 uv, float choppy)
-{
+float sea_octave(vec2 uv, float choppy) {
     uv += noiseW(uv);
     vec2 wv = 1.0 - abs(sin(uv));
     vec2 swv = abs(cos(uv));
@@ -2460,8 +2167,7 @@ float sea_octave(vec2 uv, float choppy)
     return pow(1.0 - pow(wv.x * wv.y, 0.65), choppy);
 }
 
-vec3 getSeaColor(vec3 p, vec3 n, vec3 l, vec3 eye, vec3 dist)
-{
+vec3 getSeaColor(vec3 p, vec3 n, vec3 l, vec3 eye, vec3 dist) {
     float fresnel = clamp(1.0 - dot(n, -eye), 0.0, 1.0);
     fresnel = pow(fresnel, 3.0) * 0.65;
 
@@ -2532,8 +2238,7 @@ float seaMapD(vec3 p) {
     return p.y - h;
 }
 
-vec3 getSeaNormal(vec3 p, float eps)
-{
+vec3 getSeaNormal(vec3 p, float eps) {
     vec3 n;
     n.y = seaMapD(p);
     n.x = seaMapD(vec3(p.x + eps, p.y, p.z)) - n.y;
@@ -2683,25 +2388,8 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
     ro = nearClip.xyz / nearClip.w;
     vec3 farC = farClip.xyz / farClip.w;
 
-#ifdef TERRAIN
-    // SCENE #1
-    ro.y += 100.f;
-#endif
-    // SCENE #2
-    // ro.y += 8.;
-
-#ifdef SEA
-    // SCENE #3
-    // ro.y += 34.;
-#endif
-    // Chess Scene
-    // ro.y += 5.;
-//    ro.x += 0.1;
-//    float mvFactor = mix(0., 3., smoothstep(0, 1, (1 + sin(iTime / 3.)) / 2.));
-//    ro.z += -mvFactor;
-
     // == NO rotation ==
-//    rd = normalize(farC - ro);
+    rd = normalize(farC - ro);
 
     // == Smooth zoom in/out ==
 //    float disp = smoothstep(-1.,1., sin(iTime)) * 2;
@@ -2709,10 +2397,10 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
 
 
     // == Rotation about the center ==
-    float rotationAngle = iTime / 5.;
-    ro = rotateAxis(ro, vec3(0.0, 1.0, 0.0), rotationAngle);
-    rd = normalize(farC - ro);
-    rd = rotateAxis(rd, vec3(0.0, 1.0, 0.0), rotationAngle);
+//    float rotationAngle = iTime / 5.;
+//    ro = rotateAxis(ro, vec3(0.0, 1.0, 0.0), rotationAngle);
+//    rd = normalize(farC - ro);
+//    rd = rotateAxis(rd, vec3(0.0, 1.0, 0.0), rotationAngle);
 
 #ifdef SKY_BACKGROUND
     bgCol = getSky(rd);
@@ -2724,26 +2412,10 @@ void setScene(inout vec3 ro, inout vec3 rd, inout vec3 bgCol, out float far) {
 
 #ifdef WHITE_BACKGROUND
     bgCol = vec3(1.f);
-
-    // SCENE #2
-    // bgCol = vec3(texture(objTextures[1], rd.xy * 6)).rgb;
 #endif
 
 #ifdef DARK_BACKGROUND
     bgCol = vec3(0.f);
-    bgCol = mix(vec3(.6,.8,1), vec3(.3,.5,1), clamp(1.-exp(-rd.y*8.),0.,1.));
-//    const vec3 C1 = vec3(0.12, 0.08, 0.08);
-//    const vec3 C2 = vec3(0.04, 0.03, 0.06) * 2.0;
-//    float y = rd.y + 0.2 * triNoise3D(rd * 2.0, 1.0);
-//    bgCol = mix(C1, C2, smoothstep(-0.35, 0.0, y));
-//    float disp = triNoise3D(rd * 0.9, 0.08);
-//    bgCol += vec3(1.0) * (pow(disp, 5.0) * 3.47);
-
-//    // Fade to black
-//    float h = dot(rd - 0.08 * triNoise3D(rd * 0.3, 0.0), vec3(0.02, 1.0, -0.01));
-//    float hstart = -0.2;
-//    float hend = -0.5;
-//    bgCol = mix(bgCol, vec3(0.0), smoothstep(hstart, hend, h));
 #endif
 
     // === Set far plane ===
@@ -2762,9 +2434,6 @@ void main() {
     vec3 ro, rd, bgCol; float far;
     setScene(ro, rd, bgCol, far);
 
-    // =========
-
-    // =========
     vec4 phong, refl = vec4(0.f), refr = vec4(0.f), cres;
     bool cloudHit = false, terrainHit = false, seaHit = false;
     IntersectionInfo info, oi;
@@ -2899,7 +2568,6 @@ void main() {
             refr += vec4(kt * ct * vec3(res.fragColor), 1.f);
         }
     }
-
 
     vec4 col = phong + refl + refr;
     setBrightness(vec3(col));
