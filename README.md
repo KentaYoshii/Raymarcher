@@ -16,6 +16,20 @@
   <em> Desert Ruin </em>
 </p>
 
+<p align="center">
+  <img src="./output/final/fire.png">
+</p>
+<p align="center">
+  <em> Fire </em>
+</p>
+
+<p align="center">
+  <img src="./output/final/snowflake.png">
+</p>
+<p align="center">
+  <em> Snowflake </em>
+</p>
+
 
 <p align="center">
   <img src="./output/fractals/top.png" width="49%" />
