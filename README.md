@@ -51,17 +51,6 @@
   <em> Galaxy </em>
 </p>
 
-
-<p align="center">
-  <img src="./output/fractals/top.png" width="49%" />
-  <img src="./output/fractals/top2.png" width="49%"/>
-</p>
-<p align="center">
-  <em> Fractals</em>
-</p>
-
-
-
 <p align="center">
   <img src="./output/procedural/top3.png">
 </p>
@@ -69,14 +58,12 @@
   <em> Terrain</em>
 </p>
 
-<p align="center" float="left">
-  <img src="./output/procedural/top4.png" width="49%" />
-  <img src="./output/procedural/top5.png" width="49%"/>
+<p align="center">
+  <img src="./output/procedural/top4.png">
 </p>
 <p align="center">
-  <em> Clouds </em>
+  <em> Clouds</em>
 </p>
-
 
 - [Getting Started](#getting-started)
   - [Raymarching Algorithm](#raymarching-algorithm)
